@@ -8,8 +8,8 @@ namespace CasRuntime
 
 open Lean CasCatalogue.Backend
 
-/-- Read only the exact JSON position retained by a typed container slot.
-Reuse: Lean.Json getters and ValueContainer.fill's InputPathStep grammar. -/
+
+
 private def fixedValuePosition (value : Json) (path : List InputPathStep) : Except String Json := do
   match path with
   | [] => return value
@@ -19,11 +19,11 @@ private def fixedValuePosition (value : Json) (path : List InputPathStep) : Exce
     let some entry := values[index]? | throw "a fixed input slot is outside the reply array"
     fixedValuePosition entry rest
 
-/-- Check a reply fragment against an already selected fixed source input.
-References preserve its node and original association prefix; literal data are compared only
-after that input is selected. Products and containers follow their retained field views.
-Reuse: ImmediateReply's parsed authorities, ValueGraph.project, ValueContainer.fill and the
-released computational envelope. This comparison never searches for an input by its data. -/
+
+
+
+
+
 partial def ImmediateReply.retainsValue (reply : ImmediateReply) (graph : ValueGraph)
     (connection : Connection) (value : Json) (path : Array InputPathStep)
     (expected : ValueBinding) : Except String Bool := do
@@ -64,8 +64,8 @@ partial def ImmediateReply.retainsValue (reply : ImmediateReply) (graph : ValueG
     return packet == value
   | .closure .. | .ownedToken .. => return false
   | .product fields =>
-    unless expected.role.kind == .record &&
-        (expected.role.fields.filter (·.wireIndex.isSome)).size == fields.size do
+    unless expected.nativeRole.kind == .record &&
+        (expected.nativeRole.fields.filter (·.wireIndex.isSome)).size == fields.size do
       throw "the fixed product does not match its complete source data-field interface"
     let values ← if fields.size == 1 then pure #[value] else value.getArr?
     unless values.size == fields.size do
@@ -77,7 +77,7 @@ partial def ImmediateReply.retainsValue (reply : ImmediateReply) (graph : ValueG
         return false
     return true
   | .container container =>
-    if (expected.role.kind == .function || container.callable.isSome) &&
+    if (expected.nativeRole.kind == .function || container.callable.isSome) &&
         !container.callableData then return false
     if container.packetExports.any (·.owner != connection.generation) then return false
     let mut fragments := #[]

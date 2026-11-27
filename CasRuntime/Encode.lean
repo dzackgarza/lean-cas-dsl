@@ -11,15 +11,15 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- Original packet data and fresh scope/input authorities for the actual receiving process. -/
+
 structure EncodedInputs where
   values : Array Json
   slots : Array ValueBinding
   inputs : Array InputPosition
 
-/-- A checked released descriptor for an original visible input. The ordinary value node and
-its complete association chain remain the scope authority; this view creates no replacement
-value or stored field. Only the declared source-specific producers below can create it. -/
+
+
+
 structure InputDescriptorView where
   private mk ::
   binding : ValueBinding
@@ -34,10 +34,10 @@ def InputDescriptorView.slots (descriptorView : InputDescriptorView) : Array Con
 private def exactInput (left right : ValueBinding) : Bool :=
   left.value == right.value && left.associationIds == right.associationIds
 
-/-- The exact root of a delayed registered named callable has its released declaration packet.
-The code must name that family at the empty native path, and its complete original input table
-is admitted before any view is produced. A formal direct leg exposes only the exact named
-packet retained by its source producer. Other opaque arrows and projected code stay scoped. -/
+
+
+
+
 opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
     MetaM (Option InputDescriptorView) := do
@@ -46,7 +46,7 @@ opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
   let some node := graph.find binding.value
     | throwError "the named arrow has no visible original node"
   let .closure program captures := node.payload.data | return none
-  if let some (.formalLeg _ (some packet)) := codes[program]? then
+  if let some (.formalLeg _ (some packet) _) := codes[program]? then
     unless packet.fields.isNone && packet.callable.isNone && packet.originalPacket.isNone do
       throwError "the formal leg changed its original inert named packet"
     let parameters := packet.slots.map (·.binding)
@@ -123,7 +123,7 @@ opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
   return some ⟨binding, packet, some request, parameters,
     request.scope.push binding⟩
 
-/-- Preserve the morphism-only entrance used by native endpoint inspection. -/
+
 opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
     MetaM (Option InputDescriptorView) := do
@@ -137,7 +137,7 @@ opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
       match selected.owner with | .named (.morphism _) => pure (some view) | _ => pure none
     | _ => pure none
 
-/-- The checked descriptor of the exact delayed ObjectEntry.application occurrence. -/
+
 opaque InputDescriptorView.namedApplication? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
     MetaM (Option InputDescriptorView) := do
@@ -149,8 +149,8 @@ opaque InputDescriptorView.namedApplication? (graph : ValueGraph)
     match selected.owner with | .named (.application _) => pure (some view) | _ => pure none
   | _ => pure none
 
-/-- Require the caller's released named family at an actual scoped arrow. This is an identity
-check on its original prepared code; equal native endpoints cannot change the operation. -/
+
+
 def InputDescriptorView.requireMorphism (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding)
     (expected : MorphismId) : MetaM InputDescriptorView := do
@@ -167,8 +167,8 @@ def InputDescriptorView.requireMorphism (graph : ValueGraph)
     throwStratum .malformed "the supplied arrow belongs to a different released family"
   return descriptorView
 
-/-- Require the original object owner on the actual retained callable, independently of
-convertible native carrier types or another application with the same endpoints. -/
+
+
 def InputDescriptorView.requireApplication (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding)
     (expected : ObjectId) : MetaM InputDescriptorView := do
@@ -185,7 +185,7 @@ def InputDescriptorView.requireApplication (graph : ValueGraph)
     throwStratum .malformed "the supplied arrow belongs to a different released object application"
   return view
 
-/-- Authenticate the exact original source owner of a retained categorical arrow. -/
+
 def InputDescriptorView.requireCategorical (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding)
     (expected : CategoricalPointFamily) : MetaM InputDescriptorView := do
@@ -203,21 +203,22 @@ def InputDescriptorView.requireCategorical (graph : ValueGraph)
     throwStratum .malformed "the supplied arrow belongs to a different categorical owner"
   return view
 
-/-- The public Arrow packet is a view of one actual native Arrow record. Its three supplied
-fields must already be the exact stored or ordinarily demanded projections of that parent.
-The complete native type is checked against Arrow.mk of its own hom field, so an unrelated
-three-field Comma record cannot acquire this codec. No value or projection is staged here. -/
+
+
+
+
 opaque InputDescriptorView.nativeArrow (graph : ValueGraph) (binding : ValueBinding)
     (values : Array ValueBinding) : MetaM InputDescriptorView := do
   let projections := #[``CategoryTheory.Comma.left, ``CategoryTheory.Comma.right,
     ``CategoryTheory.Comma.hom]
-  let fields := binding.role.fields.filter (·.wireIndex.isSome)
-  unless binding.role.kind == .record && fields.size == projections.size &&
+  let native := binding.nativeRole
+  let fields := native.fields.filter (·.wireIndex.isSome)
+  unless native.kind == .record && fields.size == projections.size &&
       values.size == fields.size && fields.map (·.projection) == projections do
     throwError "the method receiver has no complete native Arrow field layout"
   let .ok _ := graph.requiredOwners (values.push binding)
     | throwError "the method arrow is outside its visible graph"
-  binding.role.source.withOpen fun bindings expression => do
+  native.source.withOpen fun bindings expression => do
     let context ← ContextTelescope.capture bindings
     let some hom := fields[2]? | throwError "the native Arrow lost its hom field"
     let selected ← hom.source.inContext context
@@ -266,7 +267,7 @@ private partial def collectDescriptorViews (graph : ValueGraph)
       | throwError "a descriptor input is outside its visible graph"
     match node.payload.data with
     | .container value =>
-      unless (binding.role.kind == .function || value.callable.isSome) && !value.callableData do
+      unless (binding.nativeRole.kind == .function || value.callable.isSome) && !value.callableData do
         for slot in value.slots do
           let child ← match slot.fieldIndex with
             | none => pure slot.binding
@@ -283,8 +284,8 @@ private partial def collectDescriptorViews (graph : ValueGraph)
     views := nextViews
   return (seen, views)
 
-/-- Prepare source-authorized descriptor views only within the actual requested stored inputs.
-This neither forces a lazy field nor searches the graph for an equal source or payload. -/
+
+
 def InputDescriptorView.collect (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (roots : Array ValueBinding)
     (prepared : Array InputDescriptorView := #[]) :
@@ -303,8 +304,8 @@ private structure EncodingState where
 
 private def addInput (state : EncodingState) (path : Array InputPathStep)
     (binding : ValueBinding) : EncodingState :=
-  -- Public single-data-field collapse can put a field at its whole record's wire path.
-  -- Keep the whole input authority; graph projection retains the field's independent role.
+
+
   if state.inputs.any (·.path == path) then state
   else { state with inputs := state.inputs.push { path, binding } }
 
@@ -312,9 +313,9 @@ private def scopeReference (state : EncodingState) (binding : ValueBinding) : Js
   ((ScopedReference.scope state.slots.size).encode,
     { state with slots := state.slots.push binding })
 
-/-- Encode retained data rather than reconstructing it from source expressions.
-Reference: CasContract.Port's computational wire grammar and ValueContainer.fill.
-Whole callable wrappers stay references, preserving their independent stored interfaces. -/
+
+
+
 private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGeneration)
     (binding : ValueBinding) (path : Array InputPathStep) (state : EncodingState)
     (views : Array InputDescriptorView) :
@@ -345,7 +346,7 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
   | .container container =>
     if container.packetExports.any (·.owner != receiver) then
       return scopeReference state binding
-    if (binding.role.kind == .function || container.callable.isSome) && !container.callableData then
+    if (binding.nativeRole.kind == .function || container.callable.isSome) && !container.callableData then
       return scopeReference state binding
     let mut replacements : Array Json := #[]
     let mut state := state
@@ -358,8 +359,8 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
       state := next
     return (← container.fillForOwner receiver replacements, state)
   | .product fields =>
-    unless binding.role.kind == .record &&
-        (binding.role.fields.filter (·.wireIndex.isSome)).size == fields.size do
+    unless binding.nativeRole.kind == .record &&
+        (binding.nativeRole.fields.filter (·.wireIndex.isSome)).size == fields.size do
       throw "the stored product does not match its complete source data-field interface"
     let mut packets : Array Json := #[]
     let mut state := state
@@ -372,10 +373,10 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
     if let #[packet] := packets then return (packet, state)
     return (.arr packets, state)
 
-/-- Encode disjoint complete input roots for one actual consumer.
-Reuse: graph visibility/owner traversal, the released JSON parser and packet encodings.
-Each foreign occurrence gets its own scoped position, even when actual values alias.
-Liveness belongs to the later atomic reservation/send check. -/
+
+
+
+
 private def encodeRoots (graph : ValueGraph) (receiver : ConnectionGeneration)
     (roots : Array InputPosition) (captures : Array ValueBinding)
     (views : Array InputDescriptorView := #[]) : Except String EncodedInputs := do
@@ -395,15 +396,15 @@ private def encodeRoots (graph : ValueGraph) (receiver : ConnectionGeneration)
     state := next
   return ⟨values, state.slots.extract captures.size state.slots.size, state.inputs⟩
 
-/-- Primitive scopes have no retained export capture prefix. -/
+
 opaque ValueGraph.encodeInputs (graph : ValueGraph) (receiver : ConnectionGeneration)
     (roots : Array InputPosition) (views : Array InputDescriptorView := #[]) :
     Except String EncodedInputs :=
   encodeRoots graph receiver roots #[] views
 
-/-- Reserve the actual native export's capture slots before encoding context arguments.
-RequestScope.issue installs these same stored bindings, in order, without value deduplication.
-Source: execution amendment #69, comment 6706802517; reuse ValueGraph.callable. -/
+
+
+
 opaque ValueGraph.encodeExportInputs (graph : ValueGraph) (receiver : ConnectionGeneration)
     (callable : ValueBinding) (roots : Array InputPosition) : Except String EncodedInputs := do
   let code ← graph.callable callable
@@ -420,14 +421,14 @@ private def kindName : ComputationalKind → String
   | .record => "record"
   | .data => "data"
 
-/-- The prepared interface of one role: its kind and its ordered computational fields. -/
+
 private def layoutJson (layout : SourceLayout) : Json :=
   Json.mkObj [("kind", toJson (kindName layout.kind)),
     ("fields", .arr (layout.fields.filterMap fun field => field.wireIndex.map fun _ =>
       Json.mkObj [("name", toJson field.projection.toString), ("kind", toJson (kindName field.kind))]))]
 
-/-- The dependent invocation context of execution contract v2 §4.1, for a published operation
-and for a retained native export. Parameters and arguments keep their source order. -/
+
+
 def dependentContext (role : String) (parameters : Array Json)
     (bindings : Array (Nat × Json)) (arguments : Array Json)
     (argumentLayouts : Array SourceLayout) (result : SourceLayout) : Json :=
@@ -445,8 +446,8 @@ def argumentLayouts (request : PreparedRequest) : Array SourceLayout :=
 
 open Lean Meta
 
-/-- Encode source-ordered arguments only after the entire declared input map is admitted.
-Reuse: scoped role identities, native input checks and receiver-aware retained-data encoding. -/
+
+
 opaque PreparedRequest.encodeArguments (request : PreparedRequest) (graph : ValueGraph)
     (receiver : ConnectionGeneration) (path : Array InputPathStep) :
     Lean.MetaM (InputRoleMap × EncodedInputs) := do

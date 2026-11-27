@@ -23,15 +23,15 @@ inductive TransactionFailure
   | producerInternal (id : Nat) (extra : List (Name × DataValue))
   deriving BEq, Repr
 
-/-- The actual producer of a completed demand: one framed provider invocation, or the kernel's
-own evaluation of retained code and stored fields, which sends no frame. -/
+
+
 inductive CompletionProducer
   | invocation (dispatch : DispatchReservation) (scope : RuntimeId .scope) (requestId : Nat)
   | kernel
 
-/-- Observational data from one actual received transport frame, including each
-resume of a suspended invocation. Nothing in these observations can select an
-implementation, validate a result, or extend a scope's authority. -/
+
+
+
 structure RoutineInvocation where
   private mk ::
   occurrence : RuntimeId .occurrence
@@ -40,8 +40,8 @@ structure RoutineInvocation where
   requestId : Nat
   observations : Option (Array Json)
 
-/-- Completed native interface admission and its exact provenance.
-References point into the ordinary graph; this record owns no second payload heap. -/
+
+
 structure CompletionAssociation where
   private mk ::
   request : PreparedRequest
@@ -70,7 +70,7 @@ structure OutputBatch where
   events : Array Json
   roots : Array (RuntimeId .value)
 
-/-- The Environment owns the immutable published graph and complete output batches. -/
+
 structure SessionSnapshot where
   private mk ::
   id : RuntimeId .snapshot
@@ -82,12 +82,12 @@ structure SessionSnapshot where
     Std.HashMap (Name × Name × RuntimeId .value × Array (RuntimeId .association))
       (ValueBinding × ValueBinding) := {}
 
-/-- Inert receipt visibility belongs to this exact immutable Environment snapshot. -/
+
 def SessionSnapshot.receipt (snapshot : SessionSnapshot) (occurrence : RuntimeId .occurrence) :
     Option CommittedReceipt := snapshot.receipts[occurrence]?
 
-/-- Runtime values are local to this worker and are not exported through .olean files.
-Reference: Lean v4.33.0 Lean/Environment.lean, `registerEnvExtension` and `EnvExtension.setState`. -/
+
+
 private initialize snapshotExtension : EnvExtension (Option SessionSnapshot) ←
   registerEnvExtension (pure none)
 
@@ -96,8 +96,8 @@ opaque SessionSnapshot.current : CoreM SessionSnapshot := do
     | throwError "the runtime Environment has not been initialized"
   return snapshot
 
-/-- An explicitly isolated scratch consumer starts its own session. Its caller
-must restore the original Environment, not merge the scratch graph. -/
+
+
 def SessionSnapshot.clear : CoreM Unit :=
   modifyEnv (snapshotExtension.setState · none)
 
@@ -136,8 +136,8 @@ private def CellState.failure : CellState → TransactionFailure
   | .aborted failure _ => failure
   | _ => .settled
 
-/-- Isolated tentative reply fields, rooted in one exact active graph revision.
-This is storage for validation, not evidence that validation has succeeded. -/
+
+
 structure CellDraft where
   private mk ::
   private id : RuntimeId .draft
@@ -149,47 +149,47 @@ structure CellDraft where
 
 def CellDraft.view (draft : CellDraft) : ValueGraph := draft.graph
 
-/-- Retain an existing visible root without allocating a replacement node or installing it.
-Reuse: ValueGraph.requiredOwners; installation performs the atomic owner recheck. -/
+
+
 opaque CellDraft.retain (draft : CellDraft) (binding : ValueBinding) : IO CellDraft := do
   discard <| IO.ofExcept <| (draft.graph.requiredOwners #[binding]).mapError IO.userError
   return { draft with roots := draft.roots.push binding }
 
-/-- Append only to this immutable draft; the active transaction remains unchanged.
-Reuse: ValueGraph.stage, including fresh identities and derived capture owners. -/
+
+
 opaque CellDraft.stage (draft : CellDraft) (origin : ValueOrigin) (payload : ValuePayload) :
     IO (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.stage draft.identities origin payload
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
-/-- Register a field role only in this isolated reply delta.
-Reuse: RecordPrefix.bind and the draft's immutable graph extension. -/
+
+
 opaque CellDraft.bindField (draft : CellDraft) (record : RecordPrefix) (value : ValueBinding) :
     IO (CellDraft × RecordPrefix × ValueBinding) := do
   let (graph, record, binding) ← record.bind draft.graph value
   return ({ draft with graph, roots := draft.roots.push binding }, record, binding)
 
-/-- Retain a reused result and its prepared stored-field views in this isolated reply.
-Reuse: ValueGraph.bindApplication and atomic draft installation. -/
+
+
 opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
     (value : ValueBinding) (fields : Array ValueBinding) : IO (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindApplication draft.identities origin value fields
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
-/-- Keep a prepared projection association in the same isolated append-only reply delta. -/
+
 opaque CellDraft.bindProjection (draft : CellDraft) (origin : ValueOrigin)
     (value : ValueBinding) (fields : Array ValueBinding) : MetaM (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindProjection draft.identities origin value fields
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
-/-- Add only native constructor telescope/field views in this isolated reply graph.
-The selected port and its stored descendants retain their original node identities. -/
+
+
 opaque CellDraft.bindTelescopeTransport (draft : CellDraft)
     (transport : CasCompiler.ConstructorProjectionTransport)
-    (parameters : Array (Option ValueBinding)) (marks : Array (Nat × ValueBinding))
+    (parameters : Array (Option ValueBinding))
     (selected : ValueBinding) : MetaM (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindTelescopeTransport draft.identities transport
-    parameters marks selected
+    parameters selected
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
 inductive ReuseDecision
@@ -210,14 +210,14 @@ private def CompletionAssociation.select (association : CompletionAssociation)
   unless ← graph.isAvailable owners value do return .error .staleOwner
   return .ok value
 
-/-- Reuse a visible committed result at the demanded role's own owner closure. -/
+
 opaque SessionSnapshot.reuse (snapshot : SessionSnapshot) (owners : OwnerRegistry)
     (occurrence : RuntimeId .occurrence) (role : CasCompiler.RoleId) :
     BaseIO (Except TransactionFailure (Option ValueBinding)) := do
   let some receipt := snapshot.receipt occurrence | return .ok none
   return (← receipt.association.select snapshot.graph owners role).map some
 
-/-- Active staging is cleared on settlement; only status remains in this object. -/
+
 structure CellTransaction where
   private mk ::
   id : RuntimeId .transaction
@@ -239,7 +239,7 @@ opaque CellTransaction.activeGraph (transaction : CellTransaction) : BaseIO (Opt
     let .active cell ← get | return none
     return some cell.graph
 
-/-- Read the actual producer during authorized preparation, never from a tombstone. -/
+
 opaque CellTransaction.completionFor? (transaction : CellTransaction)
     (occurrence : RuntimeId .occurrence) : BaseIO (Option CompletionAssociation) :=
   transaction.state.atomically do
@@ -253,8 +253,8 @@ opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph := d
     | throw <| IO.userError "the transaction has settled"
   return graph
 
-/-- Read the actual result of an exact source-selected field in this transaction's snapshot.
-The association stores only a reference into the ordinary value graph. -/
+
+
 def CellTransaction.selected (transaction : CellTransaction) (selection field : Name) :
     BaseIO (Except TransactionFailure (Option ValueBinding)) :=
   transaction.state.atomically do
@@ -266,8 +266,8 @@ def CellTransaction.selected (transaction : CellTransaction) (selection field : 
       unless ← cell.graph.isAvailable transaction.owners value do return .error .staleOwner
     return .ok value
 
-/-- Publish an association only with the cell that produced it. Abort discards this table;
-commit retains its immutable references with the graph and ordinary receipts. -/
+
+
 def CellTransaction.bindSelected (transaction : CellTransaction) (selection field : Name)
     (value : ValueBinding) : BaseIO (Except TransactionFailure Unit) :=
   transaction.state.atomically do
@@ -280,9 +280,9 @@ def CellTransaction.bindSelected (transaction : CellTransaction) (selection fiel
     set (CellState.active { cell with selections := cell.selections.insert (selection, field) value })
     return .ok ()
 
-/-- Read a completed selection of this exact original receiver occurrence. The source name
-identifies compiled producer syntax; the node and complete association path distinguish its
-actual executions. Both the supplied and originally retained owner views remain live. -/
+
+
+
 def CellTransaction.selectedAt (transaction : CellTransaction) (selection field : Name)
     (receiver : ValueBinding) : BaseIO (Except TransactionFailure (Option ValueBinding)) :=
   transaction.state.atomically do
@@ -298,9 +298,9 @@ def CellTransaction.selectedAt (transaction : CellTransaction) (selection field 
         (← cell.graph.isAvailable transaction.owners value) do return .error .staleOwner
     return .ok (some value)
 
-/-- Retain only a successfully completed value for one exact source receiver. Publication
-and abort use the ordinary cell snapshot. Rebinding may repeat that exact result, but cannot
-replace its node or consuming association path with another completed occurrence. -/
+
+
+
 def CellTransaction.bindSelectedAt (transaction : CellTransaction) (selection field : Name)
     (receiver value : ValueBinding) : BaseIO (Except TransactionFailure Unit) :=
   transaction.state.atomically do
@@ -324,8 +324,8 @@ def CellTransaction.bindSelectedAt (transaction : CellTransaction) (selection fi
       roots := cell.roots ++ #[receiver, value] })
     return .ok ()
 
-/-- Visible committed receipt, then this cell's completion, then its exact pending locator.
-Consumed occurrences never recover a result from the resource ledger. -/
+
+
 opaque CellTransaction.reuse (transaction : CellTransaction) (occurrence : RuntimeId .occurrence)
     (role : CasCompiler.RoleId) : BaseIO (Except TransactionFailure ReuseDecision) :=
   transaction.state.atomically do
@@ -342,8 +342,8 @@ opaque CellTransaction.reuse (transaction : CellTransaction) (occurrence : Runti
     if cell.claims.contains occurrence then return .ok .running
     return .ok .unavailable
 
-/-- Claim one producer for the retained preparation before realization reservation.
-Other demands share its signal; this grants no wire-send right and stores no payload. -/
+
+
 opaque CellTransaction.claim (transaction : CellTransaction) (scope : CasCompiler.RoleScope) :
     BaseIO (Except TransactionFailure DemandClaim) := transaction.state.atomically do
   let state ← get
@@ -373,7 +373,7 @@ opaque CellTransaction.isFresh (transaction : CellTransaction) (occurrence : Run
   let .active _ := state | return .error state.failure
   return .ok (← transaction.ledger.isFresh occurrence)
 
-/-- One waiter has its own detach signal. The shared signal contains no completed result data. -/
+
 structure CompletionWaiter where
   private mk ::
   private transaction : CellTransaction
@@ -382,8 +382,8 @@ structure CompletionWaiter where
   private ready : IO.Promise Unit
   private detached : IO.Promise Unit
 
-/-- Attach to this transaction's exact occurrence without retaining a completed-value cache.
-Reuse: Lean v4.33.0 Init/System/Promise.lean, Promise.new/resolve/result?. -/
+
+
 opaque CellTransaction.watch (transaction : CellTransaction) (occurrence : RuntimeId .occurrence)
     (role : CasCompiler.RoleId) : BaseIO (Except TransactionFailure CompletionWaiter) :=
   transaction.state.atomically do
@@ -402,12 +402,12 @@ opaque CellTransaction.watch (transaction : CellTransaction) (occurrence : Runti
     let some ready := ready | return .error (.reservation .consumed)
     return .ok ⟨transaction, occurrence, role, ready, ← IO.Promise.new⟩
 
-/-- Detach only this waiter; the shared producer and other waiters remain active. -/
+
 opaque CompletionWaiter.detach (waiter : CompletionWaiter) : BaseIO Unit :=
   waiter.detached.resolve ()
 
-/-- Wait for a signal, then read the actual result from the still-active transaction.
-Settled cells expose no completed data through their waiter handles. -/
+
+
 opaque CompletionWaiter.wait (waiter : CompletionWaiter) : IO (Except TransactionFailure ValueBinding) := do
   let ready := waiter.ready.result?.map fun _ => false
   let detached := waiter.detached.result?.map fun _ => true
@@ -419,7 +419,7 @@ opaque CompletionWaiter.wait (waiter : CompletionWaiter) : IO (Except Transactio
   | .ok (.pending _) | .ok .running => return .error .invalidCompletion
   | .ok .unavailable => return .error (.reservation .consumed)
 
-/-- Begin a reply delta at the currently visible graph, without exposing any new field. -/
+
 opaque CellTransaction.draft (transaction : CellTransaction) : IO CellDraft :=
   transaction.state.atomically do
     let .active cell ← get
@@ -427,10 +427,10 @@ opaque CellTransaction.draft (transaction : CellTransaction) : IO CellDraft :=
     let identities := transaction.ledger.owners.identities
     return ⟨← identities.fresh .draft, transaction.id, identities, cell.graph, cell.graph, #[]⟩
 
-/-- Install the complete isolated delta in one owner-checked active-state update.
-The caller validates the whole promised interface before this storage transition.
-Revision comparison prevents replacing an intervening append or installing a delta twice.
-Reuse: the existing transaction/owner lock order and persistent ValueGraph operations. -/
+
+
+
+
 opaque CellTransaction.installDraft (transaction : CellTransaction) (draft : CellDraft) :
     BaseIO (Except TransactionFailure Unit) :=
   transaction.state.atomically do
@@ -458,8 +458,8 @@ opaque CellTransaction.stage (transaction : CellTransaction) (origin : ValueOrig
     set (CellState.active { cell with graph, roots := cell.roots.push binding })
     return binding
 
-/-- Retain an existing visible root for this cell's commit-time owner check.
-Reuse: ValueGraph.requiredOwners and the same active transaction gate as new staging. -/
+
+
 opaque CellTransaction.retain (transaction : CellTransaction) (binding : ValueBinding) : IO Unit :=
   transaction.state.atomically do
     let .active cell ← get
@@ -473,8 +473,8 @@ opaque CellTransaction.emit (transaction : CellTransaction) (event : Json) : IO 
       | throw <| IO.userError "the transaction has settled"
     set (CellState.active { cell with events := cell.events.push event })
 
-/-- Track the actual reservation so abort can retire its pending locator.
-Lock order is transaction, owner registry, then occurrence ledger; no engine I/O enters it. -/
+
+
 opaque CellTransaction.reserve (transaction : CellTransaction) (occurrence : RuntimeId .occurrence)
     (selected : DispatchIdentity) (connection : Connection) (arguments : Array ValueBinding) :
     BaseIO (Except TransactionFailure DispatchReservation) :=
@@ -491,8 +491,8 @@ opaque CellTransaction.reserve (transaction : CellTransaction) (occurrence : Run
         readySignals := cell.readySignals.insert occurrence signal })
       return .ok reservation
 
-/-- Track a retained native export's actual owner and code under the same abort boundary.
-Reuse: OccurrenceLedger.reserveExport and the primitive reservation lock order. -/
+
+
 opaque CellTransaction.reserveExport (transaction : CellTransaction)
     (occurrence : RuntimeId .occurrence) (callable : ValueBinding) (connection : Connection)
     (arguments : Array ValueBinding) : BaseIO (Except TransactionFailure DispatchReservation) :=
@@ -510,8 +510,8 @@ opaque CellTransaction.reserveExport (transaction : CellTransaction)
         readySignals := cell.readySignals.insert occurrence signal })
       return .ok reservation
 
-/-- Arbitrate the one-use send decision against whole-cell abort before any engine write.
-Reuse: the reserve lock order, active-cell gate and occurrence send commitment. -/
+
+
 opaque CellTransaction.commitSend (transaction : CellTransaction)
     (reservation : DispatchReservation) (lease : RequestLease) :
     BaseIO (Except TransactionFailure Unit) :=
@@ -530,10 +530,10 @@ opaque CellTransaction.commitSend (transaction : CellTransaction)
       set (CellState.active { cell with leases := cell.leases.push lease })
       return .ok ()
 
-/-- Register the lease of a resume request on an already sent occurrence, against whole-cell
-abort, before any engine write. The occurrence keeps its one dispatch right: a resume continues
-the suspended invocation, so the ledger is checked, not advanced.
-Reuse: commitSend's active-cell gate and reservation tracking. -/
+
+
+
+
 opaque CellTransaction.commitResume (transaction : CellTransaction)
     (reservation : DispatchReservation) (lease : RequestLease) :
     BaseIO (Except TransactionFailure Unit) :=
@@ -550,10 +550,10 @@ opaque CellTransaction.commitResume (transaction : CellTransaction)
     set (CellState.active { cell with leases := cell.leases.push lease })
     return .ok ()
 
-/-- Stage inert routine observations only at the actual received-frame
-boundary. The scope, lease and reservation are already authoritative; the
-observation payload never supplies any of these identities. Unnegotiated
-observations are absent, not an invented description of a provider call. -/
+
+
+
+
 opaque CellTransaction.recordRoutineInvocation (transaction : CellTransaction)
     (scope : RequestScope) (lease : RequestLease) (observations : Option (Array Json)) :
     BaseIO (Except TransactionFailure Unit) :=
@@ -576,9 +576,9 @@ opaque CellTransaction.recordRoutineInvocation (transaction : CellTransaction)
     set (CellState.active { cell with routines := cell.routines.push frame })
     return .ok ()
 
-/-- Install an admitted whole reply and its transaction-local completion together.
-Reuse: prepared input/result admission, isolated drafts, actual received leases and owner gating.
-The parsed reply and request scope identify the exact transport invocation. -/
+
+
+
 opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : CellDraft)
     (request : PreparedRequest) (response : PreparedResponse request)
     (scope : RequestScope) (reply : ImmediateReply) : MetaM (Except TransactionFailure CompletionAssociation) := do
@@ -629,9 +629,9 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
 
-/-- Stored access demands its exact selected field while retaining the full parent input map.
-Only a real stored projection has this owner scope. Its result must retain the selected node
-and every existing consuming association; all other kernel completions demand their inputs. -/
+
+
+
 private def kernelInputReferences (request : PreparedRequest) (graph : ValueGraph)
     (inputs : InputRoleMap) (response : PreparedResponse request) :
     Except TransactionFailure (Array ValueBinding) := do
@@ -684,27 +684,27 @@ private def CellTransaction.finishKernel (transaction : CellTransaction)
       | some association => .ok association
       | none => .error .staleOwner
 
-/-- Complete a claimed demand that the kernel evaluated from retained code or stored fields.
-No dispatch right is consumed and no frame exists. The occurrence leaves the fresh state,
-so a later demand cannot dispatch it. Later demands in this cell reuse this completion.
-Reuse: the claim, owner gate and completion table of completeReply. -/
+
+
+
+
 opaque CellTransaction.completeKernel (transaction : CellTransaction)
     (request : PreparedRequest) (response : PreparedResponse request) :
     MetaM (Except TransactionFailure CompletionAssociation) := do
   let inputs ← request.admitInputs (← transaction.view)
   transaction.finishKernel request response inputs true
 
-/-- Complete this certified input result with its selected output owner closure. Its sealed
-plan retains the already checked supplied input map; only source-proven unused argument slots
-may be absent. Unrelated input owners are not execution dependencies.
-Reuse: completeKernel's revision, claim, ledger, completion and waiter transitions. -/
+
+
+
+
 opaque CellTransaction.completeInputResult (transaction : CellTransaction)
     (request : PreparedRequest) (completed : InputResultCompletion request) :
     MetaM (Except TransactionFailure CompletionAssociation) :=
   transaction.finishKernel request completed.response completed.inputs false
 
-/-- Settle with plain diagnostic/status metadata, dropping every staged value and completion.
-The first settlement wins. Native exception data use Lean's literal KVMap entries, not message callbacks. -/
+
+
 opaque CellTransaction.fail (transaction : CellTransaction) (failure : TransactionFailure) : BaseIO Bool :=
   transaction.state.atomically do
     let .active cell ← get | return false
@@ -716,13 +716,13 @@ opaque CellTransaction.fail (transaction : CellTransaction) (failure : Transacti
     set (CellState.aborted failure cell.leases)
     return true
 
-/-- Abort discards staging and leaves every reserved dispatch right consumed. -/
+
 opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
   transaction.fail .settled
 
-/-- Settlement retains only resource drain handles, not the staged graph,
-programs, results or source. A cooperative abort can be followed by explicit
-force even after the evaluator has returned. -/
+
+
+
 private def CellTransaction.drainLeases (transaction : CellTransaction) :
     BaseIO (Array RequestLease) :=
   transaction.state.atomically do
@@ -736,8 +736,8 @@ opaque CellTransaction.draining (transaction : CellTransaction) : BaseIO Bool :=
     if ← lease.draining then return true
   return false
 
-/-- Explicit force applies only to the affected request's still-live drainer.
-The transaction gate is released before process termination. -/
+
+
 opaque CellTransaction.force (transaction : CellTransaction) : IO (Array ConnectionGeneration) := do
   discard <| (transaction.abort : BaseIO Bool)
   let mut revoked := #[]
@@ -746,14 +746,14 @@ opaque CellTransaction.force (transaction : CellTransaction) : IO (Array Connect
       revoked := revoked.push owner
   return revoked
 
-/-- Preserve the released port classifier when a wire failure settles the producer. -/
+
 opaque CellTransaction.failPort (transaction : CellTransaction) (failure : CasCatalogue.Backend.PortError) :
     BaseIO Bool := transaction.fail (.producerError (some failure.stratum.tag)
       s!"{failure.stratum.label}: {failure.render}")
 
-/-- Publish the graph and output batch in one Environment update.
-The command worker owns the CoreM Environment. Its transaction gate arbitrates commit/abort;
-the owner lock covers the liveness check and the decision. Settlement drops active staging. -/
+
+
+
 opaque CellTransaction.commit (transaction : CellTransaction) :
     CoreM (Except TransactionFailure SessionSnapshot) := do
   let environment ← getEnv

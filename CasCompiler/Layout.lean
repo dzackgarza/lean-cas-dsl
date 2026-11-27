@@ -3,6 +3,7 @@ module
 import CasContract.Failure
 import Lean.Meta.WHNF
 public import CasCompiler.Context
+public import CasCompiler.SelectionScope
 public import Lean.Meta.Structure
 public import Lean.Util.CollectFVars
 
@@ -27,23 +28,19 @@ def ComputationalKind.actions : ComputationalKind → Array ComputationalAction
   | .typeValue | .data => #[.retain]
 
 partial def projectionBody? : Expr → Option Expr
-  | .mdata data body =>
-    if data.contains `CasCompiler.source.kind || data.contains `CasCompiler.lower.value ||
-        data.contains `CasCompiler.selection then
-      none
-    else projectionBody? body
+  | .mdata _ body => projectionBody? body
   | expression => some expression
 
-/-- An exact native source projection, including its class-field metadata. -/
+
 structure SourceProjection where
   private mk ::
   declaration : Name
   parent : Expr
   info : ProjectionFunctionInfo
 
-/-- Read either native projection syntax without unfolding its parent or a source boundary.
-Reuse: StructureInfo.getProjFn? and Environment.getProjectionFnInfo? at Lean v4.33.0.
-Published source boundaries, selected fields and retained-value marks require admission first. -/
+
+
+
 opaque SourceProjection.ofExpr? (source : Expr) : MetaM (Option SourceProjection) := do
   let some expression := projectionBody? source | return none
   match expression with
@@ -59,20 +56,20 @@ opaque SourceProjection.ofExpr? (source : Expr) : MetaM (Option SourceProjection
     unless arguments.size == info.numParams + 1 do return none
     return some ⟨declaration, arguments[info.numParams]!, info⟩
 
-/-- Fixed source inputs retain their original argument or captured-context plane. -/
+
 inductive InputProjectionTarget where
   | argument (index : Nat)
   | context (binding : BindingId)
 
-/-- A fixed result selects this original source input and its native projection path. -/
+
 structure InputProjection where
   private mk ::
   target : InputProjectionTarget
   path : Array Name
 
-/-- Bind only retained original context slots to their freshly reopened source locals.
-Reuse: ContextTelescope's stable BindingId correspondence and the route's exact FVarId map.
-Runtime supplies the IDs with actual parameter values; no source or payload comparison binds them. -/
+
+
+
 private def contextProjectionInputs (bindings : Array LocalBinding)
     (contextInputs : Array BindingId) : MetaM (Std.HashMap FVarId InputProjectionTarget) := do
   let mut available : Std.HashMap BindingId Expr := {}
@@ -91,11 +88,11 @@ private def contextProjectionInputs (bindings : Array LocalBinding)
     inputs := inputs.insert id (.context binding)
   return inputs
 
-/-- Expose source definitions, beta/let substitutions and constructor projections only.
-Reuse: Expr.betaRev with preserved metadata and Meta.projectCore? from Lean v4.33.0.
-Recursors, quotient eliminators, matchers and opaque declarations remain computation boundaries;
-full whnf and smart unfolding would also perform mathematical reductions. Retained context
-locals are input boundaries even when they have native definitions; unretained lets may unfold. -/
+
+
+
+
+
 private partial def inputProjectionHead (inputs : Std.HashMap FVarId InputProjectionTarget)
     (source : Expr) : MetaM Expr := do
   let some expression := projectionBody? source | return source
@@ -142,9 +139,9 @@ private partial def inputProjectionHead (inputs : Std.HashMap FVarId InputProjec
       (declaration.value.instantiateLevelParams declaration.levelParams levels)
   | _ => pure expression
 
-/-- Recognize native structure eta after source-only normalization of its constructor fields.
-Reuse: Lean v4.33.0 Meta.etaStruct?, which requires each ordered field to project the SAME
-source parent. Actual arguments and runtime payloads never participate in this contraction. -/
+
+
+
 private def inputProjectionEta? (inputs : Std.HashMap FVarId InputProjectionTarget)
     (source : Expr) : MetaM (Option Expr) := do
   let .const name _ := source.getAppFn | return none
@@ -155,8 +152,8 @@ private def inputProjectionEta? (inputs : Std.HashMap FVarId InputProjectionTarg
   unless arguments.size == constructor.numParams + constructor.numFields do return none
   for index in [constructor.numParams:arguments.size] do
     let field ← inputProjectionHead inputs arguments[index]!
-    -- Use the registered projection's original structure parameters for etaStruct?'s
-    -- parameter check; a field's own type may have a different parameter telescope.
+
+
     let field ← match ← SourceProjection.ofExpr? field with
       | none => pure field
       | some projection => do
@@ -169,9 +166,9 @@ private def inputProjectionEta? (inputs : Std.HashMap FVarId InputProjectionTarg
     arguments := arguments.set! index field
   etaStruct? (mkAppN source.getAppFn arguments) (· == constructor.induct)
 
-/-- Follow a validated result path through source constructors to an original source slot.
-An abstract input may have a polymorphic record type: once its exact binder is reached,
-the remaining actual-source path is retained without substituting any actual input. -/
+
+
+
 private partial def inputProjection (inputs : Std.HashMap FVarId InputProjectionTarget) (source : Expr)
     (path : List Name) : MetaM (Option InputProjection) := do
   let source ← inputProjectionHead inputs source
@@ -206,10 +203,10 @@ private def retainContextProjection (retained : Std.HashMap BindingId InputProje
     | throwError "a source projection is outside its original ordered binding table"
   return { parent with path := parent.path ++ projection.path }
 
-/-- Record source aliases in original declaration order, before any actual runtime values.
-Reuse the fixed-input traversal above with every original local held opaque. Only a retained
-input route composes with its earlier declaration's exact BindingId/path. An unrouteable
-constructor, application or marked source definition keeps its own named occurrence. -/
+
+
+
+
 private def declaredInputProjections (bindings : Array LocalBinding) :
     MetaM (Std.HashMap BindingId InputProjection) := do
   let inputs := sourceProjectionInputs bindings
@@ -222,7 +219,7 @@ private def declaredInputProjections (bindings : Array LocalBinding) :
     retained := retained.insert binding.id projection
   return retained
 
-/-- Retain the existing source-only BindingId/projection table before runtime association. -/
+
 opaque OpenContext.inputProjections (context : OpenContext) :
     MetaM (Std.HashMap BindingId InputProjection) :=
   declaredInputProjections context.bindings
@@ -233,7 +230,7 @@ private def declaredSourceProjection (bindings : Array LocalBinding) (source : E
     | return none
   return some (← retainContextProjection (← declaredInputProjections bindings) projection)
 
-/-- One exact source projection. Proof fields keep formal dependencies and have no wire slot. -/
+
 structure FieldLayout where
   private mk ::
   address : Array Name
@@ -244,19 +241,20 @@ structure FieldLayout where
   source : ClosedTerm
   typeFamily : ClosedTerm
   kind : ComputationalKind
-  /-- Native ancestor record types, closed over their complete stable source context. -/
-  private recordAncestors : Array ClosedTerm
 
-/-- A descendant's type under the original field prefix and its native inner field binders.
-Only original prefix positions have actual values in this view. The original FieldLayout
-stays unchanged; this is the checked dependency interface of its selected descendant. -/
+  private recordAncestors : Array ClosedTerm
+  selections : SourceSelectionScope ClosedTerm := {}
+
+
+
+
 structure FieldDependencyView where
   private mk ::
   path : Array Name
   typeFamily : ClosedTerm
   precedingDependencies : Array Nat
 
-/-- Mechanical layout of a fixed source value, with its complete dependent source type. -/
+
 structure SourceLayout where
   private mk ::
   address : Array Name
@@ -264,50 +262,86 @@ structure SourceLayout where
   kind : ComputationalKind
   fields : Array FieldLayout
   contextDependencies : Array Nat
-  /-- Original source binding/projection, retained before any runtime association. -/
-  inputProjection : Option InputProjection
-  /-- The stored-record path above this layout; callable application starts a new path. -/
-  private recordAncestors : Array ClosedTerm
 
-/-- Close dependencies through the selected locals' native types and definitions, in order.
-Reuse: Lean.collectFVars and LocalDecl.value?; callers retain their complete telescopes.
-Reference: Lean/Util/CollectFVars.lean and Lean/LocalContext.lean at v4.33.0. -/
-private def localDependenciesWith (view : Expr → Expr) (locals : Array Expr) (type : Expr) :
+  inputProjection : Option InputProjection
+
+  private recordAncestors : Array ClosedTerm
+  selections : SourceSelectionScope ClosedTerm := {}
+  selectionBinding : Option BindingId := none
+
+
+
+def SourceLayout.selected? (layout : SourceLayout) (context : OpenContext) :
+    MetaM (Option (SourceSelection Expr)) := do
+  let some id := layout.selectionBinding | return none
+  let some binding := context.bindings.find? (·.id == id)
+    | throwError "the displayed role's selected source is outside its complete context"
+  let selections ← layout.selections.inContext context
+  let some selected := selections[id]?
+    | throwError "the displayed role lost its original selected source binding"
+  unless selected.formalBindings.isEmpty do
+    throwError "the displayed role retains an unapplied source selection template"
+  let original ← layout.source.inContext context
+  context.withOriginalSources #[binding.expression, original, selected.value] fun sources => do
+    let expected ← inferType sources[0]!
+    unless ← isDefEq expected (← inferType sources[1]!) <&&>
+        isDefEq expected (← inferType sources[2]!) do
+      throwError "the displayed role changed its selected source's complete native type"
+  return some selected
+
+
+
+
+opaque localDependencies (locals : Array Expr) (type : Expr) :
     MetaM (Array Nat) := do
-  let mut variables := collectFVars {} (view type)
+  let mut freeVariables := collectFVars {} type
   let mut needed : Array Nat := #[]
   for index in (List.range locals.size).reverse do
     let expression := locals[index]!
-    if variables.fvarSet.contains expression.fvarId! then
+    if freeVariables.fvarSet.contains expression.fvarId! then
       needed := needed.push index
       let declaration ← getFVarLocalDecl expression
-      variables := collectFVars variables (view declaration.type)
+      freeVariables := collectFVars freeVariables declaration.type
       if let some value := declaration.value? true then
-        variables := collectFVars variables (view value)
+        freeVariables := collectFVars freeVariables value
   return needed.reverse
 
-/-- Close complete source dependencies through native types and definitions, in order.
-This traversal also serves Session's observed-value guards and source-role provenance. -/
-opaque localDependencies (locals : Array Expr) (type : Expr) : MetaM (Array Nat) :=
-  localDependenciesWith id locals type
 
-/-- A retained occurrence supplies its own computational dependencies. Its descriptive body is
-not another supplier. This temporary traversal view leaves the actual native source untouched. -/
-private def computationalDependencyView (expression : Expr) : Expr :=
-  expression.replace fun term => match term with
-    | .mdata data _ => match data.find `CasCompiler.lower.value with
-      | some (.ofNat _) => some (mkSort .zero)
-      | _ => none
-    | _ => none
 
-/-- Context/prefix slots owned by the native type outside actual retained occurrences.
-Runtime additionally retains each marked type's exact selected dependency path. -/
 opaque computationalDependencies (locals : Array Expr) (type : Expr) : MetaM (Array Nat) :=
-  localDependenciesWith computationalDependencyView locals type
+  localDependencies locals type
 
-/-- Result-type dependency slots in the complete ordered source binding table. -/
+
 def contextDependencies (bindings : Array LocalBinding) (type : Expr) : MetaM (Array Nat) :=
   localDependencies (bindings.map (·.expression)) type
+
+
+
+
+def selectedContextDependencies (context : OpenContext)
+    (selections : SourceSelectionScope Expr) (expression : Expr) : MetaM (Array Nat) := do
+  let mut pending ← contextDependencies context.bindings expression
+  let mut visited : Std.HashSet Nat := {}
+  while !pending.isEmpty do
+    let some index := pending.back?
+      | throwError "the source dependency queue lost its next original position"
+    pending := pending.pop
+    if visited.contains index then continue
+    visited := visited.insert index
+    let some binding := context.bindings[index]?
+      | throwError "a selected source dependency is outside its complete context"
+    match selections[binding.id]? with
+    | none =>
+      if binding.role == .selectedStructure then
+        throwError "the source policy lost a complete typed selection"
+    | some selected =>
+      let additional ← IO.mkRef (#[] : Array Nat)
+      discard <| selected.mapM fun term => do
+        let dependencies ← contextDependencies context.bindings term
+        additional.modify (· ++ dependencies)
+        return term
+      pending := pending ++ (← additional.get)
+  return (Array.range context.bindings.size).filter visited.contains
 
 private def computationalKind (type : Expr) : MetaM ComputationalKind := do
   if ← isProp type then return .proof
@@ -318,21 +352,31 @@ private def computationalKind (type : Expr) : MetaM ComputationalKind := do
     if isStructure (← getEnv) name then return .record
   return .data
 
-/-- Use Lean's source-ordered structure metadata and constructor telescope.
-Reference: Lean/Structure.lean and Lean/Meta/Structure.lean at Lean v4.33.0.
-Only propositions are erased; no subsingleton test enters field selection.
-Reuse the path-local repeated-type guard from RoutedResultPlan.compileSlots at fef6be1;
-closed types preserve its meaning across fresh source contexts and later projections. -/
+
+
+
+
+
 private def sourceLayout (source : ClosedTerm) (address : Array Name)
-    (recordAncestors : Array ClosedTerm) : MetaM SourceLayout :=
+    (recordAncestors : Array ClosedTerm)
+    (selections : SourceSelectionScope ClosedTerm := {})
+    (selectionBinding : Option BindingId := none) : MetaM SourceLayout :=
   source.withOpen fun bindings expression => do
     let context ← ContextTelescope.capture bindings
+    let selections ← selections.inContext context
+    for (id, _) in selections do
+      unless bindings.any (·.id == id) do
+        throwError "a source layout selection is outside its complete typed context"
+    let selections ← selections.close context
+    if let some id := selectionBinding then
+      unless selections.contains id do
+        throwError "a source layout lost its explicit original selection binding"
     let inputProjection ← declaredSourceProjection bindings expression
     let originalType ← inferType expression
     let dependencies ← computationalDependencies (bindings.map (·.expression)) originalType
     let type ← whnf originalType
     let kind ← computationalKind type
-    if kind != .record then return ⟨address, source, kind, #[], dependencies, inputProjection, recordAncestors⟩
+    if kind != .record then return ⟨address, source, kind, #[], dependencies, inputProjection, recordAncestors, selections, selectionBinding⟩
     for ancestor in recordAncestors do
       if ← isDefEq type (← ancestor.inContext context) then
         CasCatalogue.throwStratum .noImplementation
@@ -361,27 +405,29 @@ private def sourceLayout (source : ClosedTerm) (address : Array Name)
         let fieldKind ← computationalKind (← inferType value)
         let fieldWireIndex := if fieldKind == .proof then none else some wireIndex
         fields := fields.push ⟨address.push projection, projection, index, fieldWireIndex,
-          dependencies, ← context.close value, ← context.close typeFamily, fieldKind, recordPath⟩
+          dependencies, ← context.close value, ← context.close typeFamily, fieldKind, recordPath, selections⟩
         if fieldKind != .proof then wireIndex := wireIndex + 1
-      return ⟨address, source, kind, fields, dependencies, inputProjection, recordAncestors⟩
+      return ⟨address, source, kind, fields, dependencies, inputProjection, recordAncestors, selections, selectionBinding⟩
 
-/-- Derive a fixed-value layout from the checked source, before any provider response. -/
-opaque SourceLayout.ofTerm (source : ClosedTerm) : MetaM SourceLayout :=
-  sourceLayout source #[] #[]
 
-/-- Inspect the same projected source value, retaining its full projection address. -/
+opaque SourceLayout.ofTerm (source : ClosedTerm)
+    (selections : SourceSelectionScope ClosedTerm := {})
+    (selectionBinding : Option BindingId := none) : MetaM SourceLayout :=
+  sourceLayout source #[] #[] selections selectionBinding
+
+
 opaque FieldLayout.toLayout (field : FieldLayout) : MetaM SourceLayout :=
-  sourceLayout field.source field.address field.recordAncestors
+  sourceLayout field.source field.address field.recordAncestors field.selections
 
-/-- A source constructor field and its complete prepared value interface. -/
+
 structure RecordField where
   private mk ::
   field : FieldLayout
   layout : SourceLayout
 
-/-- Prepare every constructor position, including formal proof-only positions.
-Reuse: the source-ordered FieldLayout telescope and FieldLayout.toLayout above.
-Runtime prefix references remain separate from these checked source expressions. -/
+
+
+
 structure RecordLayout where
   private mk ::
   source : SourceLayout
@@ -394,17 +440,30 @@ opaque RecordLayout.ofSource (source : SourceLayout) : MetaM RecordLayout := do
     return { field, layout := ← field.toLayout : RecordField }
   return ⟨source, fields⟩
 
-/-- Reopen in the complete current scope while retaining the source projection address. -/
-opaque SourceLayout.inContext (layout : SourceLayout) (context : OpenContext) : MetaM SourceLayout := do
-  sourceLayout (← context.close (← layout.source.inContext context)) layout.address layout.recordAncestors
 
-/-- Prepare ordinary source application in the current complete context.
-Arguments are checked source terms; computational candidates enter through the runtime. -/
+opaque SourceLayout.inContext (layout : SourceLayout) (context : OpenContext) : MetaM SourceLayout := do
+  let selections ← (← layout.selections.inContext context).close context
+  sourceLayout (← context.close (← layout.source.inContext context)) layout.address
+    layout.recordAncestors selections layout.selectionBinding
+
+
+opaque SourceLayout.withSelections (layout : SourceLayout)
+    (selections : SourceSelectionScope ClosedTerm) : MetaM SourceLayout :=
+  layout.source.withOpen fun bindings _ => do
+    let context ← ContextTelescope.capture bindings
+    let merged ← SourceSelectionScope.merge (← layout.selections.inContext context)
+      (← selections.inContext context)
+    sourceLayout layout.source layout.address layout.recordAncestors (← merged.close context)
+      layout.selectionBinding
+
+
+
 opaque SourceLayout.applyIn (function : SourceLayout) (context : OpenContext)
     (arguments : Array ClosedTerm) : MetaM SourceLayout := do
-  sourceLayout (← context.close (← context.apply function.source arguments)) function.address #[]
+  let selections ← (← function.selections.inContext context).close context
+  sourceLayout (← context.close (← context.apply function.source arguments)) function.address #[] selections
 
-/-- A complete native argument position, with proof erasure separated from formal dependency. -/
+
 structure ArgumentLayout where
   private mk ::
   sourceIndex : Nat
@@ -414,47 +473,52 @@ structure ArgumentLayout where
   source : SourceLayout
   typeFamily : ClosedTerm
 
-/-- Dependencies refer to the original formal argument slots, before actual source substitution.
-Native term and type families retain every binder, including proof-only and unused positions. -/
+
+
 structure ApplicationLayout where
   private mk ::
   arguments : Array ArgumentLayout
   resultDependencies : Array Nat
   resultTypeFamily : ClosedTerm
   resultTermFamily : ClosedTerm
-  /-- A sealed source-input analysis view. It may expose only the original whole family's
-  outer selected-address marker; every native role and dependency retains the source above. -/
+
+
   private nativeInputTermFamily : ClosedTerm
   result : SourceLayout
   resultContextDependencies : Array Nat
 
-/-- Prepare the native application and its original callable telescope together.
-Reuse: SourceLayout.applyIn, Lean.forallBoundedTelescope, localDependencies and mkLambdaFVars.
-No runtime data is substituted into a native source term or its type family. -/
+
+opaque ApplicationLayout.withSelections (layout : ApplicationLayout) (context : OpenContext)
+    (selections : SourceSelectionScope ClosedTerm) : MetaM ApplicationLayout := do
+  let result ← (← layout.result.inContext context).withSelections selections
+  let arguments ← layout.arguments.mapM fun argument => do
+    let source ← (← argument.source.inContext context).withSelections selections
+    return { argument with source }
+  return { layout with result, arguments }
+
+
+
+
 opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenContext)
-    (arguments : Array ClosedTerm) (nativeInputFamily : Option ClosedTerm := none) :
+    (arguments : Array ClosedTerm) (nativeInputFamily : Option ClosedTerm := none)
+    (selections : SourceSelectionScope ClosedTerm := {}) :
     MetaM (SourceLayout × ApplicationLayout) := do
-  -- A selected nullary family can itself be a record (for example a functor).
-  -- Its empty original application retains that record; it introduces no callable coercion.
+  let function ← (← function.inContext context).withSelections selections
+
+
   let retainWholeFamily := arguments.isEmpty &&
     (nativeInputFamily.isSome || function.kind != .function)
   let result ← if retainWholeFamily then function.inContext context
     else function.applyIn context arguments
-  let actual ← arguments.mapM SourceLayout.ofTerm
+  let actual ← arguments.mapM fun argument => do
+    SourceLayout.ofTerm (← context.close (← argument.inContext context)) function.selections
   let callable ← if retainWholeFamily then function.source.inContext context
     else context.apply function.source #[]
   let inputCallable ← match nativeInputFamily with
     | none => pure callable
     | some native => do
-      let .mdata selected original := callable
-        | throwError "native input analysis requires the original selected whole family"
-      let declaration := selected.getName `CasCompiler.source.declaration
-      unless selected.contains `CasCompiler.source.kind &&
-          !(selected.getString `CasCompiler.source.id).isEmpty &&
-          !declaration.isAnonymous && original.isConstOf declaration do
-        throwError "native input analysis lost its exact selected declaration"
       let native ← native.inContext context
-      unless original.equal native do
+      unless callable.equal native do
         throwError "native input analysis changed the original family body"
       pure native
   let type ← inferType callable
@@ -487,9 +551,9 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
       nativeInputTermFamily, result,
       contextDependencies⟩)
 
-/-- Native projection metadata selects the original record, including class-valued records.
-Reuse: Lean.ProjectionFunctionInfo, ConstructorVal.induct and Expr.proj at Lean v4.33.0.
-Explicit projections avoid selecting a replacement local class instance. -/
+
+
+
 private def projectSource (expression : Expr) (path : Array Name) : MetaM Expr := do
   let mut selected := expression
   for projection in path do
@@ -500,10 +564,10 @@ private def projectSource (expression : Expr) (path : Array Name) : MetaM Expr :
     check selected
   return selected
 
-/-- Read a fixed input route from the original symbolic result before actual substitution.
-The actual result validates the requested field path; exact fresh binder identities supply
-argument ordinals and selected original context BindingIds. No equality comparison between
-inputs selects a computational occurrence. Context IDs name only retained parameter slots. -/
+
+
+
+
 opaque ApplicationLayout.inputProjectionAt (layout : ApplicationLayout) (path : Array Name)
     (contextInputs : Array BindingId := #[]) :
     MetaM (Option InputProjection) :=
@@ -519,10 +583,10 @@ opaque ApplicationLayout.inputProjectionAt (layout : ApplicationLayout) (path : 
         inputs := inputs.insert argument.fvarId! (.argument index)
       inputProjection inputs result path.toList
 
-/-- Read an original native input reference in the reader's still-open local context.
-Only the supplied exact fvars are inputs; definitions, native projections and source
-metadata follow the same boundary rules as closed runtime input routing. No context is
-published and no actual input is substituted. -/
+
+
+
+
 opaque sourceInputProjection? (source : Expr) (locals : Array Expr)
     (path : Array Name := #[]) : MetaM (Option (Nat × Array Name)) := do
   let mut inputs : Std.HashMap FVarId InputProjectionTarget := {}
@@ -538,25 +602,25 @@ opaque sourceInputProjection? (source : Expr) (locals : Array Expr)
     | throwError "an open source input selected an unavailable context binding"
   return some (index, selected.path)
 
-/-- Read an exact context reference or native projection from a closed source term.
-The selected context binders remain identities even when they have definitions. This reuses
-the same source-only traversal as application routing without inventing an application slot. -/
+
+
+
 opaque ClosedTerm.inputProjectionAt (source : ClosedTerm) (path : Array Name)
     (contextInputs : Array BindingId := #[]) : MetaM (Option InputProjection) :=
   source.withOpen fun bindings expression => do
     discard <| projectSource expression path
     inputProjection (← contextProjectionInputs bindings contextInputs) expression path.toList
 
-/-- Expose the same source-only head while holding only explicitly retained input IDs opaque.
-Callers retain the original closed source; this view never crosses selected or marked boundaries. -/
+
+
 opaque OpenContext.inputProjectionSource (context : OpenContext) (expression : Expr)
     (contextInputs : Array BindingId) : MetaM Expr := do
   inputProjectionHead (← contextProjectionInputs context.bindings contextInputs) expression
 
-/-- Expose the source head used by input projection routing in its unchanged complete context.
-Every context binder and metadata barrier remains a boundary; only the existing native
-constructor-projection, definition and beta/let rules apply. No runtime argument is substituted,
-and this source reader never exposes a proof binder as a runtime input route. -/
+
+
+
+
 opaque ClosedTerm.inputProjectionSource (source : ClosedTerm) : MetaM ClosedTerm :=
   source.withOpen fun bindings expression => do
     let context ← ContextTelescope.capture bindings
@@ -568,9 +632,9 @@ opaque ClosedTerm.inputProjectionSource (source : ClosedTerm) : MetaM ClosedTerm
     let expression ← inputProjectionHead inputs expression
     context.close expression
 
-/-- A native source expression suspended over its exact opened formal prefix.
-The original context remains a separate stable BindingId plane. No actual values or actual
-argument expressions enter this family, and unused or proof formals remain abstracted. -/
+
+
+
 structure InputExpression where
   private mk ::
   private family : ClosedTerm
@@ -579,22 +643,22 @@ structure InputExpression where
 opaque InputExpression.context (expression : InputExpression) : ContextTelescope :=
   expression.family.context
 
-/-- A pending argument is an exact existing formal slot or an unforced native source expression.
-An unrouteable expression still occupies its formal position; it is never a fabricated value
-or a missing runtime input. -/
+
+
+
 inductive InputArgumentRef where
   | slot (index : Nat)
   | expression (source : InputExpression)
 
-/-- Ordered native selection followed by a complete application prefix, including proof slots.
-A zero-argument step retains a projection after the last pending application. -/
+
+
 structure InputApplicationStep where
   selection : Array Name
   arguments : Array InputArgumentRef
 
-/-- A final fixed result or an exact input callable before its entire remaining operation suffix.
-Leading selections are included in the route. Remaining steps include the final result path,
-so their consumer resumes with an empty additional path. -/
+
+
+
 inductive InputProjectionResult where
   | projection (route : InputProjection)
   | callable (route : InputProjection) (remainingSteps : Array InputApplicationStep)
@@ -604,8 +668,8 @@ private def captureInputExpression (context : OpenContext) (locals : Array Expr)
   let family ← mkLambdaFVars locals source (usedOnly := false) (usedLetOnly := false)
   return ⟨← context.close family, locals.size⟩
 
-/-- Reopen only a source expression captured in this compiler traversal. Substitution here is
-between original symbolic source terms, never between runtime operands or their native roles. -/
+
+
 private def InputExpression.inInputContext (expression : InputExpression)
     (context : OpenContext) (locals : Array Expr) : MetaM Expr := do
   unless expression.argumentCount ≤ locals.size do
@@ -629,9 +693,9 @@ private def prependInputSelection (projection : Name) (steps : List InputApplica
   | [] => [{ selection := #[projection], arguments := #[] }]
   | step :: rest => { step with selection := #[projection] ++ step.selection } :: rest
 
-/-- Expose one binder of a partially applied registered projection, without unfolding its
-declaration into a recursor. Its own native telescope supplies the symbolic argument domain.
-Reuse: ProjectionFunctionInfo and the exact projection constant already present in the source. -/
+
+
+
 private def inputProjectionLambda? (source : Expr) : MetaM (Option Expr) := do
   let .const name _ := source.getAppFn | return none
   let some info := (← getEnv).getProjectionFnInfo? name | return none
@@ -643,10 +707,10 @@ private def inputProjectionLambda? (source : Expr) : MetaM (Option Expr) := do
 
 mutual
 
-/-- Compose native source lambdas with a complete pending argument sequence. Supplied formal
-slots open fresh locals; a native body argument remains source syntax until it is selected.
-Every returned continuation records its argument sources explicitly, rather than assuming that
-they form a suffix of the current runtime table. -/
+
+
+
+
 private partial def traceInputApplications (context : OpenContext)
     (inputs : Std.HashMap FVarId InputProjectionTarget) (locals : Array Expr)
     (source : Expr) (steps : List InputApplicationStep) :
@@ -687,9 +751,9 @@ private partial def traceInputApplications (context : OpenContext)
         traceInputApplications context (inputs.insert argument.fvarId! (.argument index))
           (locals.push argument) (body.instantiate1 argument) remaining
 
-/-- Inspect the native application/projection spine while keeping every body argument closed
-and unforced. A source boundary or recursor cannot turn into an input callable. Native lambdas
-may consume source syntax; retained callables return a continuation for their exact binding. -/
+
+
+
 private partial def traceInputSource (context : OpenContext)
     (inputs : Std.HashMap FVarId InputProjectionTarget) (locals : Array Expr)
     (source : Expr) (steps : List InputApplicationStep) :
@@ -700,9 +764,9 @@ private partial def traceInputSource (context : OpenContext)
   if let some projection ← SourceProjection.ofExpr? source then
     return ← traceInputSource context inputs locals projection.parent
       (prependInputSelection projection.declaration steps)
-  -- A native callable can progress only by consuming an existing pending application.
-  -- Inspect it before splitting its own application spine: decomposing an unsaturated
-  -- projection would manufacture arguments that merely reconstruct the same callable.
+
+
+
   let callable ← if source.isLambda then pure (some source)
     else inputProjectionLambda? source
   if let some callable := callable then
@@ -730,10 +794,10 @@ private def inputApplicationSteps (argumentCount : Nat)
   if !path.isEmpty then result := result.push { selection := path, arguments := #[] }
   return result
 
-/-- Inspect a selected suspended expression in its original context and exact formal prefix.
-Later application slots are appended only to the temporary argument plane. An unknown source
-expression returns none when selected; callers never force it merely to fill an argument slot.
-Reuse: ClosedTerm, the same safe native head reducer, and exact FVarId input routing. -/
+
+
+
+
 opaque InputExpression.inputProjectionThrough (expression : InputExpression)
     (steps : Array (Array Name × Nat)) (path : Array Name)
     (contextInputs : Array BindingId := #[]) : MetaM (Option InputProjectionResult) :=
@@ -748,31 +812,34 @@ opaque InputExpression.inputProjectionThrough (expression : InputExpression)
       traceInputApplications context inputs locals result
         (inputApplicationSteps locals.size steps path).toList
 
-/-- Trace retained partial applications and native source-body applications in the first
-application's original symbolic scope. Supplied argument counts include every proof position.
-Argument targets and continuation slots index the temporary flattened argument table; captured
-source expressions seal exactly its opened prefix. Stable context BindingIds remain separate.
-Neither prepared layouts nor dependency ordinals change. No actual input expression or value
-is substituted to discover a route, and native mathematical computation remains a boundary.
-Reuse: inputProjectionAt, ClosedTerm and InputExpression.inputProjectionThrough. -/
+
+
+
+
+
+
+
 opaque ApplicationLayout.inputProjectionThrough (first : ApplicationLayout)
     (steps : Array (Array Name × Nat)) (path : Array Name)
     (contextInputs : Array BindingId := #[]) :
-    MetaM (Option InputProjectionResult) := do
-  if steps.isEmpty then
-    first.result.source.withOpen fun _ expression =>
-      discard <| projectSource expression path
-  let expression : InputExpression := ⟨first.nativeInputTermFamily, first.arguments.size⟩
-  expression.inputProjectionThrough steps path contextInputs
+    MetaM (Option InputProjectionResult) :=
+  first.result.source.withOpen fun bindings result => do
+    let context ← ContextTelescope.capture bindings
+    if steps.isEmpty then discard <| projectSource result path
 
-/-- Source-context and argument planes remain distinct from returned record-prefix fields. -/
+
+    let family ← context.close (← first.nativeInputTermFamily.inContext context)
+    let expression : InputExpression := ⟨family, first.arguments.size⟩
+    expression.inputProjectionThrough steps path contextInputs
+
+
 structure ResultDependencies where
   context : Array Nat
   arguments : Array Nat
 
-/-- Close through every native inner prefix before selecting the original source planes.
-Inner locals can name an original dependency only through their types or definitions; they
-have no original runtime slot of their own. Preserve context and argument ordinals separately. -/
+
+
+
 private def originalDependencies (context arguments introduced : Array Expr) (type : Expr) :
     MetaM ResultDependencies := do
   let required ← computationalDependencies (context ++ arguments ++ introduced) type
@@ -781,9 +848,9 @@ private def originalDependencies (context arguments introduced : Array Expr) (ty
     arguments := (Array.range arguments.size).filter fun index =>
       required.contains (context.size + index) }
 
-/-- Reflect constructor field domains under abstract preceding fields, as sourceLayout does.
-If source arguments determine the record shape, retain that shape's formal dependencies.
-Reference: Lean.forallBoundedTelescope, ConstructorVal and the native FieldLayout algorithm. -/
+
+
+
 private partial def withFieldTypeAt (type actual : Expr) (path : List Name)
     (context arguments : Array Expr) (introduced : Array Expr) (shape : ResultDependencies)
     (visit : Array Expr → Expr → ResultDependencies → MetaM α) : MetaM α := do
@@ -828,9 +895,9 @@ private def fieldDependencies (type actual : Expr) (path : List Name)
         arguments := (Array.range arguments.size).filter fun index =>
           shape.arguments.contains index || dependencies.arguments.contains index }
 
-/-- Derive a selected descendant's original-prefix dependencies from the declared field family.
-Inner constructor prefixes remain abstract, so an unrelated sibling cannot become an owner.
-Reuse: the same native projection/telescope traversal as ApplicationLayout.dependenciesAt. -/
+
+
+
 opaque FieldLayout.dependencyView (field : FieldLayout) (path : Array Name) :
     MetaM FieldDependencyView :=
   field.typeFamily.withOpen fun bindings family => do
@@ -848,8 +915,8 @@ opaque FieldLayout.dependencyView (field : FieldLayout) (path : Array Name) :
           let family ← mkLambdaFVars locals type (usedOnly := false) (usedLetOnly := false)
           return ⟨path, ← context.close family, required⟩
 
-/-- Check a descendant source role in its complete current context.
-Stable source transport retains the parent across later bindings and lexical shadowing. -/
+
+
 opaque SourceLayout.projectionPathTo (parent source : SourceLayout) : MetaM (Array Name) := do
   unless parent.address.toList.isPrefixOf source.address.toList do
     throwError "the source role is outside the prepared application result"
@@ -861,8 +928,8 @@ opaque SourceLayout.projectionPathTo (parent source : SourceLayout) : MetaM (Arr
       throwError "the source role is not its prepared application result projection"
     return path
 
-/-- Native dependency slots at a relative projection path in the original application.
-Preceding fields stay abstract. Both dependency planes keep their original source ordering. -/
+
+
 opaque ApplicationLayout.dependenciesAt (layout : ApplicationLayout) (path : Array Name) :
     MetaM ResultDependencies :=
   layout.result.source.withOpen fun bindings expression => do
@@ -874,14 +941,14 @@ opaque ApplicationLayout.dependenciesAt (layout : ApplicationLayout) (path : Arr
         throwError "the application result family lost a formal argument"
       fieldDependencies type expression path.toList (bindings.map (·.expression)) arguments #[] #[]
 
-/-- Select an exact source descendant while preserving the original dependency planes. -/
+
 opaque ApplicationLayout.dependenciesFor (layout : ApplicationLayout) (source : SourceLayout) :
     MetaM ResultDependencies := do
   layout.dependenciesAt (← layout.result.projectionPathTo source)
 
-/-- Select one exact native field of the prepared result while preserving the complete
-original declaration arguments. The result keeps its full native address; no new cone
-parameter or runtime value is introduced into the mathematical family. -/
+
+
+
 opaque ApplicationLayout.forProjection (layout : ApplicationLayout) (projection : Name) :
     MetaM ApplicationLayout := do
   let some field := layout.result.fields.find? (·.projection == projection)

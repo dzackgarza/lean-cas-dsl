@@ -29,9 +29,9 @@ private def fixedResultAt (request : PreparedRequest) (graph : ValueGraph)
       | none => input.storedValue graph
   return some ⟨path, input, selected⟩
 
-/-- Resolve the materialized portion of an existing result before opening a reply draft.
-Lazy record descendants remain demands. The resolver is used only for lazy source-selected
-inputs, with a fresh graph after each demand; stored inputs keep their original bindings. -/
+
+
+
 partial def PreparedRequest.resolveFixedResults (request : PreparedRequest)
     (transaction : CellTransaction) (source : SourceLayout) (value : ValueBinding)
     (resolve : Option (FixedInput → MetaM ValueBinding) := none) :
@@ -48,8 +48,8 @@ partial def PreparedRequest.resolveFixedResults (request : PreparedRequest)
         match ← IO.ofExcept <| (graph.projectionBasis value input.parent input.path).mapError IO.userError with
         | some selected => pure selected
         | none => select input
-    -- Existing replies must preserve the exact input before later fields are checked.
-    -- Reuse the same baseline guard as association, without staging or changing a path.
+
+
     unless value.value == selected.value &&
         selected.associationIds.toList.isPrefixOf value.associationIds.toList do
       CasCatalogue.throwStratum .malformed "the reply changed a fixed source input"
@@ -67,8 +67,8 @@ partial def PreparedRequest.resolveFixedResults (request : PreparedRequest)
       fixed := fixed ++ (← request.resolveFixedResults transaction prepared.layout actual resolve)
   return fixed
 
-/-- Associate the descendants of one already fully checked candidate. Recursive validation
-has checked every stored field before this private routine adds any consuming association. -/
+
+
 private partial def associateCheckedResult (request : PreparedRequest) (supply : IdentitySupply)
     (source : SourceLayout) (draft : CellDraft) (candidate : CandidateResponse source)
     (fixed : Array FixedResult) (complete : Bool) :
@@ -82,8 +82,8 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
     let input := retained.input
     if !input.path.isEmpty && (← IO.ofExcept <|
         (draft.view.projectedAccess? input.parent input.path).mapError IO.userError).isNone then
-      -- Publish the original native input access before an output field can become the
-      -- first full-path view. The saved baseline never acquires output associations.
+
+
       let currentDraft := draft
       draft ← input.source.withOpen fun bindings _ => do
         unless input.parameters.size == bindings.size do
@@ -109,7 +109,7 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
           return (nextDraft, access)
         let prepareField := fun (sourceDraft : CellDraft) (parent : ValueBinding)
             (projection : Name) => do
-          let some index := parent.role.fields.findIdx? (·.projection == projection)
+          let some index := parent.nativeRole.fields.findIdx? (·.projection == projection)
             | throwError "a fixed input lost its original native field position"
           PreparedRequest.forProjection supply request.program (← supply.fresh .occurrence)
             context sourceDraft.view parent index sourceParameters
@@ -153,7 +153,7 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
   if source.kind == .record && stored then
     let layout ← RecordLayout.ofSource source
     let mut record ← RecordPrefix.prepare supply request.program request.occurrence layout
-      draft.view request.environment.sourceMarks
+      draft.view request.environment.bound
     for prepared in layout.fields do
       if let some index := prepared.field.wireIndex then
         let actual ← IO.ofExcept <|
@@ -191,11 +191,11 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
   else
     return (← liftM (m := IO) <| draft.retain value, value)
 
-/-- Reuse exact nodes under the new application's native roles and actual dependencies.
-The actual projection request supplies its one pending edge only during complete candidate
-validation. Stored descendants are then associated in this isolated reply; ordinary result
-admission rechecks their published paths before installation.
-Reuse: originFor, RecordPrefix and immutable CellDraft association extensions. -/
+
+
+
+
+
 def PreparedRequest.associateResult (request : PreparedRequest) (supply : IdentitySupply)
     (source : SourceLayout) (draft : CellDraft) (value : ValueBinding)
     (fixed : Array FixedResult := #[]) (complete : Bool := false) :
@@ -211,9 +211,9 @@ def PreparedRequest.associateResult (request : PreparedRequest) (supply : Identi
     | .apply .. | .primitive .. => request.environment.checkResult draft.view source value
   associateCheckedResult request supply source draft candidate fixed complete
 
-/-- Carry the authenticated source access into an assembled input result while its sealed
-selection and the graph's projection cache retain the original baseline. A stored source
-path without an earlier access is admitted through the ordinary original projection. -/
+
+
+
 private def selectedInputView (request : PreparedRequest) (supply : IdentitySupply)
     (selected : FixedResult) (draft : CellDraft) : MetaM (CellDraft × ValueBinding) := do
   let input := selected.input
@@ -265,27 +265,27 @@ private partial def assembleInputResult (request : PreparedRequest) (source : So
     let (nextDraft, value) ← assembleInputResult request prepared.layout supply fixed draft
     draft := nextDraft
     fields := fields.push value
-  -- The original views are checked against the complete actual result prefix first.
-  -- associateCheckedResult alone adds the result's new consuming field associations.
+
+
   liftM (m := IO) <| draft.stage (← request.originFor source (some draft.view)) (.product fields)
 
-/-- Assemble the complete source-selected result after all selected lazy inputs have settled.
-Validate its stored fields together with their actual native prefixes before adding consuming
-associations. The isolated draft remains unpublished until the complete result is admitted.
-Reuse: RecordPrefix, whole-result associateResult and the sealed input-result admission check. -/
+
+
+
+
 def ResolvedInputResult.assemble (resolved : ResolvedInputResult request)
     (transaction : CellTransaction) : MetaM (CellDraft × InputResultCompletion request) := do
   let traced := (request.source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   let draft ← transaction.draft
-  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: before raw tree"
+  if traced then CasTools.Diagnostics.message m!"[inclusion.stage] assembly {repr request.occurrence}: before raw tree"
   let (draft, value) ← assembleInputResult request request.source transaction.owners.identities
     resolved.selections draft
-  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: before whole association"
+  if traced then CasTools.Diagnostics.message m!"[inclusion.stage] assembly {repr request.occurrence}: before whole association"
   let (draft, value) ← request.associateResult transaction.owners.identities
     request.source draft value resolved.selections (complete := true)
-  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: before result admission"
+  if traced then CasTools.Diagnostics.message m!"[inclusion.stage] assembly {repr request.occurrence}: before result admission"
   let response ← request.admitResult draft.view value
-  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: result admitted"
+  if traced then CasTools.Diagnostics.message m!"[inclusion.stage] assembly {repr request.occurrence}: result admitted"
   let completed ← IO.ofExcept <| (resolved.admit draft.view response).mapError IO.userError
   return (draft, completed)
 

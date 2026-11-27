@@ -8,9 +8,9 @@ namespace CasCompiler
 
 open Lean Meta
 
-/-- One accepted constructor result projection and its original argument/context position.
-The complete producer telescope remains unchanged. Only type schemas may use the explicitly
-selected port as the corresponding native result field. -/
+
+
+
 structure ConstructorProjectionTransport where
   private mk ::
   plan : ConstructorPorts
@@ -32,8 +32,8 @@ private def nativeLayoutAt (source : SourceLayout) (path : Array Name) :
     current ← field.toLayout
   return current
 
-/-- Seal the native route before any returned data is inspected. The source-only constructor
-projection determines its original slot; native conversion checks only the result interface. -/
+
+
 opaque ConstructorPorts.projectionTransport (plan : ConstructorPorts) (result : SourceLayout)
     (path : Array Name) : MetaM ConstructorProjectionTransport := do
   let some selected ← plan.projectionAt path
@@ -51,6 +51,7 @@ opaque ConstructorPorts.projectionTransport (plan : ConstructorPorts) (result : 
         let some binding := bindings.find? (·.id == id)
           | throwError "the constructor projection lost its original context binding"
         SourceLayout.ofTerm (← context.close binding.expression)
+          (← (← plan.application.result.selections.inContext context).close context)
       pure (id, source)
   let source ← nativeLayoutAt root selected.path
   let target ← nativeLayoutAt result path
@@ -66,9 +67,9 @@ opaque ConstructorPorts.projectionTransport (plan : ConstructorPorts) (result : 
       throwError "the selected constructor port has another native result-field interface"
   return ⟨plan, result, path, selected, binding, source, target⟩
 
-/-- Extend the checking scope by every original producer declaration that is absent from
-the consumer. Shared entries are joined only by their stable BindingId, then checked in their
-original order, role, type and definition. No context entry is dropped. -/
+
+
+
 opaque ConstructorProjectionTransport.withContext
     (transport : ConstructorProjectionTransport) (current : OpenContext)
     (action : OpenContext → MetaM α) : MetaM α := do
@@ -87,8 +88,8 @@ opaque ConstructorProjectionTransport.withContext
           instances := instances.push ⟨selected.className, binding.expression⟩
       withLCtx (← getLCtx) instances do
         let context ← ContextTelescope.capture all
-        -- ClosedTerm transport rechecks the complete original telescope, including unused
-        -- port and proof declarations, against this exact stable-identity extension.
+
+
         discard <| transport.source.source.inContext context
         action context
     | entry :: rest =>
@@ -103,6 +104,12 @@ opaque ConstructorProjectionTransport.withContext
           throwError "constructor transport changed an original native binding role"
         unless ← isDefEq declaration.type (entry.type.instantiateRev original) do
           throwError "constructor transport changed an original native binder type"
+        match entry.originalSource, binding.originalSource with
+        | none, none => pure ()
+        | some expected, some actual =>
+          unless actual.equal (expected.instantiateRev original) do
+            throwError "constructor transport changed an original source correspondence"
+        | _, _ => throwError "constructor transport changed an original source correspondence"
         match entry.value, declaration.value? true with
         | none, none => pure ()
         | some expected, some actual =>
@@ -116,7 +123,11 @@ opaque ConstructorProjectionTransport.withContext
         let type := entry.type.instantiateRev original
         let next := fun expression =>
           visit rest (original.push expression)
-            (all.push { id := entry.id, role := entry.role, expression }) (some all.size)
+            (all.push {
+              id := entry.id
+              role := entry.role
+              expression := expression
+              originalSource := entry.originalSource.map (·.instantiateRev original) }) (some all.size)
         match entry.value with
         | some value =>
           withLetDecl entry.userName type (value.instantiateRev original) next
@@ -127,9 +138,7 @@ opaque ConstructorProjectionTransport.withContext
 private partial def sourceBinderPath? (expression : Expr) :
     MetaM (Option (FVarId × Array Name)) := do
   if let .fvar id := expression then return some (id, #[])
-  -- A retained occurrence annotation contributes an independent identity constraint. It is
-  -- preserved by the recursive schema visitor instead of being discarded by path matching.
-  if expression.isMData then return none
+  if let .mdata _ body := expression then return ← sourceBinderPath? body
   let some projection ← SourceProjection.ofExpr? expression | return none
   let some (id, path) ← sourceBinderPath? projection.parent | return none
   return some (id, path.push projection.declaration)
@@ -159,48 +168,50 @@ private partial def substitutePortSchema (binding : FVarId) (path : Array Name)
 
 private def ConstructorProjectionTransport.schemaView
     (transport : ConstructorProjectionTransport) (context : OpenContext)
-    (expression : Expr) (mark : Nat) : MetaM Expr := do
+    (expression replacement : Expr) : MetaM Expr := do
   let some original := context.bindings.find? (·.id == transport.binding)
     | throwError "constructor type transport lost its exact original native slot"
-  let replacement ← transport.target.source.inContext context
-  let replacement := .mdata (KVMap.empty.setNat `CasCompiler.lower.value mark) replacement
+  let target ← transport.target.source.inContext context
+  unless ← context.withOriginalSources #[← inferType replacement, ← inferType target]
+      (fun types => isDefEq types[0]! types[1]!) do
+    throwError "constructor type transport changed its selected native slot type"
   let result ← substitutePortSchema original.expression.fvarId! transport.selected.path
     replacement expression
   check result
   return result
 
-/-- Instantiate a type schema already opened in the combined checking scope. This composes
-several retained constructor scopes without exposing a mathematical term substitution API. -/
+
+
 opaque ConstructorProjectionTransport.instantiateSchema
     (transport : ConstructorProjectionTransport) (context : OpenContext)
-    (schema : Expr) (mark : Nat) : MetaM Expr := do
+    (schema replacement : Expr) : MetaM Expr := do
   forallTelescope (← inferType schema) fun _ result => do
     unless result.isSort do
       throwError "constructor transport is restricted to native type schemas"
-  transport.schemaView context schema mark
-/-- A type-only view of the original source. Its mathematical term remains in the immutable
-producer telescope; only the selected declared dependency slot is instantiated for checking. -/
+  transport.schemaView context schema replacement
+
+
 opaque ConstructorProjectionTransport.typeInContext
     (transport : ConstructorProjectionTransport) (context : OpenContext)
-    (source : ClosedTerm) (mark : Nat) : MetaM Expr := do
+    (source : ClosedTerm) (replacement : Expr) : MetaM Expr := do
   let original ← source.inContext context
   let type ← inferType original
-  transport.schemaView context type mark
+  transport.schemaView context type replacement
 
-/-- The same explicit slot transport for an original dependent field/type family.
-A computational term cannot use this entry: its native codomain must be a sort. -/
+
+
 opaque ConstructorProjectionTransport.schemaInContext
     (transport : ConstructorProjectionTransport) (context : OpenContext)
-    (source : ClosedTerm) (mark : Nat) : MetaM Expr := do
+    (source : ClosedTerm) (replacement : Expr) : MetaM Expr := do
   let original ← source.inContext context
   let type ← inferType original
   forallTelescope type fun _ result => do
     unless result.isSort do
       throwError "constructor transport is restricted to native type schemas"
-  transport.schemaView context original mark
+  transport.schemaView context original replacement
 
-/-- Derive a native descendant by its original declaration path. No packet position enters
-this traversal; runtime retains the corresponding stored child of the same original port. -/
+
+
 opaque ConstructorProjectionTransport.targetAt (transport : ConstructorProjectionTransport)
     (path : Array Name) : MetaM SourceLayout :=
   nativeLayoutAt transport.target path

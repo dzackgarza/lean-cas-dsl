@@ -12,9 +12,9 @@ meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 
 open Lean Meta Elab Command Term CasCompiler CasRuntime
 
--- The same inline named module is formed twice. Each native field's delayed code must
--- retain the exact ring occurrence in its own descriptor slot, before any later consumer
--- opens that code. Equal source expressions do not identify the two parameter occurrences.
+
+
+
 run_cmd liftTermElabM do
   let original ← getEnv
   try
@@ -28,11 +28,12 @@ run_cmd liftTermElabM do
       let checked ← source.read ⟨parsed⟩
       checked.source.withOpen fun bindings expression => do
         let context ← ContextTelescope.capture bindings
+        let selections ← checked.selections.inContext context
         let transaction ← CellTransaction.begin kernel.ledger
         try
           let mut originals : Array ValueBinding := #[]
           for _ in [:2] do
-            let value ← kernel.run transaction context {} expression
+            let value ← kernel.run transaction context {} expression (selections := selections)
             let graph ← transaction.view
             let some node := graph.find value.value
               | throwError "the named record lost its actual producing node"
@@ -53,16 +54,19 @@ run_cmd liftTermElabM do
                 | throwError "the original native field is outside its producing graph"
               let .closure program _ := fieldNode.payload.data
                 | throwError "the named native field lost its delayed original source"
-              let some (.term code) := (← kernel.codes.get)[program]?
+              let some (.term code codeSelections) := (← kernel.codes.get)[program]?
                 | throwError "the named native field lost its original source code"
-              let marks ← IO.ofExcept <|
-                (captureSourceMarks (← kernel.marks.get) code).mapError IO.userError
-              unless marks.any (fun (_, selected) =>
+              let retained ← withBindingContext graph context {} field fun context bound => do
+                let selections ← SourceSelectionScope.merge
+                  (← field.role.selections.inContext context) (← codeSelections.inContext context)
+                boundContextReferences (some graph) context bound (← code.inContext context)
+                  selections
+              unless retained.any (fun selected =>
                   selected.value == argument.binding.value &&
                     selected.associationIds == argument.binding.associationIds) do
                 throwError "the named native field did not retain its exact original argument slot"
               for other in originals do
-                if marks.any (fun (_, selected) => selected.value == other.value) then
+                if retained.any (fun selected => selected.value == other.value) then
                   throwError "an equal inline source substituted another record's argument"
             if originals.any (fun previous => previous.value == argument.binding.value) then
               throwError "independent inline named records merged their original arguments"
@@ -72,4 +76,3 @@ run_cmd liftTermElabM do
         finally discard <| transaction.abort
     finally kernel.close
   finally setEnv original
-

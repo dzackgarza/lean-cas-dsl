@@ -41,7 +41,7 @@ private def perform (ledger : OccurrenceLedger) (program : RuntimeId .program)
   let .ok actual := RuntimeArgument.ofValue graph 0 value
     | throwError "the completion input is absent"
   let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
-    #[scalar.source] #[actual] #[]
+    #[scalar.source] #[actual] #[] (some graph)
   discard <| request.admitInputs graph
   let .ok reservation ← liftM (m := BaseIO) <|
     transaction.reserve occurrence selected peer.connection #[value]
@@ -68,7 +68,7 @@ private def perform (ledger : OccurrenceLedger) (program : RuntimeId .program)
   unless (← duplicate.toMessageData.toString).endsWith "the request scope has retired" do throw duplicate
   return completion
 
--- Actual SDK frames enter admission, same-cell reuse and whole-cell publication.
+
 run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
   let original ← getEnv
   try
@@ -111,7 +111,7 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
       let .ok actual := RuntimeArgument.ofValue graph 0 argument
         | throwError "the native completion argument is absent"
       let nativeRequest ← PreparedRequest.forApplication owners.identities program nativeOccurrence context callable
-        #[function.source] #[actual] #[]
+        #[function.source] #[actual] #[] (some graph)
       let nativeObservation := nativeRequest.observation.toJson
       discard <| nativeRequest.admitInputs graph
       let .ok nativeReservation ← liftM (m := BaseIO) <| transaction.reserve nativeOccurrence
@@ -134,8 +134,14 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
         | throwError "the identity completion lost its prescribed argument"
       let .ok actual := RuntimeArgument.ofValue graph 0 value
         | throwError "the original completion input is outside its graph"
-      let rebuilt ← PreparedRequest.forApplication owners.identities program first.request.occurrence context
-        oldCallable oldArguments #[actual] #[]
+      let rebuilt ← first.request.environment.withContext context {} fun context bound => do
+        let mut parameters := #[]
+        for binding in context.bindings do
+          if let some value := bound[binding.id]? then
+            parameters := parameters.push (← IO.ofExcept <|
+              (RuntimeParameter.ofValue graph binding.id value).mapError IO.userError)
+        PreparedRequest.forApplication owners.identities program first.request.occurrence context
+          oldCallable oldArguments #[actual] parameters (some graph)
       let some rebuiltRole := rebuilt.roles.results[0]?
         | throwError "the rebuilt request has no root role"
       match ← liftM (m := BaseIO) <| transaction.reuse first.request.occurrence rebuiltRole.role.id with

@@ -8,12 +8,11 @@ namespace CasCompiler
 
 open Lean Meta
 
-/-- Reopen only native constructor type telescopes along an already selected record path.
-Earlier field terms are the original source projections; annotations are attached at the
-declared projection positions before substituting them into the field's native type family.
-No returned data or reconstructed record enters this type-schema traversal. -/
-private partial def annotatedFieldTypeAt (type actual : Expr) (path : List Name)
-    (nativePrefix : Array Name) (marks : Array (Array Name × Nat)) : MetaM Expr := do
+
+
+
+private partial def fieldTypeAt (context : OpenContext) (type actual : Expr) (path : List Name)
+    (nativePrefix : Array Name) (replacements : Array (Array Name × Expr)) : MetaM Expr := do
   match path with
   | [] => return type
   | projection :: rest =>
@@ -37,10 +36,13 @@ private partial def annotatedFieldTypeAt (type actual : Expr) (path : List Name)
         let some declaration := information.getProjFn? earlier
           | throwError "a native field type prefix lost an original projection declaration"
         let position := nativePrefix.push declaration
-        let original := match marks.find? (·.1 == position) with
-          | none => original
-          | some (_, key) => .mdata (KVMap.empty.setNat `CasCompiler.lower.value key) original
-        previous := previous.push original
+        let replacement := (replacements.find? (·.1 == position)).map (·.2) |>.getD original
+        let expected := (← inferType fields[earlier]!).replaceFVars
+          (fields.extract 0 earlier) previous
+        unless ← context.withOriginalSources #[← inferType replacement, expected] fun types =>
+            isDefEq types[0]! types[1]! do
+          throwError "an earlier native field binder has an incompatible declared type"
+        previous := previous.push replacement
       let originalType ← inferType fields[index]!
       let fieldType := originalType.replaceFVars (fields.extract 0 index) previous
       let free := collectFVars {} fieldType
@@ -48,21 +50,22 @@ private partial def annotatedFieldTypeAt (type actual : Expr) (path : List Name)
         throwError "a native field type prefix leaked an abstract constructor field"
       check fieldType
       let next ← mkProjection actual information.fieldNames[index]!
-      unless ← isDefEq (← inferType next) fieldType do
+      unless ← context.withOriginalSources #[← inferType next, fieldType] fun types =>
+          isDefEq types[0]! types[1]! do
         throwError "native field type instantiation changed its original declared interface"
-      annotatedFieldTypeAt fieldType next rest (nativePrefix.push projection) marks
+      fieldTypeAt context fieldType next rest (nativePrefix.push projection) replacements
 
-/-- A checked type-only view at an exact native descendant. Original proof/implicit field
-positions are retained during traversal; only explicitly supplied native paths are annotated. -/
-opaque SourceLayout.annotatedFieldType (source target : SourceLayout)
-    (marks : Array (Array Name × Nat)) : MetaM ClosedTerm := do
+
+
+opaque SourceLayout.fieldTypeInContext (source target : SourceLayout) (context : OpenContext)
+    (replacements : Array (Array Name × Expr)) : MetaM Expr := do
   let path ← source.projectionPathTo target
-  source.source.withOpen fun bindings expression => do
-    let context ← ContextTelescope.capture bindings
-    let type ← annotatedFieldTypeAt (← inferType expression) expression path.toList #[] marks
-    let target ← target.source.inContext context
-    unless ← isDefEq (← inferType target) type do
-      throwError "a field prefix changed its already prepared native target"
-    context.close type
+  let expression ← source.source.inContext context
+  let type ← fieldTypeAt context (← inferType expression) expression path.toList #[] replacements
+  let target ← target.source.inContext context
+  unless ← context.withOriginalSources #[← inferType target, type] fun types =>
+      isDefEq types[0]! types[1]! do
+    throwError "a field prefix changed its already prepared native target"
+  return type
 
 end CasCompiler

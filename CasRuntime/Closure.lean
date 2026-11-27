@@ -2,6 +2,7 @@ module
 
 public import CasRuntime.PreparedRequest
 public import CasCompiler.PointPath
+public import CasCompiler.SelectionScope
 
 public section
 
@@ -9,34 +10,35 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- Operational code of a kernel closure. The value node retains the actual captures.
-Source: data model §5, ComputationalClosure, lean-cas-dsl#66 comment 6664275536. -/
+
+
 inductive ClosureCode
-  /-- A checked source term. A field or application demand lowers that eliminator on it. -/
-  | term (source : ClosedTerm)
-  /-- A formal selected leg keeps its native continuation and, for a direct construction,
-  its unchanged released named packet. Formation does not demand a whole cone. A created
-  source leg has no target-row packet and retains only its scoped native continuation. -/
+
+  | term (source : ClosedTerm) (selections : SourceSelectionScope ClosedTerm := {})
+
+
+
   | formalLeg (source : ClosedTerm) (packet : Option ValueContainer)
-  /-- A published family at its prepared parameters, with the fields already selected.
-  Its realization is selected when an action reaches actual arguments
-  (execution contract v2 §5.2, lean-cas-dsl#69 comment 6664277464). -/
+      (selections : SourceSelectionScope ClosedTerm := {})
+
+
+
   | family (request : PreparedRequest) (path : Array FieldLayout)
-  /-- A formal created object retains its complete source preparation and actual original
-  inputs. Its native field demand completes the fixed creation against this exact owner. -/
+
+
   | creationOwner (source : PreparedCreationFamily)
-  /-- An actual returned map with its originally selected provider and native carrier path. -/
+
   | retainedPoint (request : PreparedRequest) (registration : Registration)
       (parameters : ValueContainer) (source target : ValueBinding) (packet : ValueContainer)
       (path : NativePointPath request.source)
-  /-- Components of an actual completed cone retain its whole original data packet. -/
+
   | constructionLeg (request : PreparedRequest) (registration : Registration)
       (diagram packet : ValueContainer) (ports : Array (Option ValueBinding))
       (path : Array Name) (retained : Array ValueBinding)
 
-/-- Authenticate a supplied family from the actual callable's retained code. The code table
-fixes the original preparation, native field path and captures; equality of native types or
-source expressions cannot select another family. -/
+
+
+
 opaque PreparedRequest.requireFamily (request family : PreparedRequest)
     (path : Array FieldLayout) (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) : MetaM Unit := do
