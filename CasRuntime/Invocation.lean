@@ -104,6 +104,13 @@ partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : Source
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   let leading := parameters.size + bindings.size
   kernel.invoke evaluateSource request transaction wire reservation encoded <|
     dependentContext role (encoded.values.extract 0 parameters.size)
@@ -133,6 +140,13 @@ partial def Kernel.invokeLimit (kernel : Kernel) (evaluateSource : SourceEvaluat
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   kernel.invoke evaluateSource request transaction wire reservation encoded packet (some codec)
 
 
@@ -157,6 +171,13 @@ partial def Kernel.invokeCreation (kernel : Kernel) (evaluateSource : SourceEval
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   kernel.invoke evaluateSource request transaction wire reservation encoded
     (dependentContext "" parameters #[] #[] #[] request.source)
 
@@ -182,6 +203,13 @@ partial def Kernel.invokePresentation (kernel : Kernel) (evaluateSource : Source
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
 
@@ -205,6 +233,13 @@ partial def Kernel.invokeMethod (kernel : Kernel) (evaluateSource : SourceEvalua
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
 
@@ -228,6 +263,13 @@ partial def Kernel.invokeProperty (kernel : Kernel) (evaluateSource : SourceEval
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
 
@@ -253,6 +295,13 @@ partial def Kernel.invokePoint (kernel : Kernel) (evaluateSource : SourceEvaluat
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   kernel.invoke evaluateSource request transaction wire reservation encoded packet codec
 
 
@@ -275,6 +324,13 @@ partial def Kernel.invokeObjectAction (kernel : Kernel) (evaluateSource : Source
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  CasTools.Diagnostics.emit "request.dispatched" <| Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("operation", toJson registration.operation),
+    ("registration", Json.mkObj [("operation", toJson registration.operation),
+      ("input", toJson registration.input), ("backend", toJson registration.backend)])]
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
 
