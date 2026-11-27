@@ -127,7 +127,15 @@ without that filter, including each completed statement's outcome and timing.
 `timing/runs.jsonl` records the command, selected targets and inputs, source revision and change
 hash, actual dependency revisions, toolchain and host, input hashes, phase statuses, build,
 execution and acceptance times, and total elapsed time. Each invocation has its own directory
-under `timing/logs/`. `timing/README.md` holds measured costs and their remedies.
+under `timing/logs/`. Its output log is drained, compressed with gzip and hashed before the
+terminal records are published. Raw run artifacts stay on disk in this ignored directory;
+they are not committed. `timing/modules.jsonl` and `timing/acceptance.jsonl` append one terminal
+row per selected test module or acceptance file, including failures and SIGINT/SIGTERM
+interruptions. Each row records `run_id`, `parent_run`, `utc_start`, `seconds`, `status`
+(`pass`, `fail` or `interrupted`), `revision`, `dirty`, `environment` (the actual Lean version
+and container image digest), `target`, `input_sha256`, `log_path` and `log_sha256`. The log
+hash identifies the finalized gzip bytes. Detailed events, contexts and results remain in
+the run directory. `timing/README.md` holds measured costs and their remedies.
 
 `.tmp/accept-run.json` contains only the current selected observation. Earlier runs remain in
 their own logs; their rows are not merged into current success. Missing, partial, duplicate or
