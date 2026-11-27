@@ -33,5 +33,11 @@
  "append_only": [
   "tests/acceptance/*.cas",
   "CasAcceptance/Permanent/*.lean"
+ ],
+ "construction_control_owners": [
+  "CasCompiler.lean",
+  "CasCompiler/*",
+  "CasRuntime.lean",
+  "CasRuntime/*"
  ]
 }
