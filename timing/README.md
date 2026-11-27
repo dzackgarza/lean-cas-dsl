@@ -376,3 +376,31 @@ test type-inference failure (`20261127T014542Z-loop.fuGoWT`, status 1) remain re
 Neither executed the statement, and neither is a passing performance observation.
 The corrected before-check run and all three complete checks are retained in
 `runs.jsonl` and `modules.jsonl`; their raw logs remain at their recorded disk paths.
+
+## T112 terminal timing records
+
+At `99824a6`, the exact three-case feedback gate passed in 228.308 s end to end
+(221.707 s reported by unittest): `FeedbackRecordTests.test_passing_module_writes_one_row`,
+`FeedbackRecordTests.test_failing_module_writes_fail`, and
+`FeedbackRecordTests.test_terminated_run_writes_interrupted`. Every check runs the public
+`just loop` command in its owned core-only checkout. The controls verify the twelve terminal
+fields against actual Git, Lean/image, source, step, signal and gzip-byte evidence.
+
+| Native run | Target | Terminal status | Public loop seconds |
+| --- | --- | --- | ---: |
+| `20261127T023654Z-loop.f0S5JZ` | `FeedbackPass` | pass | 48.592 |
+| `20261127T023759Z-loop.sgUZWb` | `FeedbackFail` | fail | 42.647 |
+| `20261127T023856Z-loop.aZt1QX` | `FeedbackPass` | interrupted | 51.059 |
+
+The exact emitted module and run rows are retained in their existing JSONL streams. Their
+run directories are also retained at the recorded paths, with unchanged compressed log bytes.
+The complete outer gate log and result are under `timing/logs/t112-feedback-gate-99824a6/`.
+The earlier 358.816 s failed fixture gate remains there too: its initial passing fixture
+needed an explicit IO type, and its interruption scan missed a child created by a Lake
+worker thread. The corrected fixture writes directly to its original output handle; process
+scans cover every thread while preserving command, directory and group ownership checks.
+
+Native container controls verified the actual image digest, stdin, exit status, host TERM
+propagation and direct-container image provenance. A baseline now requires its final
+`run.finished` event. All 2,348 formerly indexed raw log files were removed from the index
+with their on-disk SHA-256 values unchanged; `git ls-files timing/logs` is empty.
