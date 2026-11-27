@@ -98,8 +98,8 @@ run_cmd do
         let #[terminal] := entered.filter (isEvent "statement.finished")
           | throwError "the original statement lost its one completed outcome"
         unless (events.filter (isEvent "statement.interrupted")).isEmpty &&
-            (dataOf started).getObjVal? "source" == .ok (toJson (statement.raw.reprint.getD "")) &&
-            (dataOf started).getObjVal? "position" == .ok (SourceSnapshot.spanJson
+            ((dataOf started).getObjVal? "source").toOption == some (toJson (statement.raw.reprint.getD "")) &&
+            ((dataOf started).getObjVal? "position").toOption == some (SourceSnapshot.spanJson
               ⟨input.toString, statement.raw.getPos?, statement.raw.getTailPos?⟩) do
           throwError "the phase control interrupted or changed its original source and position"
         let #[setup] := events.filter (isEvent "session.prepared")
@@ -117,7 +117,7 @@ run_cmd do
             ("kind", toJson run.outcome.kind), ("stratum", toJson run.outcome.stratum?),
             ("detail", toJson run.outcome.detail), ("attempted", toJson run.attempted),
             ("published", toJson run.published)] do
-          unless (dataOf terminal).getObjVal? field == .ok expected do
+          unless ((dataOf terminal).getObjVal? field).toOption == some expected do
             throwError "the terminal phase changed its actual outcome field {field}"
         unless ((dataOf terminal).getObjValAs? Nat "milliseconds").isOk do
           throwError "the terminal phase lost its measured statement duration"
@@ -148,7 +148,7 @@ run_cmd do
             for field in #["phase", "program", "transaction", "start"] do
               let .ok expected := (dataOf before).getObjVal? field
                 | throwError "a lower phase lost its original {field}"
-              unless (dataOf event).getObjVal? field == .ok expected do
+              unless ((dataOf event).getObjVal? field).toOption == some expected do
                 throwError "a nested lower phase changed its original {field}"
             unless sequenceOf before < sequenceOf event && timeOf before ≤ timeOf event do
               throwError "a lower phase completed before its actual start"
@@ -187,22 +187,22 @@ run_cmd do
           throwError "the execution changed its original prepared descriptor"
         let selectedPhase (name : String) : CommandElabM Json := do
           let #[event] := entered.filter fun event => isEvent name event &&
-              (dataOf event).getObjVal? "occurrence" == .ok occurrence
+              ((dataOf event).getObjVal? "occurrence").toOption == some occurrence
             | throwError "the actual request lost its one {name} boundary"
           return event
         let preparation ← selectedPhase "request.prepare.source.started"
-        unless (dataOf preparation).getObjVal? "program" == .ok program &&
+        unless ((dataOf preparation).getObjVal? "program").toOption == some program &&
             sequenceOf prepared < sequenceOf execution && sequenceOf execution < sequenceOf anchor do
           throwError "the original request changed its preparation or execution order"
         let some lower := lowerPairs.find? fun (before, after) =>
-            (dataOf before).getObjVal? "program" == .ok program &&
+            ((dataOf before).getObjVal? "program").toOption == some program &&
               sequenceOf reading < sequenceOf before && sequenceOf after < sequenceOf preparation
           | throwError "the actual request lost its completed lowering before preparation"
         let mut phases := #[(started, reading), lower, (preparation, prepared)]
         if peer then
-          unless (dataOf anchor).getObjVal? "registration" == .ok registration &&
-              (dataOf anchor).getObjVal? "program" == .ok program &&
-              (dataOf anchor).getObjVal? "occurrence" == .ok occurrence do
+          unless ((dataOf anchor).getObjVal? "registration").toOption == some registration &&
+              ((dataOf anchor).getObjVal? "program").toOption == some program &&
+              ((dataOf anchor).getObjVal? "occurrence").toOption == some occurrence do
             throwError "the dispatch phase changed its actual registration or request identity"
           let dispatched ← selectedPhase "dispatch"
           let reply ← selectedPhase "reply.admission.started"
@@ -218,8 +218,8 @@ run_cmd do
           let .ok transaction := (dataOf anchor).getObjVal? "transaction"
             | throwError "the actual dispatch lost its transaction identity"
           for event in #[admitStart, admitFinish, bindStart, bindFinish] do
-            unless (dataOf event).getObjVal? "program" == .ok program &&
-                (dataOf event).getObjVal? "transaction" == .ok transaction do
+            unless ((dataOf event).getObjVal? "program").toOption == some program &&
+                ((dataOf event).getObjVal? "transaction").toOption == some transaction do
               throwError "the actual reply changed its request program or transaction"
           phases := phases ++ #[(anchor, reply), (admitStart, admitFinish), (bindStart, bindFinish)]
         else
@@ -232,7 +232,7 @@ run_cmd do
               "execution.response.admit.started", "execution.response.admit.completed",
               "execution.response.retain.started", "execution.response.retain.completed"] do
             unless (entered.filter fun event => isEvent name event &&
-                (dataOf event).getObjVal? "occurrence" == .ok occurrence).isEmpty do
+                ((dataOf event).getObjVal? "occurrence").toOption == some occurrence).isEmpty do
               throwError "the missing occurrence fabricated a {name} phase"
         let mut previous := statementSequence
         for (before, after) in phases do
