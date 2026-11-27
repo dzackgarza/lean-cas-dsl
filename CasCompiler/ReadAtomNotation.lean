@@ -14,7 +14,7 @@ namespace ReadAtomNotation
 open SourceReader
 
 def ruleApplicable (context : ReadContext) :
-    TermElabM (Except MessageData NativeSourceJudgement) := do
+    SourceReadM (Except MessageData NativeSourceJudgement) := do
   let source := context.source
   let qualification := context.qualification
   let object := objectApplicable context
@@ -22,10 +22,10 @@ def ruleApplicable (context : ReadContext) :
     object name qualification #[]
   else throwReadRuleMismatch
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   match ← ruleApplicable context with
   | .ok value => pure value
-  | .error message => throwError message
+  | .error message => liftM (m := TermElabM) <| throwError message
 
 end ReadAtomNotation
 
