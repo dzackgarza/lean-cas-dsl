@@ -2,10 +2,12 @@ module
 
 import CasCatalogue.TestSuite
 import CasTools.QuestionObservation
+import CasCompiler.SourceTestSupport
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCatalogue.TestSuite
 meta import CasTools.QuestionObservation
+meta import CasCompiler.SourceTestSupport
 meta import LeanCategories.Catalogue
 
 open Lean Meta Elab Command Term CasCompiler CasRuntime CasCatalogue CasCatalogue.Backend
@@ -29,8 +31,8 @@ private def retainedStatementTerm (run : StatementRun) (scope : ContextTelescope
     throwError "the retained conclusion no longer identifies the original source question"
   return (conclusion, term)
 
-/-- Close the actual definition-only source prefix in the public report, retaining its
-native expressions and declared types. The control below checks both claims and evidence. -/
+
+
 private def closePreflightTerm (term : Json) : TermElabM (Expr × Expr) := do
   let .ok context := term.getObjValAs? (Array Json) "context"
     | throwError "the preflight reading lost its original context"
@@ -60,8 +62,22 @@ private def closePreflightTerm (term : Json) : TermElabM (Expr × Expr) := do
       | throwError "the preflight definition lost its type"
     let some type := nodes[typeIndex]?
       | throwError "the preflight definition type is outside its native graph"
-    let .ok valueIndex := entry.getObjValAs? Nat "value"
-      | throwError "the preflight definition lost its original value"
+    let valueIndex ← if entry.getObjValAs? String "role" == .ok "selectedStructure" then do
+        unless entry.getObjValD "value" == .null do
+          throwError "a retained selected source became an authored native definition"
+        let .ok selections := term.getObjValAs? (Array Json) "selections"
+          | throwError "the preflight reading lost its complete typed selections"
+        let rows := selections.filter fun row =>
+          row.getObjValD "binding" == entry.getObjValD "id"
+        unless rows.size == 1 do
+          throwError "the preflight selected source lost its exact unique binding row"
+        let .ok original := entry.getObjValAs? Nat "originalSource"
+          | throwError "the preflight selected source lost its native checking correspondence"
+        pure original
+      else do
+        let .ok original := entry.getObjValAs? Nat "value"
+          | throwError "the preflight definition lost its original value"
+        pure original
     let some value := nodes[valueIndex]?
       | throwError "the preflight definition value is outside its native graph"
     let .ok nondep := entry.getObjValAs? Bool "nondep"
@@ -74,8 +90,8 @@ private def closePreflightTerm (term : Json) : TermElabM (Expr × Expr) := do
   checkWithKernel (← mkExpectedTypeHint closed closedType)
   return (closed, closedType)
 
--- Reuse the existing SDK traffic peer and accepted integer operations. These controls
--- exercise public source scopes and the existing cell transaction, not a new provider law.
+
+
 set_option maxHeartbeats 2000000 in
 run_cmd do
   let root ← IO.currentDir
@@ -148,7 +164,7 @@ run_cmd do
     unless lost.outcome.kind == "invalid" do
       throwError "a local name escaped its context block"
 
-    -- All source is read before the first dispatch, even when an earlier child would compute.
+
     let beforeReadFailure ← liftTermElabM SessionSnapshot.current
     let beforeReadCalls := (← parent.kernel.dispatches.get).size
     let unread ← CasCatalogue.Language.runStatement parent
@@ -160,8 +176,8 @@ run_cmd do
     unless !unread.attempted && !unread.published do
       throwError "source preflight was reported as attempted execution or publication"
 
-    -- A later source error keeps the actual checked prefix, including the inner scope
-    -- and supplied proofs. None of this block enters execution; the outer scope resumes.
+
+
     let preflightFile := root / ".tmp/scoped-declaration-preflight-report.cas"
     let preflightSource :=
       "context do\n\
@@ -262,9 +278,9 @@ run_cmd do
     unless restoredOuter.getObjVal? "id" == .ok expectedOuter do
       throwError "the outer continuation no longer refers to its original source binding"
 
-    -- Two separate failed source preflights must keep their checked native match helpers
-    -- occupied before either retained proof is reopened. The second matcher has a different
-    -- arity, so restoring a colliding name with another checked body cannot satisfy this test.
+
+
+
     let beforeHelperState ← liftTermElabM SessionSnapshot.current
     let beforeHelperCalls := (← parent.kernel.dispatches.get).size
     let beforeHelperEnvironment ← liftTermElabM do
@@ -294,7 +310,7 @@ run_cmd do
         first.name != second.name)) do
       throwError "a later source preflight reused a retained checked declaration name"
     liftTermElabM do
-      -- Check eager preservation before withOpen's own dependency restoration can run.
+
       let environment := (← getEnv).setExporting false
       for original in firstHelpers ++ secondHelpers do
         let some current := environment.find? original.name
@@ -321,7 +337,7 @@ run_cmd do
         afterHelperState.outputBatches.size == beforeHelperState.outputBatches.size do
       throwError "retaining checked source helpers changed runtime traffic or publication"
 
-    -- This negative follows a real completed SDK call and explicit staged output.
+
     let beforeWrong ← liftTermElabM SessionSnapshot.current
     let beforeWrongCalls := (← parent.kernel.dispatches.get).size
     let wrong ← CasCatalogue.Language.runStatement parent
@@ -349,8 +365,8 @@ run_cmd do
         wrong.observations.all (fun row => !(row.outcome.any (fun outcome => outcome matches .holds))) do
       throwError "abort exposed an earlier staged success or changed the actual failing item"
 
-    -- The public file adapter preserves original IDs and the established outcome taxonomy.
-    -- An aborted or unexecuted child has no published answer; the actual failure stays wrong.
+
+
     let scopedFile := root / ".tmp/scoped-declaration-report.cas"
     let scopedSource :=
       "context do\n\
@@ -382,9 +398,9 @@ run_cmd do
         (← liftTermElabM SessionSnapshot.current).id == beforeFile.id &&
         fileSession.source.context.exactlyMatches parent.source.context do
       throwError "file reporting replayed execution, lost block provenance or published an aborted cell"
-    -- Each original ID retains its own full typed reading, including the rolled-back
-    -- success and the unexecuted continuation. Source spans distinguish the two equal
-    -- propositions without substituting an earlier question or rereading the file.
+
+
+
     let mut previousStop := 0
     let mut stagedIdentity : Option Json := none
     for row in rows, body in #["staged = 51 in ℤ", "staged = 0 in ℤ", "staged = 51 in ℤ"] do
@@ -463,8 +479,8 @@ run_cmd do
         throwError "a reported question escaped its complete original native context"
       liftTermElabM do
         checkWithKernel (← mkExpectedTypeHint closed closedType)
-    -- An older report may omit this additive source field. A present malformed value
-    -- remains an error rather than being treated as an absent reading.
+
+
     let some firstRow := rows[0]?
       | throwError "the report compatibility control lost its original first item"
     let .obj fields := toJson firstRow
@@ -482,8 +498,8 @@ run_cmd do
         (← liftTermElabM SessionSnapshot.current).id == beforeFile.id do
       throwError "observing reported source data executed or published another request"
 
-    -- A genuine missing installed operation follows a successful staged child; it is a gap,
-    -- and the containing context still has one all-or-nothing publication boundary.
+
+
     let beforeGap ← liftTermElabM SessionSnapshot.current
     let beforeGapCalls := (← parent.kernel.dispatches.get).size
     let gap ← CasCatalogue.Language.runStatement parent
@@ -503,19 +519,23 @@ run_cmd do
       | throwError "the failed block lost its actual failing item"
     let #[childConclusion] := failedChild.conclusions
       | throwError "the failed child discarded its original typed conclusion"
-    let some temporary := gapConclusion.context.context.entries.back?
+    let originalEntries ← liftTermElabM <|
+      SourceTest.authoredEntries parent.source.context parent.source.selections
+    let retainedEntries ← liftTermElabM <| SourceTest.authoredEntries
+      gapConclusion.context.context gapConclusion.context.selections
+    let some temporary := retainedEntries.back?
       | throwError "the failed child lost its original inner declaration"
     let afterGap ← liftTermElabM SessionSnapshot.current
     unless failedChild.attempted && gapConclusion.proof.isNone &&
         gapConclusion.context.context.exactlyMatches childConclusion.context.context &&
         gapTerm.source.context.exactlyMatches gapConclusion.context.context &&
-        gapConclusion.context.context.entries.size == parent.source.context.entries.size + 1 &&
+        retainedEntries.map (·.id) == (originalEntries.map (·.id)).push temporary.id &&
         temporary.userName == `temporary && temporary.role == .definition &&
         gap.inspectionOutput.isEmpty && afterGap.graph.sameRevision beforeGap.graph &&
         afterGap.outputBatches.size == beforeGap.outputBatches.size do
       throwError "retaining the failed inner request changed its source scope or block rollback"
 
-    -- A direct returned wrong outcome retains the existing question commit policy.
+
     let beforeDirect ← liftTermElabM SessionSnapshot.current
     let direct ← CasCatalogue.Language.runStatement parent "assert outer = 0 in ℤ"
     unless direct.outcome.kind == "wrong" && direct.published &&
@@ -523,7 +543,7 @@ run_cmd do
           beforeDirect.outputBatches.size + 1 do
       throwError "the new block runner changed direct question publication"
 
-    -- An unused abstract binder does not block a real concrete request in that same scope.
+
     let beforeConcrete := (← parent.kernel.dispatches.get).size
     let concrete ← CasCatalogue.Language.runStatement parent
       "context do\nlet unused ∈ CommutativeRings\nlet actual := outer + 4 in ℤ\nassert actual = 50 in ℤ\nend"
@@ -531,8 +551,8 @@ run_cmd do
         (← parent.kernel.dispatches.get).size == beforeConcrete + 1 do
       throwError "an unrelated hypothetical binder blocked the concrete selected request"
 
-    -- Abstract parameters remain formal; uniform definitions and native proof(h) retain
-    -- the complete actual context, and no concrete runtime parameter is fabricated.
+
+
     let beforeFormalCalls := (← parent.kernel.dispatches.get).size
     let beforeFormal ← liftTermElabM SessionSnapshot.current
     let formal ← CasCatalogue.Language.runStatement parent
@@ -557,7 +577,7 @@ run_cmd do
     unless assumptions.map (·.userName) == #[`R, `x, `y, `h] do
       throwError "the returned conclusion omitted original scoped parameters or hypotheses"
     for entry in retainedClaim.context.context.entries do
-      if entry.id != parentEntry.id then
+      if !(parent.source.context.entries.any (·.id == entry.id)) then
         unless (formal.session.value? entry.id).isNone &&
             !(formal.session.source.context.entries.any (·.id == entry.id)) do
           throwError "a scoped formal parameter acquired an escaping runtime binding"
@@ -647,7 +667,7 @@ run_cmd do
         afterMissing.outputBatches.size == beforeMissingState.outputBatches.size do
       throwError "retaining the failed implementation changed its selected source or publication"
 
-    -- Missing data on the right is prepared before the otherwise computable left can dispatch.
+
     let element ← CasCatalogue.Language.runStatement parent "let x ∈ ℤ"
     unless element.outcome.kind == "holds" do
       throwError "the independent formal element did not read"
@@ -673,8 +693,8 @@ run_cmd do
       unless ← isProp expression do
         throwError "the failed question no longer retains its original proposition type"
 
-  -- Computation-only mode retains supplied proof as source evidence, but still computes
-  -- the actual proposition through the same ordinary public question path.
+
+
   CasCatalogue.Language.withSession (some path) true fun initial => do
     let result ← CasCatalogue.Language.runStatement initial
       "assert (17 + 29 = 46 in ℤ) using (proof(rfl))"
@@ -682,8 +702,8 @@ run_cmd do
         result.conclusions.any (·.proof.isSome) &&
         (← initial.kernel.dispatches.get).map (·.operation) == #["op.rings.add"] do
       throwError "supplied evidence bypassed the computation-only question policy"
-    -- The supplied proof remains attached when the required computation throws on an
-    -- unsupplied parameter. It does not discharge the computation-only request.
+
+
     let formal ← CasCatalogue.Language.runStatement initial "let x ∈ ℤ"
     unless formal.outcome.kind == "holds" && !formal.published do
       throwError "the proved-failure control did not retain its formal parameter"
@@ -710,14 +730,16 @@ run_cmd do
           (← isDefEq (← inferType (← evidence.source.inContext context)) expression) do
         throwError "the retained proof no longer proves the exact original failed question"
 
-  -- Preserve the existing direct definition-gap contract without introducing another peer.
+
   let emptyPath := root / ".tmp/scoped-declaration-empty-leaves.json"
   IO.FS.writeFile emptyPath
     (Json.mkObj [("backends", .arr #[]), ("registrations", .arr #[])]).compress
   CasCatalogue.Language.withSession (some emptyPath) false fun initial => do
     let defined ← CasCatalogue.Language.runStatement initial "let a := 17 + 29 in ℤ"
+    let authored ← liftTermElabM <| SourceTest.authoredEntries
+      defined.session.source.context defined.session.source.selections
     unless defined.outcome.kind == "gap" && !defined.published &&
-        defined.session.source.context.entries.size == 1 do
+        authored.map (·.userName) == #[`a] do
       throwError "a direct missing computation discarded its actual source definition"
     let later ← CasCatalogue.Language.runStatement defined.session "assert a = 46 in ℤ"
     unless later.outcome.kind == "holds" do

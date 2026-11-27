@@ -2,13 +2,16 @@ module
 
 import CasCompiler.Read
 import CasCompiler.Parse
+import CasCompiler.SourceTestSupport
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import CasCompiler.Parse
+meta import CasCompiler.SourceTestSupport
 meta import LeanCategories.Catalogue
 
 open Lean Meta Elab Term CasCompiler CasCatalogue CasCatalogue.Language
+open CasCompiler.SourceTest
 
 private def readScopedStatement (session : SourceSession) (text : String) :
     TermElabM SourceStatement := do
@@ -19,15 +22,15 @@ private def readScopedStatement (session : SourceSession) (text : String) :
     | throwError "the scoped declaration control changed its public syntax"
   file.withContext <| session.readStatement statement
 
--- Public abstract forms introduce actual locals. The uniform numeral keeps that
--- original ring, and explicit proof uses the actual local hypothesis.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
   let environment ← getEnv
   let .assumption rings ← readScopedStatement empty "let R ∈ CommutativeRings"
     | throwError "the abstract category declaration did not introduce a local assumption"
-  let #[ring] := rings.context.entries
+  let #[ring] ← authoredEntries rings.context rings.selections
     | throwError "the abstract declaration changed the original source telescope"
   let category ← selectCategory (← semanticState) "CommutativeRings"
   let some selected := rings.categoryFor ring.id
@@ -43,14 +46,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "the hypothetical element acquired an invented definition"
   let .definition uniform one ← readScopedStatement elements "let one := 1 in R"
     | throwError "the abstract ring did not expose its declared uniform numeral"
-  one.source.withOpen fun bindings expression => do
-    let some actualRing := bindings.find? (·.id == ring.id)
+  checkSelected one fun expression => do
+    let scope ← get
+    let some actualRing := scope.context.bindings.find? (·.id == ring.id)
       | throwError "the uniform numeral lost its original abstract ring"
-    let selectedNumeral := expression.find? fun term => match term with
-      | .mdata data _ => data.getName `CasCompiler.source.kind == ``NumeralEntry &&
-          data.getString `CasCompiler.source.id == "num.rings"
-      | _ => false
-    unless expression.containsFVar actualRing.expression.fvarId! && selectedNumeral.isSome do
+    let some selected ← SourceReadM.selection? expression
+      | throwError "the uniform numeral lost its exact selected native binder"
+    let some (.numeral row) := selected.reference
+      | throwError "the uniform numeral lost its complete original numeral row"
+    let some application := selected.originalApplication
+      | throwError "the uniform numeral lost its complete original application"
+    unless row.id.raw == "num.rings" && application.getAppFn.isConstOf row.declaration &&
+        (← application.getAppArgs.anyM fun argument =>
+          originatesAt scope.context scope.selections argument actualRing.expression false) do
       throwError "the uniform numeral replaced its abstract input or selected family"
     check expression
   let .assumption assumptions ← readScopedStatement uniform "assume h : x = one"
@@ -62,18 +70,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let .proved proposition evidence ← readScopedStatement assumptions
       "assert x = one using (proof(h))"
     | throwError "the explicit proof did not retain its original proposition and evidence"
-  evidence.source.withOpen fun bindings expression => do
-    let context ← ContextTelescope.capture bindings
-    let some actualHypothesis := bindings.find? (·.id == hypothesis.id)
+  discard <| assumptions.elaborateScoped Syntax.missing do
+    let expression ← assumptions.readTerm evidence
+    let proposition ← assumptions.readTerm proposition
+    let scope ← get
+    let some actualHypothesis := scope.context.bindings.find? (·.id == hypothesis.id)
       | throwError "the source proof lost its actual local hypothesis"
-    let some actualRing := bindings.find? (·.id == ring.id)
+    let some actualRing := scope.context.bindings.find? (·.id == ring.id)
       | throwError "the source proof lost its original abstract ring"
-    let some actualElement := bindings.find? (·.id == element.id)
+    let some actualElement := scope.context.bindings.find? (·.id == element.id)
       | throwError "the source proof lost its original abstract element"
-    unless expression == actualHypothesis.expression &&
-        (← inferType actualElement.expression).containsFVar actualRing.expression.fvarId! do
-      throwError "the explicit proof or dependent element replaced its original source"
-    checkWithKernel (← mkExpectedTypeHint expression (← proposition.source.inContext context))
+    unless ← originatesAt scope.context scope.selections expression actualHypothesis.expression false do
+      throwError "the explicit proof replaced its original source hypothesis"
+    let dependent ← visitNativeData (fun term =>
+      originatesAt scope.context scope.selections term actualRing.expression false)
+      (← inferType actualElement.expression) false
+    unless dependent > 0 do
+      throwError "the dependent element replaced its original source ring"
+    checkOriginal #[expression, proposition] fun native => do
+      checkWithKernel (← mkExpectedTypeHint native[0]! native[1]!)
+    return expression
   let conclusion ← assumptions.conclusion #[proposition] (some evidence)
   unless conclusion.context.context.exactlyMatches assumptions.context &&
       conclusion.proof.isSome && conclusion.inspectAssumptions != "No local assumptions." do
@@ -99,14 +115,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless failure.toMessageData.hasTag (· == `CasCompiler.sourceFormalProof.typeMismatch) do
     throw failure
 
--- A parameterized category keeps the exact original abstract scalar in its complete
--- selected bundle; creating its object does not supply either parameter as runtime data.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
   let .assumption scalars ← readScopedStatement empty "let S ∈ Rings"
     | throwError "the parameterized-category control lost its abstract scalar"
-  let #[scalar] := scalars.context.entries
+  let #[scalar] ← authoredEntries scalars.context scalars.selections
     | throwError "the scalar declaration changed its original telescope"
   let some scalarCategory := scalars.categoryFor scalar.id
     | throwError "the scalar lost its originally selected category"
@@ -120,33 +136,34 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless moduleEntry.role == .parameter && moduleEntry.value.isNone &&
       selected.role == .object && selected.expression.syntacticEq expectedCategory.expression do
     throwError "the module became a concrete object or changed its category family"
-  discard <| modules.elaborate Syntax.missing fun context => do
+  discard <| modules.elaborateScoped Syntax.missing do
+    let scope ← get
+    let context := scope.context
     let some original := context.bindings.find? (·.id == scalar.id)
       | throwError "the complete module category lost its original scalar binding"
     let some object := context.bindings.find? (·.id == moduleEntry.id)
       | throwError "the complete module category lost its original object binding"
     let bundle ← selected.bundle.inContext context
-    let .mdata marker native := bundle
-      | throwError "the abstract module lost its selected category reference"
-    unless marker.getName `CasCompiler.source.kind == ``NamedCategoryEntry &&
-        marker.getString `CasCompiler.source.id == expectedCategory.id.raw &&
-        marker.getName `CasCompiler.source.declaration == expectedCategory.declaration do
-      throwError "the abstract module changed its originally selected category reference"
-    unless native.getAppFn.isConstOf expectedCategory.declaration &&
-        native.getAppArgs.size == 1 do
+    let expected ← sourceReferenceAt (.category expectedCategory) bundle bundle
+    unless scope.selections.toList.any (fun (_, retained) =>
+        retained.exactlyMatches Expr.equal expected) do
+      throwError "the abstract module changed its complete original category row"
+    unless bundle.getAppFn.isConstOf expectedCategory.declaration &&
+        bundle.getAppArgs.size == 1 do
       throwError "the abstract module changed the complete declared category application"
-    let some (actualCategory, actualScalar) ← sourceObjectOrigin? native.getAppArgs[0]!
+    let some (actualCategory, actualScalar) ← sourceObjectOrigin? bundle.getAppArgs[0]!
       | throwError "the parameterized category discarded its explicit source parameter"
-    unless actualScalar == original.expression && actualCategory.role == .object &&
+    unless (← originatesAt context scope.selections actualScalar original.expression) &&
+        actualCategory.role == .object &&
         actualCategory.expression.syntacticEq scalarCategory.expression &&
-        actualCategory.bundle == (← scalarCategory.bundle.inContext context) do
+        actualCategory.bundle.equal (← scalarCategory.bundle.inContext context) do
       throwError "the parameterized category replaced its original scalar or selected category"
     let expectedType ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
     checkWithKernel (← mkExpectedTypeHint object.expression expectedType)
     return bundle
 
--- The Unicode defined form retains concrete knowledge. Membership still defines a
--- proposition when its ordinary domain shadows a registered category name.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -164,12 +181,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let .definition _ expected ← readScopedStatement empty
       "let expected := ℚ in CommutativeRings"
     | throwError "the established concrete qualification did not read"
-  value.source.withOpen fun bindings expression => do
-    let context ← ContextTelescope.capture bindings
-    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression)
-      (← mkEq expression (← expected.source.inContext context)))
-  -- Transparent parentheses retain the complete original body span and the same
-  -- declared rational ring, including when the category itself is parenthesized.
+  discard <| empty.elaborateScoped Syntax.missing do
+    let expression ← empty.readTerm value
+    let expected ← empty.readTerm expected
+    checkOriginal #[expression, expected] fun native => do
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+        (← mkEq native[0]! native[1]!))
+    return expression
+
+
   for text in #["(ℚ ∈ CommutativeRings)", "((ℚ ∈ (CommutativeRings)))"] do
     let file ← SourceFile.parse "parenthesized-category.cas"
       s!"-- original qualification\nlet Q := {text}\n"
@@ -193,14 +213,30 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         actual.span.start.isSome && actual.span.stop.isSome &&
         actual.span.start == body.raw.getPos? && actual.span.stop == body.raw.getTailPos? do
       throwError "category qualification discarded the original outer parentheses span"
-    actual.source.withOpen fun bindings expression => do
-      let context ← ContextTelescope.capture bindings
-      unless expression == (← value.source.inContext context) &&
-          expression.containsConst (· == ``CasCatalogue.Algebra.NamedCommutativeRings.rationals) &&
-          (← selected.bundle.inContext context) == (← category.bundle.inContext context) do
+    discard <| empty.elaborateScoped Syntax.missing do
+      let expression ← empty.readTerm actual
+      let original ← empty.readTerm value
+      let expected ← empty.readTerm expected
+      let scope ← get
+      let some (actualRow, actualCategory) ←
+          sourceObjectSelection? scope.context scope.selections expression
+        | throwError "parentheses lost the rational ring's complete selected row"
+      let some (originalRow, originalCategory) ←
+          sourceObjectSelection? scope.context scope.selections original
+        | throwError "the original rational ring lost its complete selected row"
+      unless (sourceReference (.named (.registered (.inl actualRow) actualCategory)) expression).exactlyMatches
+          Expr.equal (sourceReference (.named (.registered (.inl originalRow) originalCategory)) expression) &&
+          actualRow.declaration == ``CasCatalogue.Algebra.NamedCommutativeRings.rationals do
         throwError "parentheses replaced the actual rational ring or its complete category"
-      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression)
-        (← mkEq expression (← expected.source.inContext context)))
+      checkOriginal #[expression, original, expected,
+          ← selected.bundle.inContext scope.context, ← category.bundle.inContext scope.context] fun native => do
+        unless (← isDefEq native[0]! native[1]!) &&
+            native[0]!.containsConst (· == ``CasCatalogue.Algebra.NamedCommutativeRings.rationals) &&
+            (← isDefEq native[3]! native[4]!) do
+          throwError "parentheses changed the original native rational ring or category"
+        checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+          (← mkEq native[0]! native[2]!))
+      return expression
   let .definition subsets _ ← readScopedStatement concrete
       "let CommutativeRings := {1, 2} in 𝒫(ℤ)"
     | throwError "the membership domain did not define its original subset"
@@ -230,17 +266,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         actual.span.start.isSome && actual.span.stop.isSome &&
         actual.span.start == body.raw.getPos? && actual.span.stop == body.raw.getTailPos? do
       throwError "ordinary membership discarded the original outer parentheses span"
-    actual.source.withOpen fun bindings expression => do
-      let some originalSubset := bindings.find? (·.id == subset.id)
+    discard <| subsets.elaborateScoped Syntax.missing do
+      let expression ← subsets.readTerm actual
+      let proposition ← subsets.readTerm proposition
+      let scope ← get
+      let some originalSubset := scope.context.bindings.find? (·.id == subset.id)
         | throwError "parenthesized membership lost its actual shadowing domain"
-      let context ← ContextTelescope.capture bindings
-      unless (← isProp expression) &&
-          expression == (← proposition.source.inContext context) &&
-          expression.containsFVar originalSubset.expression.fvarId! do
+      let usesSubset ← visitNativeData (fun term =>
+        originatesAt scope.context scope.selections term originalSubset.expression false) expression false
+      unless (← isProp expression) && usesSubset > 0 do
         throwError "parentheses changed membership in the original same-name local subset"
+      checkOriginal #[expression, proposition] fun native => do
+        unless ← isDefEq native[0]! native[1]! do
+          throwError "parentheses changed the original native membership proposition"
+      return expression
 
--- A block keeps typed children and original labels without extending its parent
--- source scope. Its retained local conclusion remains conditional after that boundary.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -266,8 +308,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless identity.getId == `scoped.local && label.getString == "local hypothesis" do
     throwError "the block changed its original question identity"
   let conclusion ← inner.conclusion #[proposition] (some evidence)
-  unless outer.context.entries.size == 1 && conclusion.context.context.entries.size == 4 &&
-      (conclusion.context.context.entries[3]?).map (·.role) == some .hypothesis do
+  let outerEntries ← authoredEntries outer.context outer.selections
+  let innerEntries ← authoredEntries conclusion.context.context inner.selections
+  unless outerEntries.size == 1 && innerEntries.size == 4 &&
+      (innerEntries[3]?).map (·.role) == some .hypothesis do
     throwError "scope exit discarded local assumptions or leaked a local binding"
   let file ← SourceFile.parse "outside-scope.cas" "let escaped := x"
   let #[item] := file.items | throwError "the scope-exit control did not parse"
