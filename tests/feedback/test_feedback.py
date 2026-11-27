@@ -1121,7 +1121,8 @@ class FeedbackTests(unittest.TestCase):
         log = control / "public-loop.log"
         with log.open("w") as output:
             result = subprocess.run(
-                ["just", "loop", "--extension", source.stem], cwd=ROOT,
+                ["just", "slow", "KM0 unchanged extension observation",
+                 "+CasCatalogue.TestSuite:leanArts", "--", "--extension", source.stem], cwd=ROOT,
                 stdout=output, stderr=subprocess.STDOUT, check=False)
         recorded = current_acceptance_result()
         self.assertTrue(recorded["complete"], log.read_text())
