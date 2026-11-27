@@ -3,6 +3,7 @@ module
 import CasCompiler.Read
 import CasCompiler.Parse
 import CasCompiler.Resolve
+import CasCompiler.SourceTestSupport
 import CasCompiler.RoutedMethodFamily
 import LeanCategories.Catalogue
 import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.ModuleKernelRestriction
@@ -10,11 +11,13 @@ public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import CasCompiler.Parse
 meta import CasCompiler.Resolve
+meta import CasCompiler.SourceTestSupport
 meta import CasCompiler.RoutedMethodFamily
 meta import LeanCategories.Catalogue
 meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.ModuleKernelRestriction
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
+open CasCompiler.SourceTest
 
 private def kernelSource (session : SourceSession) (text : String) : TermElabM SourceTerm := do
   let .ok stx := Parser.runParserCategory (← getEnv) `cas_term text
@@ -36,36 +39,40 @@ private def expectKernelFailure (action : TermElabM Unit) (errorPrefix : String)
   let some failure := failure | throwError "the ordinary subobject control was admitted"
   unless (← failure.toMessageData.toString).startsWith errorPrefix do throw failure
 
--- Check the actual source occurrence and native field path, not just definitional equality
--- of a newly evaluated kernel with the expected mathematical object.
+
+
 private def checkKernelProjection (term : SourceTerm) (root : BindingId)
-    (field : Name) (base : ClosedTerm) : MetaM Unit := do
+    (field : Name) (base : ClosedTerm) : TermElabM Unit := do
   let some category := term.category
     | throwError "the ordinary subobject projection lost its selected category"
   let role := if field == ``CategoryTheory.Comma.left then SourceCategoryRole.object else .morphism
   unless category.role == role && category.expression.syntacticEq Modules.Modules do
     throwError "the ordinary subobject projection changed its original base category or role"
-  let some selected ← term.source.inputProjectionAt #[] (term.source.context.entries.map (·.id))
-    | throwError "the ordinary subobject projection is not rooted in a retained input"
-  let .context selectedRoot := selected.target
-    | throwError "the ordinary subobject projection selected an argument instead of its binding"
-  unless selectedRoot == root &&
-      selected.path == #[``CategoryTheory.ObjectProperty.FullSubcategory.obj, field] do
-    throwError "the ordinary subobject projection selected a different occurrence or native field"
-  term.source.withOpen fun bindings value => do
-    let context ← ContextTelescope.capture bindings
-    let some original := bindings.find? (·.id == root)
+  checkSelected term fun expression => do
+    let scope ← get
+    let value ← selectedValue expression
+    let source ← ClosedTerm.close scope.context value
+    let some selected ← source.inputProjectionAt #[] (scope.context.bindings.map (·.id))
+      | throwError "the ordinary subobject projection is not rooted in a retained input"
+    let .context selectedRoot := selected.target
+      | throwError "the ordinary subobject projection selected an argument instead of its binding"
+    unless selectedRoot == root &&
+        selected.path == #[``CategoryTheory.ObjectProperty.FullSubcategory.obj, field] do
+      throwError "the ordinary subobject projection selected a different occurrence or native field"
+    let some original := scope.context.bindings.find? (·.id == root)
       | throwError "the ordinary subobject projection lost its retained source binding"
     let arrow ← mkProjection original.expression `obj
     let expected ← mkProjection arrow (if field == ``CategoryTheory.Comma.left then `left else `hom)
-    unless (← isDefEq value expected) &&
-        (← isDefEq (← category.bundle.inContext context) (← base.inContext context)) do
-      throwError "the ordinary subobject projection changed its complete native source"
-    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+    checkOriginal #[value, expected, ← category.bundle.inContext scope.context,
+        ← base.inContext scope.context] fun native => do
+      unless (← isDefEq native[0]! native[1]!) && (← isDefEq native[2]! native[3]!) do
+        throwError "the ordinary subobject projection changed its complete native source"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+        (← mkEq native[0]! native[1]!))
 
--- The unchanged kernel prefix of each existing file is read through its complete
--- projection and zero-composite questions. This focused frontend check stops at
--- restricted; the complete original RX08 files remain separate required consumers.
+
+
+
 private def checkOrdinaryKernel (path : String) : TermElabM Unit := do
   let file ← SourceFile.parse path (← liftM (m := IO) (IO.FS.readFile path))
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -76,11 +83,13 @@ private def checkOrdinaryKernel (path : String) : TermElabM Unit := do
     if let `(cas_item| test $id:ident $_:str : assert $body:cas_term) := item then
       let question ← try file.withContext (session.readQuestion body)
         catch error => throwError "original kernel question {id.getId}: {error.toMessageData}"
-      unless question.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
+      unless (question.source.context.entries.take session.context.entries.size).map (·.id) ==
+          session.context.entries.map (·.id) do
         throwError "the original kernel question lost its complete source context"
-      question.source.withOpen fun _ expression => do
-        unless ← isProp expression do throwError "the original kernel question is not a proposition"
-        check expression
+      checkSelected question fun expression => do
+        checkOriginal #[expression] fun native => do
+          unless ← isProp native[0]! do throwError "the original kernel question is not a proposition"
+          check native[0]!
       questions := questions.push (id.getId.toString (escape := false))
       continue
     let `(cas_item| $statement:cas_stmt) := item | continue
@@ -100,27 +109,33 @@ private def checkOrdinaryKernel (path : String) : TermElabM Unit := do
         | throwError "the ordinary kernel lost its selected result category"
       unless category.expression.syntacticEq Modules.Bilinear.Valued.Kernels.SubobjectsModules do
         throwError "the ordinary kernel acquired a different source result family"
-      value.source.withOpen fun bindings expression => do
-        let some projection := bindings.find? (·.id == original.id)
+      checkSelected value fun expression => do
+        let scope ← get
+        let some projection := scope.context.bindings.find? (·.id == original.id)
           | throwError "the ordinary kernel lost its original module map"
-        let declaration ← mkConstWithFreshMVarLevels
-          ``CasCatalogue.Modules.Bilinear.Valued.Kernels.kernelDeclaration
-        let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType declaration)
-        unless ← expandSourceStructures parameters do
-          throwError "the published kernel functor has inconsistent native parameters"
-        let family := mkAppN declaration parameters
-        let (domain, target) ← functorCategoryBundles family
-        let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[projection.expression]
-        unless ← isDefEq (← inferType arrow) (← mkAppM ``CategoryTheory.Bundled.α #[domain]) do
-          throwError "the published kernel functor has a different complete native input"
-        let family ← instantiateMVars family
-        if family.hasMVar || family.hasLevelMVar then
-          throwError "the published kernel functor lost an actual native parameter"
-        let expected ← functorObject family arrow (← instantiateMVars target)
-        unless expression.containsFVar projection.expression.fvarId! &&
-            (← isDefEq expression expected) do
-          throwError "the ordinary kernel replaced its actual input or published functor"
-        checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+        unless (← visitNativeData (fun term =>
+            originatesAt scope.context scope.selections term projection.expression false)
+            expression false) > 0 do
+          throwError "the ordinary kernel replaced its actual input"
+        checkOriginal #[expression, projection.expression] fun native => do
+          let declaration ← mkConstWithFreshMVarLevels
+            ``CasCatalogue.Modules.Bilinear.Valued.Kernels.kernelDeclaration
+          let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType declaration)
+          unless ← expandSourceStructures parameters do
+            throwError "the published kernel functor has inconsistent native parameters"
+          let family := mkAppN declaration parameters
+          let (domain, target) ← functorCategoryBundles family
+          let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[native[1]!]
+          unless ← isDefEq (← inferType arrow) (← mkAppM ``CategoryTheory.Bundled.α #[domain]) do
+            throwError "the published kernel functor has a different complete native input"
+          let family ← instantiateMVars family
+          if family.hasMVar || family.hasLevelMVar then
+            throwError "the published kernel functor lost an actual native parameter"
+          let expected ← functorObject family arrow (← instantiateMVars target)
+          unless ← isDefEq native[0]! expected do
+            throwError "the ordinary kernel replaced its published functor"
+          checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+            (← mkEq native[0]! expected))
     if name == `kernelObject || name == `kernelInclusion then
       let some original := session.context.entries.find? (·.userName == `K)
         | throwError "the original kernel result is absent"
@@ -157,9 +172,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   checkOrdinaryKernel
     "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/clarifications/rx08-ordinary-module-kernel.cas.proposal"
 
--- Equal definitions do not identify the selected category parameters. The same raw
--- subobject can be explicitly typed in either convertible complete category; each
--- projection must preserve the category that its source actually selected.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -172,8 +187,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let second ← session.namedCategory Syntax.missing "Modules" [.zero, .zero] #[secondRing]
   let firstSubobjects ← session.unaryCategory Syntax.missing ConstructorId.subobjects first
   let secondSubobjects ← session.unaryCategory Syntax.missing ConstructorId.subobjects second
-  let type ← session.elaborate Syntax.missing fun context => do
-    mkAppM ``CategoryTheory.Bundled.α #[← firstSubobjects.value.source.inContext context]
+  let type ← session.elaborateScoped Syntax.missing do
+    mkAppM ``CategoryTheory.Bundled.α #[← session.readTerm firstSubobjects.value]
   let session ← session.assumeTerm `raw type
   let raw ← session.term (← kernelNative "raw")
   let firstValue ← raw.inCategory firstSubobjects.expression firstSubobjects.value
@@ -195,15 +210,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       checkKernelProjection projected original.id field base
       let some category := projected.category
         | throwError "the projection lost its actual complete category"
-      projected.source.withOpen fun bindings _ => do
-        let context ← ContextTelescope.capture bindings
-        let some chosen := bindings.find? (·.id == chosen.id)
+      checkSelected projected fun _ => do
+        let scope ← get
+        let some chosen := scope.context.bindings.find? (·.id == chosen.id)
           | throwError "the actual category parameter is outside the original context"
-        let some unrelated := bindings.find? (·.id == unrelated.id)
+        let some unrelated := scope.context.bindings.find? (·.id == unrelated.id)
           | throwError "the distinct category parameter is outside the original context"
-        let bundle ← category.bundle.inContext context
-        unless bundle.containsFVar chosen.expression.fvarId! &&
-            !bundle.containsFVar unrelated.expression.fvarId! do
+        let bundle ← category.bundle.inContext scope.context
+        unless (← visitNativeData (fun term =>
+            originatesAt scope.context scope.selections term chosen.expression false) bundle false) > 0 &&
+            (← visitNativeData (fun term =>
+            originatesAt scope.context scope.selections term unrelated.expression false) bundle false) == 0 do
           throwError "the projection replaced its actual selected category parameter"
   expectKernelFailure (discard <| kernelSource session "raw.obj()")
     "no declared member family accepts this complete selected receiver"
@@ -212,8 +229,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   expectKernelFailure (discard <| kernelSource session "KFirst.obj(0)")
     "a selected subobject projection takes no additional source arguments"
 
--- The empty-return case is not an inherited-return bypass. A real nonidentity route
--- still requires actual lifting data, and a forged empty route is not first-hit source data.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let state ← semanticState
   let some method := state.methods.find? (·.id.raw == "meth.kernel")
@@ -233,3 +250,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let _ ← RoutedMethodFamily.forRoute { route with steps := #[] } method
       pure ())
     "the selected method route is not a complete first-hit source route"
+
+  let some first := route.steps[0]?
+    | throwError "the original inherited route lost its first structural edge"
+  unless !(first.source.syntacticEq first.target) do
+    throwError "the original inherited-route control lost its distinct first endpoints"
+  let changed : StructuralEdge := {
+    source := first.source
+    target := first.source
+    expression := .identity first.source
+    ref := first.ref }
+  let forged := { route with steps := route.steps.set! 0 changed }
+  unless forged.refs == route.refs && forged.source.syntacticEq route.source &&
+      forged.target.syntacticEq route.target do
+    throwError "the intermediate-edge control changed the route's original outer interface"
+  let failure : Option Exception ← withoutModifyingState do
+    try
+      discard <| RoutedMethodFamily.forRoute forged method
+      return none
+    catch failure => return some failure
+  let some failure := failure
+    | throwError "the source method accepted a substituted intermediate structural edge"
+  unless failure.toMessageData.hasTag (· == `CasCompiler.RoutedMethodFamily.invalidRoute) do
+    throw failure
