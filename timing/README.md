@@ -1279,8 +1279,8 @@ It therefore did not close T362. The complete record is
 
 | Operation | Calls per public check | Aggregate seconds | Priority and remedy | Remaining measured cost |
 | --- | ---: | ---: | --- | --- |
-| Command startup and report/corruption controls outside the native loop | 1 | 179.730219 | T360: retain the native encoded payload while changing the copied timing-event envelope | Pending the same public command |
-| Unchanged native module loop, including preparation and build | 1 | 163.228630 | Retain its complete inputs and observations | 163.228630 |
+| Command startup and report/corruption controls outside the native loop | 1 | 179.730219 | T360: retain the native encoded payload while changing the copied timing-event envelope | 23.203039 in the third current public run |
+| Unchanged native module loop, including preparation and build | 1 | 163.228630 | Retain its complete inputs and observations | 163.782905 in the third current run |
 
 The corruption control expanded a 1312017-byte native flat-file log into
 216799929 bytes when it decoded every payload and rewrote schema 1. A process
@@ -1291,5 +1291,80 @@ and renumbers sequence/parent references. Keeping schema 2 and its original
 data node tables preserves the same payload without that expansion. Only timing
 events need decoding to select the event to remove. All 600 assertion-call ASTs,
 including the 77 focused assertions and the 97 warm-control assertions, remain
-unchanged. The ordinary command and the procedure's comparable-run median must
-still meet the bound before this contingency and T362 close.
+unchanged by the transport-copy remedy.
+
+The corrected public command passed all 77 focused assertions three times on
+`28a2cb2e591d9dcd5897cfb762e4dae0f0add458`, with the same source and dependency
+tuple. The first run rebuilt the changed native consumers; the following runs
+used the resulting artifacts and executed both original fixtures again.
+
+| Measurement | Public seconds | Native loop seconds | Public time outside the native loop | Native run |
+| --- | ---: | ---: | ---: | --- |
+| 1 | 229.157272336 | 212.798151721 | 16.359120615 | `20261127T132008Z-loop.A4H50h` |
+| 2 | 169.035827514 | 151.223560763 | 17.812266751 | `20261127T132651Z-loop.t4R1IG` |
+| 3 | 186.985943714 | 163.782904807 | 23.203038907 | `20261127T132938Z-loop.S5rE95` |
+
+The public median is 186.985943714 s and the current public run is within 300 s.
+This ends the T360 contingency instance under the procedure; its standing
+checkbox remains unchecked. The remaining native and harness costs stay in the
+table for final performance work. These observations establish the bound and
+the asserted reporting behavior, not a controlled percentage speedup.
+
+The third run's native flat-file application log is 1312003 bytes. Its copied
+missing-timing control is 1451259 bytes, with all 2438 remaining events retaining
+schema 2 and their original encoded payloads. The actual collector rejects the
+missing attempted timing, and the shared checker rejects that incomplete
+evidence. The complete reports retain all nine original source occurrences.
+
+The public records and output hashes are in
+`timing/logs/t362-focused-28a2cb2/gate-{1,2,3}-result.json`. Their output SHA256
+values, in measurement order, are
+`51124c8bada018914e9af590a6f506f0b8e8231b160395bb9c6b0cfc44c6b9a9`,
+`ab2925b5fd41b56a3cf0d040f8abbfff0c011ebbab209c7ceb43b4598cc80aae`, and
+`dc3d74513651ceadfa5d594a3d5e845c975b531119507fb4d7889c69e2fa21b8`.
+T362's named check and source conditions hold. KM0's separate complete RX09,
+warm-consumer, full feedback and broad milestone checks remain required.
+
+## KM0 convergence: RX09 binding names, 2026-11-27
+
+The first three-control milestone attempt at `28a2cb2` took 138.008706086 s.
+The RX09 control could not start: the runner observed Lake process 856059 in
+the checkout. That process had exited before inspection; its owner was not
+established and no process was stopped. The empty-selection and missing-input
+controls passed. The complete failed attempt remains at
+`timing/logs/km0-runner-regressions-28a2cb2/gate-1-result.json`.
+
+After an empty process census, the same three-control command took
+160.712893663 s. Both infrastructure controls passed again. The complete RX09
+observation finished in 79.579761218 s with all five original occurrences and
+complete timing, but its test compared the source header token `constantOne(n)`
+with the binding name `constantOne`. That assertion stopped the control before
+its remaining report checks. The failed result and output are retained as
+`gate-2-result.json` in the same directory; the native run is
+`20261127T133700Z-slow.eJjEuQ`.
+
+The first `speckit-converge` pass appended T368 for this concrete control defect.
+The next `speckit-implement` pass projects the header token to its binding name,
+retaining the expected five names and all source, span, outcome, publication,
+timing and compact-report assertions. All 600 assertion calls remain. The T362
+focused method and the full warm method have unchanged ASTs.
+
+The corrected standalone command
+`just test-feedback FeedbackTests.test_extension_is_an_unchanged_kernel_observation`
+passed in 107.291501051 s (103.810 s inside unittest). It ran on `main` at
+`41532c4f3ee1a36d64e7e4c3280477120d950b24` with the one-line working-tree repair;
+the test-file SHA256 is
+`02fbebb4c0501672cf705c6cea0dfae564d0454394b2395463bd89cc0a13f75a`.
+The complete result is `timing/logs/t368-rx09-41532c4/gate-1-result.json`, with
+output SHA256
+`c839c8786163feb650aa089b0794020de41a9580fe53757e16ac581782298a2d`.
+This passes the original RX09 reporting assertions; its later mathematical
+rejection obligation remains with the RX09 extension milestone. The required
+current three-control group, standalone warm regression, full feedback suite
+and broad milestone run still follow.
+
+Three completed unscoped lifecycle logs from these attempts are retained by
+`timing/logs/km0-runner-regressions-28a2cb2/completed-application-logs/retention.json`.
+The receipt records their original paths and byte hashes, verified gzip copies,
+and closed-session terminals. Restore their original paths from those copies
+before any historical replay that needs them.

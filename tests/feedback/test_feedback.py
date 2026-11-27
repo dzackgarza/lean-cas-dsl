@@ -1195,7 +1195,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(observed["source_sha256"], hashlib.sha256(original).hexdigest())
         occurrences = observed["occurrences"]
         definitions = [line for line in original.decode().splitlines() if line.startswith("let ")]
-        self.assertEqual([line.split()[1] for line in definitions],
+        self.assertEqual([line.split()[1].partition("(")[0] for line in definitions],
                          ["R", "indices", "Y", "constantOne", "impossibleAdmission"])
         self.assertEqual(len(occurrences), len(definitions))
         for ordinal, (occurrence, definition) in enumerate(zip(occurrences, definitions, strict=True)):
