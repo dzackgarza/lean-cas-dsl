@@ -38,6 +38,7 @@ jobs:
           lint: false
           build: false
           auto-config: 'false'
+          use-github-cache: 'false'
       - name: Build the gate at the committed dependency revisions
         run: |
           uv sync --frozen --project .lake/packages/cas_leaf_contracts
@@ -65,6 +66,7 @@ jobs:
           test: 'false'
           lint: 'false'
           use-mathlib-cache: 'true'
+          use-github-cache: 'false'
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
       - name: Build and audit
         run: just test
@@ -95,6 +97,7 @@ jobs:
           test: 'false'
           lint: 'false'
           use-mathlib-cache: 'false'
+          use-github-cache: 'false'
       - name: Check candidate assertions against the accepted base ledger
         run: python3 head/scripts/check_acceptance_permanent.py --base base/CasAcceptance/Permanent/admitted.json
       - name: Run the suite at the base and at the head

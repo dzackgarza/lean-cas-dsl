@@ -1368,3 +1368,52 @@ Three completed unscoped lifecycle logs from these attempts are retained by
 The receipt records their original paths and byte hashes, verified gzip copies,
 and closed-session terminals. Restore their original paths from those copies
 before any historical replay that needs them.
+
+## KM0 complete feedback regressions on main, 2026-11-27
+
+At committed `main` revision `4bf885ec87eead951a9518476f167c87db57a1fc`, the
+required regression commands completed in sequence with unchanged source,
+inputs and dependency pins. Each elapsed time below measures the complete
+public command, including startup. The separately required warm regression
+retains all 97 assertions; the complete feedback suite retains all 22 controls.
+
+| Public command | Elapsed seconds | Result |
+| --- | ---: | --- |
+| `just test-feedback FeedbackTests.test_extension_is_an_unchanged_kernel_observation SuiteTests.test_empty_selection_is_a_current_failure SuiteTests.test_missing_input_is_infrastructure_failure` | 165.218963912 | All three controls pass |
+| `just test-feedback FeedbackTests.test_warm_consumer_executes_again --durations 0` | 365.788018949 | Complete standalone warm control passes |
+| `just test-feedback --durations 0` | 1304.093879002 | All 22 controls pass; 1300.654 s inside unittest |
+
+The complete command, revision, UTC start/end, status and output hash are in
+`timing/logs/km0-runner-regressions-4bf885e/gate-1-result.json`,
+`timing/logs/km0-warm-control-4bf885e/gate-1-result.json` and
+`timing/logs/km0-feedback-suite-4bf885e/gate-1-result.json`, respectively.
+Their output SHA256 values are
+`d738af679e05491684a03cebfc7cc7e736e44d34485f388e736b62c3564ed2aa`,
+`988b5a8a44a3adb9af6908db903401ca76d788e0642cdc1884e5a542e05ddb4e`
+and `35e4af6b502a3da952552e5a84570040eddb2460d7a25c375c552e9ca5019f1e`.
+
+The suite includes the original T300 peer/unread-source checks, the complete
+T362 source-occurrence control, the corrected RX09 observation, interruption
+and partial-report rejection, actual failure records, retained warm setup,
+nested publication, parse rejection and corruption controls. Legitimate
+mathematical failures in negative runner controls remain failures in their
+native reports. No assertion or input was removed. The standalone warm
+regression is explicitly a long milestone check; its elapsed time does not
+replace T114's bounded changed-owner check or T362's three focused measurements.
+The broad milestone invocation remains required after the clean checkpoint.
+
+After these commands ended, a fresh process census found no native or feedback
+writer in the checkout. Under the existing append lock, all 173 current global
+computation rows were retained in
+`timing/history/computations-through-20261127T143052Z.jsonl.gz` and its adjacent
+verification manifest. The original 80564861 bytes have SHA256
+`55dec1fd982531d995426914845c9530d4be69616e346432554266e5f4ebc8c5`;
+the 1648668 compressed bytes have SHA256
+`c68cbfcd10146dbe70dfc71417ee7c7a86423eadc31d03e5693848148eb81f10`.
+The archive and manifest were durably written and decompression was compared
+byte for byte before the live append file was cleared. Earlier archives are
+unchanged. Three additional closed-session application logs, totaling 759283
+expanded bytes, are retained with their original paths, event counts and
+hashes in
+`timing/logs/km0-feedback-suite-4bf885e/completed-application-logs/retention.json`;
+restore their recorded canonical paths before historical replay.

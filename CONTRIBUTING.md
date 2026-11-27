@@ -133,8 +133,10 @@ dependency workspace when reconciling branches. Dependency refresh and SDK setup
 operations. T352 separately retains the published research-image port and its full acceptance.
 
 Construction CI prepares the candidate and each comparison side from its own committed
-`lake-manifest.json` with `scripts/ci_chain.py --manifest-revisions` before restoring the
-Lean build cache. These checks preserve the selected tuple and never refresh its lock.
+`lake-manifest.json` with `scripts/ci_chain.py --manifest-revisions` before retrieving
+Mathlib's compiled artifacts. The action's whole-`.lake` GitHub cache is disabled so it
+cannot overwrite these source checkouts or their Git metadata. These checks preserve
+the selected tuple and never refresh its lock.
 `just build` provisions the selected contract SDK before Python test discovery and runs
 those tests in that SDK's frozen project environment. T352 still requires the complete
 published-image port and its original acceptance; T105 still requires compatible
