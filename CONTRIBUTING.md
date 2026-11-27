@@ -85,6 +85,32 @@ states, and write "expected about N s from M records" into the check. A check ov
 the cases that the task owns. For a new target, name one small module or one statement, preserve its exact assertions,
 and record the elapsed command on its first executable revision.
 
+**SPEC007 — establish the starting state.** Identify the implementation revision on which
+the check depends. Inspect the relevant working-tree changes. If an inherited change supplies
+a prerequisite, identify its owner and put it before the consumer. T351 made the inherited
+kernel work attributable. A passing run in that checkout alone could not show which task
+supplied the behavior. State a shared baseline once and record exceptions on their tasks.
+
+**SPEC008 — trace each required observation to its producer.** Follow the named input to
+the code that first knows the required fact, then follow that fact to the check. T112's
+runner can measure a module invocation. Timing the phases inside a statement requires
+events from the kernel session. Assign those events to their producer before requiring
+a consumer to report them.
+
+**SPEC009 — specify the lifetime of each required output.** When a task requires a record,
+name its contents, destination, and retention on success, failure or interruption as
+applicable. State which part enters Git. For T112 the compressed raw log stays on disk.
+The committed timing row contains its path and hash. Both are needed to find and verify
+the evidence.
+
+**SPEC010 — test the reasoning behind the check.** Trace the actual input and assertion
+in both directions. Could the intended implementation fail because an unrelated mechanism
+is missing? T127's pullback input needed unfinished limit handling before it could exercise
+dispatch logging. Could the check pass with the required behavior missing? A nonempty log
+can omit the dispatch event entirely. Use an input known to reach dispatch and check the
+event's registration and parent statement. Preserve the pullback obligation at its owner.
+For a proposed test, distinguish verified prerequisites from the behavior the task will add.
+
 ## Feedback loops
 
 Use the selected toolchain and dependency tuple of the kernel implementation worktree (locate it

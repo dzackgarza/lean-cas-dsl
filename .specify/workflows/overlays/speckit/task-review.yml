@@ -1,0 +1,20 @@
+id: task-review
+extends: speckit
+edits:
+- replace: tasks
+  step:
+    id: tasks
+    command: speckit.tasks
+    integration: '{{ inputs.integration }}'
+    input:
+      args: '{{ inputs.spec }}
+
+        Apply the task contribution rules in CONTRIBUTING.md, including SPEC007 through SPEC010.'
+- insert_after: tasks
+  step:
+    id: analyze
+    command: speckit.analyze
+    integration: '{{ inputs.integration }}'
+    input:
+      args: Apply the repository review instructions in AGENTS.md and SPEC007 through SPEC010 in CONTRIBUTING.md. Trace the
+        checks against source and report findings by task ID.
