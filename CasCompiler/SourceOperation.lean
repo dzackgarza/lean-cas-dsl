@@ -338,32 +338,37 @@ private def operationAgreement (left right : Expr) (evidence : Array Expr)
         liftM (m := MetaM) checked.restore
         discard <| SourceReadM.selection? right
         return proof
-  let agrees ← (← get).context.withOriginalSources (#[left, right] ++ evidence) fun values =>
-    return (← sourceFamilyConversion values[0]! values[1]!
-      (values.extract 2 values.size)).isSome
-  unless agrees do liftM (m := TermElabM) <| throwSemanticAmbiguity failure
-  let selected := (← SourceReadM.selection? right).getD { value := right }
-  let nativeFits ← liftM (m := MetaM) <| withoutModifyingState do
-    isDefEq (← inferType right) (← inferType left)
-  let right ← if nativeFits then do
-
-
-      let agrees ← liftM (m := MetaM) do
+  SourceReadM.proveOriginal (#[left, right] ++ evidence)
+    (fun sources => do
+      let left := sources[0]!
+      let right := sources[1]!
+      if left.hasMVar || left.hasLevelMVar || right.hasMVar || right.hasLevelMVar then
+        throwError "whole source family comparison requires rigid parameters and universes"
+      unless ← isDefEq (← inferType left) (← inferType right) do
+        throwSemanticAmbiguity failure
+      return ← mkEq left right)
+    (fun proposition sources => do
+      let proposition ← whnfR proposition
+      unless proposition.isAppOfArity ``Eq 3 do
+        throwError "the source operation lost its complete agreement proposition"
+      let some proof ← sourceFamilyConversion proposition.getAppArgs[1]!
+          proposition.getAppArgs[2]! (sources.extract 2 sources.size)
+        | throwSemanticAmbiguity failure
+      return proof)
+    (do
+      let selected := (← SourceReadM.selection? right).getD { value := right }
+      let nativeFits ← liftM (m := MetaM) <| withoutModifyingState do
         isDefEq (← inferType right) (← inferType left)
-      unless agrees do
-        liftM (m := TermElabM) <| throwError
-          "the source operation agreement changed its checked native type"
-      pure right
-    else
-      SourceReadM.select { selected with value := right } (some (← inferType left))
-  SourceReadM.prove (← mkEq left right) (fun proposition sources => do
-    let proposition ← whnfR proposition
-    unless proposition.isAppOfArity ``Eq 3 do
-      throwError "the source operation lost its complete agreement proposition"
-    let some proof ← sourceFamilyConversion proposition.getAppArgs[1]!
-        proposition.getAppArgs[2]! sources
-      | throwSemanticAmbiguity failure
-    return proof) evidence
+      let right ← if nativeFits then do
+          let agrees ← liftM (m := MetaM) do
+            isDefEq (← inferType right) (← inferType left)
+          unless agrees do
+            liftM (m := TermElabM) <| throwError
+              "the source operation agreement changed its checked native type"
+          pure right
+        else
+          SourceReadM.select { selected with value := right } (some (← inferType left))
+      return ← mkEq left right)
 
 
 

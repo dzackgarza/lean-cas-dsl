@@ -160,6 +160,16 @@ private def ContextTelescope.withOpenCore [Monad m] [MonadControlT MetaM m]
 
 
 opaque ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenContext := do
+  let phase : String → MetaM Unit := fun event => do
+    try
+      let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+      let instances ← getLocalInstances
+      liftM (m := CoreM) <| CasTools.Diagnostics.emit event (Json.mkObj [
+        ("heartbeats", toJson heartbeats),
+        ("bindings", toJson bindings.size),
+        ("instances", toJson instances.size)])
+    catch _ => pure ()
+  phase "source.context.capture.started"
   let declarations := (← getLCtx).foldl (fun result decl => result.push decl) #[]
   unless declarations.size == bindings.size do
     throwError "context capture requires a complete ordered binding map"
@@ -193,11 +203,14 @@ opaque ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenCont
     unless (← isClass? (← inferType selected.fvar)) == some selected.className do
       throwError "a selected local instance has an incompatible source class"
     instances := instances.push ⟨selected.className, binding⟩
+  phase "source.context.capture.closedPrefix.finished"
   let declarations ← NativeDeclarations.capture <|
     entries.flatMap fun entry => #[entry.type] ++ entry.value.toArray ++ entry.originalSource.toArray
+  phase "source.context.capture.nativeDependencies.finished"
   let telescope : ContextTelescope := ⟨entries, instances, declarations⟩
   if entries.any (·.originalSource.isSome) then
     telescope.withOpenCore true fun _ => pure ()
+  phase "source.context.capture.originalSources.finished"
   return ⟨telescope, bindings⟩
 
 
