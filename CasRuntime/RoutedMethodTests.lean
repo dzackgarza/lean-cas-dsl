@@ -44,15 +44,15 @@ private def value (session : KernelSession) (name : Name) : MetaM ValueBinding :
     | throwError "the original source binding {name} has no actual value"
   return binding
 
-/-- Intercept the final real method application before Execute.run owns it. Every setup demand
-uses the production executor and resolver. Throwing only outside that interpreter leaves the
-cell available for the structural selection/packet checks; no method response is fabricated. -/
+
+
+
 private def captureMethod (kernel : Kernel) (transaction : CellTransaction)
     (action : SourceEvaluation → MetaM ValueBinding) :
     MetaM (PreparedRequest × PreparedMethodRoute) := do
   let captured ← IO.mkRef (none : Option
     (PreparedRequest × PreparedRequest × Array FieldLayout × Array ValueBinding))
-  let evaluate : SourceEvaluation := fun cell program context bound expression => do
+  let evaluate : SourceEvaluation := fun cell program context bound selections expression => do
     let handler : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
       fun request current => do
         if let .apply callable _ _ := request.action then
@@ -67,15 +67,15 @@ private def captureMethod (kernel : Kernel) (transaction : CellTransaction)
         let response ← Execute.run kernel.executor
           (PFunctor.FreeM.lift (P := OperationalSignature) request) current
           (some (kernel.resolveFixedInput
-            (fun cell _ context bound expression => kernel.run cell context bound expression)
+            (fun cell _ context bound selections expression => kernel.run cell context bound expression (selections := selections))
             current program))
         return (response, current)
     lowerTerm {
-      ledger := kernel.ledger, transaction := cell, codes := kernel.codes, marks := kernel.marks
+      ledger := kernel.ledger, transaction := cell, codes := kernel.codes
       run := fun computation => do
         let (value, _) ← handler.run computation cell
         return value }
-      program context bound expression
+      program context bound expression (selections := selections)
   let failure : Option Exception ← try
     discard <| action evaluate
     pure none
@@ -86,8 +86,8 @@ private def captureMethod (kernel : Kernel) (transaction : CellTransaction)
   return (request, ← PreparedMethodRoute.prepare kernel (← transaction.view)
     request original path captures)
 
-/-- Exercise the complete original reader output through production Lower, including exact
-receiver-slot recovery. The capture is solely a stop before a mathematical method result. -/
+
+
 private def prepare (session : KernelSession) (transaction : CellTransaction)
     (term : SourceTerm) : MetaM (PreparedRequest × PreparedMethodRoute) :=
   term.source.withOpen fun bindings expression => do
@@ -96,8 +96,9 @@ private def prepare (session : KernelSession) (transaction : CellTransaction)
     for binding in bindings do
       if let some value := session.value? binding.id then bound := bound.insert binding.id value
     let program ← session.kernel.ledger.owners.identities.fresh .program
+    let selections ← term.selections.inContext context
     captureMethod session.kernel transaction fun evaluate =>
-      evaluate transaction program context bound expression
+      evaluate transaction program context bound selections expression
 
 private def manifest (operation : String) (inputs : Array String) : MetaM Manifest := do
   let packet := Json.mkObj [
@@ -115,7 +116,7 @@ private def select (route : PreparedMethodRoute) (inputs : Array String) :
   route.select profile installed
 
 private def evaluate (kernel : Kernel) : SourceEvaluation :=
-  fun transaction _ context bound expression => kernel.run transaction context bound expression
+  fun transaction _ context bound selections expression => kernel.run transaction context bound expression (selections := selections)
 
 private def sameExactInput (left right : ValueBinding) : Bool :=
   left.value == right.value && left.associationIds == right.associationIds
@@ -124,9 +125,9 @@ private def sameInput (original current : ValueBinding) : Bool :=
   original.value == current.value &&
     original.associationIds.toList.isPrefixOf current.associationIds.toList
 
--- Rank's accepted declaration has one universe, while its nominal owner has independent
--- scalar and module universes. The complete source family retains the declaration's diagonal
--- relation at an arbitrary universe; it neither defaults to zero nor widens to other fibres.
+
+
+
 run_cmd liftTermElabM do
   let state ← semanticState
   let #[entry] := state.methods.filter (·.id.raw == "meth.rank")
@@ -154,7 +155,11 @@ run_cmd liftTermElabM do
       throwError "the rank owner did not retain its declared universe relation"
     let #[action] ← family.specializeActions [arbitraryLevel] parameters
       | throwError "the rank owner acquired a synthetic route action"
-    let #[(_, supplied)] ← routedActionParameters (.functor family.functor.id) action
+    let #[actionFamily] := family.actionFamilies
+      | throwError "the rank action lost its complete original family row"
+    unless actionFamily.edge == .functor family.functor.id do
+      throwError "the rank action changed its exact original edge"
+    let #[(_, supplied)] ← routedActionParameters actionFamily action
       | throwError "the rank action lost its original explicit parameter position"
     unless supplied.consumeMData == ring do
       throwError "the rank action reconstructed its whole original ring parameter"
@@ -181,9 +186,9 @@ run_cmd liftTermElabM do
     if ← withoutModifyingState <| isDefEq (mkAppN category parameters) independent then
       throwError "the rank declaration was widened to independent module and scalar universes"
 
--- These are source/interface and dispatch controls only. The accepted native methods, routes,
--- object constructors and parameter telescopes supply every mathematical declaration. No leaf
--- computes a cardinality, rank, kernel or a replacement mathematical result in this module.
+
+
+
 set_option maxHeartbeats 2000000 in
 run_cmd liftTermElabM do
   let environment ← getEnv
@@ -212,7 +217,7 @@ run_cmd liftTermElabM do
         let before ← transaction.view
         failureAt .noImplementation do
           discard <| select route #[]
-        -- The old generic dependentContext input is not a released method boundary.
+
         failureAt .noImplementation do
           discard <| select route #[s!"{route.family.entry.id.raw}#input"]
         let some sourceBoundary := route.boundaries[0]?
@@ -225,7 +230,7 @@ run_cmd liftTermElabM do
           | throwError "the owner method has no complete registered category"
         failureAt .ambiguousRealization do
           discard <| select route #[sourceForm, ownerForm]
-        -- Occurrence counting also rejects one triple admitted at two boundary positions.
+
         failureAt .ambiguousRealization do
           let installed ← manifest route.family.entry.id.raw #[sourceForm]
           let profile ← RealizationProfile.prepare installed none
@@ -245,9 +250,9 @@ run_cmd liftTermElabM do
         let .registration _ := selection.realization
           | throwError "the selected protocol control became a mathematical derivation"
         let calls ← IO.mkRef 0
-        let ordinary : SourceEvaluation := fun cell program context bound expression => do
+        let ordinary : SourceEvaluation := fun cell program context bound selections expression => do
           calls.modify (· + 1)
-          evaluate session.kernel cell program context bound expression
+          evaluate session.kernel cell program context bound selections expression
         let selected ← selection.materialize session.kernel ordinary request transaction
         unless (← calls.get) == offset do
           throwError "the method executed more than the uniquely selected prefix"
@@ -281,11 +286,10 @@ run_cmd liftTermElabM do
             let .apply callable arguments values := request.action
               | throwError "the method scope control lost its original application"
             let graph ← transaction.view
-            let marks ← session.kernel.marks.get
             let mut actual := #[]
             for value in values, index in [:values.size] do
               if let some value := value then
-                let .ok argument := RuntimeArgument.ofValue graph index value marks
+                let .ok argument := RuntimeArgument.ofValue graph index value
                   | throwError "the method scope control lost an original argument"
                 actual := actual.push argument
             let mut parameters := #[]
@@ -296,6 +300,8 @@ run_cmd liftTermElabM do
                 parameters := parameters.push parameter
             PreparedRequest.forApplication session.kernel.ledger.owners.identities
               request.program request.occurrence context callable arguments actual parameters
+              (selections := ← request.environment.selections.inContext context)
+              (selectionBinding := request.selectionBinding)
           unless rebuilt.occurrence == request.occurrence &&
               rebuilt.roles.scope != request.roles.scope do
             throwError "the method scope control did not rebuild the same occurrence"
@@ -333,31 +339,48 @@ run_cmd liftTermElabM do
             | some (.functorImage ..) | some (.edgeImage ..) => true
             | _ => false)
           | throwError "the selected intermediate route lost its published image form"
-        withSourceScope request fun context _ => do
-          let source ← selected.receiverSource.inContext context
-          let childFamily ← RoutedMethodFamily.forSelection intermediate.category
-            route.family.entry.id.raw
-            (route.family.route.refs.extract offset route.family.route.refs.size)
-          unless ← CasRuntime.RoutedMethodFamily.admitsSourceForm childFamily source imageForm do
-            throwError "the original native object-action spine rejected its image form {imageForm}: {source}"
-          let .mdata metadata unmarked := source
-            | throwError "the selected method image lost its original source witness"
-          unless metadata.getName `CasCompiler.source.kind == ``EdgeRef do
-            throwError "the selected method image changed its source witness kind"
-          let .ok (edge : EdgeRef) := (Json.parse (metadata.getString `CasCompiler.source.id)).bind fromJson?
-            | throwError "the selected method image lost its complete original edge"
-          unless route.family.route.refs[offset - 1]? == some edge do
-            throwError "the selected method image changed its original edge identity"
-          if ← CasRuntime.RoutedMethodFamily.admitsSourceForm childFamily unmarked imageForm then
-            throwError "an unselected native image recovered a catalogue address from its declaration"
-          let declaration := metadata.getName `CasCompiler.source.declaration
-          let direct := match edge with
-            | .functor id => some (sourceReference ``EdgeRef.functor id.raw declaration unmarked)
-            | .classifierForget id => some (sourceReference ``EdgeRef.classifierForget id.raw declaration unmarked)
-            | .constructMap .. => none
-          if let some direct := direct then
-            unless ← CasRuntime.RoutedMethodFamily.admitsSourceForm childFamily direct imageForm do
-              throwError "the original source-reader image reference lost its selected form"
+        withSourceScope request fun context bound =>
+          selected.environment.withContext context bound fun context _ => do
+            let selections ← selected.environment.selections.inContext context
+            let source ← selected.receiver.selectedSource context
+            let childFamily ← RoutedMethodFamily.forSelection intermediate.category
+              route.family.entry.id.raw
+              (route.family.route.refs.extract offset route.family.route.refs.size)
+            unless ← CasRuntime.RoutedMethodFamily.admitsSourceForm
+                context selections childFamily source imageForm do
+              throwError "the original native object-action spine rejected its image form {imageForm}: {source}"
+            let some original := selections.findAt? context source
+              | throwError "the selected method image lost its original source witness"
+            let some application := original.application
+              | throwError "the selected method image lost its complete source application"
+            let .objectAction originalFamily := application.family
+              | throwError "the selected method image changed its source witness kind"
+            let edge := originalFamily.edge
+            unless route.family.route.refs[offset - 1]? == some edge do
+              throwError "the selected method image changed its original edge identity"
+            if ← CasRuntime.RoutedMethodFamily.admitsSourceForm
+                context selections childFamily original.value imageForm then
+              throwError "an unselected native image recovered a catalogue address from its declaration"
+            let direct ← match edge with
+              | .functor id => do
+                let #[.functor entry] := originalFamily.references
+                  | throwError "the selected image lost its complete original functor row"
+                unless entry.id == id do
+                  throwError "the selected image changed its exact functor reference"
+                pure (some ({ original with reference := some (.functor entry) } : SourceSelection Expr))
+              | .classifierForget id => do
+                let #[.classifierForget entry] := originalFamily.references
+                  | throwError "the selected image lost its complete original classifier row"
+                unless entry.id == id do
+                  throwError "the selected image changed its exact classifier reference"
+                pure (some ({ original with reference := some (.classifierForget entry) } : SourceSelection Expr))
+              | .constructMap .. => pure none
+            if let some direct := direct then
+              selections.withBinding session.kernel.ledger.owners.identities context direct
+                fun context selections directSource => do
+                  unless ← CasRuntime.RoutedMethodFamily.admitsSourceForm
+                      context selections childFamily directSource imageForm do
+                    throwError "the original source-reader image reference lost its selected form"
         let connection ← session.kernel.ledger.owners.spawn { cmd := "/bin/cat" }
         try
           let graph ← transaction.view
@@ -410,8 +433,8 @@ run_cmd liftTermElabM do
           throwError "the native input projections in method preparation dispatched a provider"
       finally discard <| transaction.abort
 
-      -- The actual group-arrow method sends one Arrow view rooted at the original native
-      -- parent. Its equal but separately declared endpoints remain distinct scoped values.
+
+
       let term ← readTerm session "equal_ends.ker()"
       let transaction ← CellTransaction.begin session.kernel.ledger
       let connection ← session.kernel.ledger.owners.spawn { cmd := "/bin/cat" }
@@ -489,8 +512,8 @@ run_cmd liftTermElabM do
         discard <| transaction.abort
         session.kernel.ledger.owners.close connection.generation
 
-      -- The rank functor's explicit ring parameter is the actual selected RingCat value.
-      -- These independent equal source definitions must retain distinct parameter nodes.
+
+
       for text in #["let Qfirst := ℚ in CommutativeRings", "let Qsecond := ℚ in CommutativeRings",
           "let Rfirst := view Qfirst along «fun.commutative_rings.ring»()",
           "let Rsecond := view Qsecond along «fun.commutative_rings.ring»()",
@@ -562,9 +585,9 @@ run_cmd liftTermElabM do
             finally session.kernel.ledger.owners.close connection.generation
         finally discard <| transaction.abort
 
-      -- A category input need not have its own source-session name. The original receiver's
-      -- exact descriptor slot is its authority; evaluating the same closed ring again would
-      -- create a different occurrence and is not parameter recovery.
+
+
+
       session ← define session
         "let Mclosed := RegularModule(view (ℚ in CommutativeRings) along «fun.commutative_rings.ring»())"
       let moduleValue ← value session `Mclosed
@@ -589,8 +612,8 @@ run_cmd liftTermElabM do
         unless sameInput ringSlot.binding parameter && sameInput moduleValue invocation.receiver do
           throwError "the rank call reconstructed its unbound category parameter from a source term"
       finally discard <| transaction.abort
-      -- A morphism method keeps its native Arrow wrapper and the hom producer's exact
-      -- category inputs. Forgetting commutativity is a complete input-derived record view.
+
+
       for text in #[
           "let firstScalar := ℚ in CommutativeRings",
           "let secondScalar := ℚ in CommutativeRings",
@@ -615,8 +638,8 @@ run_cmd liftTermElabM do
           dbg_trace "[routed.scalar] after method preparation {text}"
           unless route.family.entry.id.raw == "meth.arrow_ker" && route.family.route.refs.isEmpty do
             throwError "the original module-arrow method changed its selected source route"
-          -- The existing hom is selected through its actual Arrow before its producer slots
-          -- are read. Publication retains the stored node and its complete baseline chain.
+
+
           do
             let graph ← transaction.view
             let .ok (some (stored, remaining)) :=
@@ -628,16 +651,22 @@ run_cmd liftTermElabM do
             unless remaining.isEmpty && sameInput (← value session projectionName) stored &&
                 sameExactInput stored published do
               throwError "the method hom projection changed its original input or baseline"
-          let parameter ← withSourceScope request fun context bound => do
-            let some action := route.actions.back?
-              | throwError "the module-arrow method lost its final native action"
-            let #[(_, source)] ← routedActionParameters (.functor route.family.functor.id)
-                (← action.inContext context)
-              | throwError "the module-arrow method lost its original ring parameter"
-            dbg_trace "[routed.scalar] before category evaluation {text}"
-            let value ← session.kernel.run transaction context bound source
-            dbg_trace "[routed.scalar] after category evaluation {text}"
-            return value
+          let parameter ← withSourceScope request fun context bound =>
+            route.environment.withContext context bound fun context bound => do
+              let some action := route.actions.back?
+                | throwError "the module-arrow method lost its final native action"
+              let some actionFamily := route.family.actionFamilies.back?
+                | throwError "the method lost its original selected action family"
+              unless actionFamily.edge == .functor route.family.functor.id do
+                throwError "the method changed its original selected action"
+              let #[(_, source)] ← routedActionParameters actionFamily
+                  (← action.inContext context)
+                | throwError "the module-arrow method lost its original ring parameter"
+              dbg_trace "[routed.scalar] before category evaluation {text}"
+              let value ← session.kernel.run transaction context bound source
+                (selections := ← route.environment.selections.inContext context)
+              dbg_trace "[routed.scalar] after category evaluation {text}"
+              return value
           let graph ← transaction.view
           let some node := graph.find parameter.value
             | throwError "the native ring view is outside its producing graph"
@@ -650,68 +679,83 @@ run_cmd liftTermElabM do
           prepared := prepared.push (request, route, parameter)
         let #[(request, route, original), (_, _, other)] := prepared
           | throwError "the original scalar controls lost a complete method preparation"
-        withSourceScope request fun context bound => do
-          let some action := route.actions.back?
-            | throwError "the original method lost its parameter source"
-          let #[(_, source)] ← routedActionParameters (.functor route.family.functor.id)
-              (← action.inContext context)
-            | throwError "the original method lost its single native category parameter"
-          -- The native Ring instance is a projection hidden by its original instance
-          -- wrapper. Its retained parent remains the first scalar even when another
-          -- independently supplied scalar has definitionally equal native fields.
-          do
-            let nativeSource ← sourceDomain source
-            unless nativeSource.getAppFn.isConstOf ``RingCat.of do
-              throwError "the native category view lost its original RingCat.of source"
-            let #[_, structureSource] := nativeSource.getAppArgs
-              | throwError "the native ring view lost its original structure argument"
+        withSourceScope request fun context bound =>
+          route.environment.withContext context bound fun context bound => do
+            let some action := route.actions.back?
+              | throwError "the original method lost its parameter source"
+            let some actionFamily := route.family.actionFamilies.back?
+              | throwError "the method lost its original selected action family"
+            unless actionFamily.edge == .functor route.family.functor.id do
+              throwError "the method changed its original selected action"
+            let #[(_, source)] ← routedActionParameters actionFamily
+                (← action.inContext context)
+              | throwError "the original method lost its single native category parameter"
+
+
             let graph ← transaction.view
-            let path := #[``CommRingCat.commRing, ``CommRing.toRing]
-            let .ok (some originalStructure) := graph.projectedAccess? firstScalar path
-              | throwError "the first scalar lost its published native ring access"
-            let .ok (some otherStructure) := graph.projectedAccess? secondScalar path
-              | throwError "the second scalar lost its published native ring access"
-            dbg_trace "[routed.scalar] before original structure admission"
-            request.environment.checkDeclaredInput context graph (← session.kernel.marks.get)
-              structureSource originalStructure
-            dbg_trace "[routed.scalar] after original structure admission"
-            dbg_trace "[routed.scalar] before wrong structure negative"
-            let changedFailure : Option Exception ← try
-              request.environment.checkDeclaredInput context graph (← session.kernel.marks.get)
-                structureSource otherStructure
+            let environment ← RuntimeEnvironment.captureBound route.environment.worker
+              context bound graph (some route.environment)
+              (← route.environment.selections.inContext context)
+            do
+              context.withOriginalSources #[source] fun originals => do
+                let nativeSource ← sourceDomain originals[0]!
+                unless nativeSource.getAppFn.isConstOf ``RingCat.of do
+                  throwError "the native category view lost its original RingCat.of source"
+                let #[_, _] := nativeSource.getAppArgs
+                  | throwError "the native ring view lost its original structure argument"
+              let structureSource ← mkAppM ``RingCat.ring #[source]
+              let path := #[``CommRingCat.commRing, ``CommRing.toRing]
+              let .ok (some originalStructure) := graph.projectedAccess? firstScalar path
+                | throwError "the first scalar lost its published native ring access"
+              let .ok (some otherStructure) := graph.projectedAccess? secondScalar path
+                | throwError "the second scalar lost its published native ring access"
+              dbg_trace "[routed.scalar] before original structure admission"
+              environment.checkDeclaredInput context graph structureSource originalStructure
+              dbg_trace "[routed.scalar] after original structure admission"
+              dbg_trace "[routed.scalar] before wrong structure negative"
+              let changedFailure : Option Exception ← try
+                environment.checkDeclaredInput context graph structureSource otherStructure
+                pure none
+              catch error => pure (some error)
+              dbg_trace "[routed.scalar] after wrong structure negative rejected={changedFailure.isSome}"
+              let some changedFailure := changedFailure
+                | throwError "an equal scalar satisfied another scalar's wrapped native field"
+              unless changedFailure.toMessageData.hasTag
+                  (· == `CasRuntime.RuntimeEnvironment.dependentReferenceMismatch) do
+                throw changedFailure
+            let evaluate := fun (current : OpenContext)
+                (supplied : Std.HashMap BindingId ValueBinding)
+                (selections : SourceSelectionScope Expr) (expression : Expr) => do
+              let selections ← SourceSelectionScope.merge selections
+                (← environment.selections.inContext current)
+              session.kernel.run transaction current supplied expression (selections := selections)
+            dbg_trace "[routed.scalar] before original parameter admission"
+            withBoundValue session.kernel.ledger.owners.identities context bound source original
+              fun context bound supplied =>
+                environment.methodParameters context bound transaction
+                  session.kernel.ledger.allocate route.family #[supplied] route.receiver evaluate
+                  fun context bound selections parameters => do
+                    let #[retained] := parameters
+                      | throwError "the retained category parameter changed its original arity"
+                    unless sameExactInput original (← evaluate context bound selections retained) do
+                      throwError "rechecking a native category view replaced its original occurrence"
+            dbg_trace "[routed.scalar] after original parameter admission"
+            dbg_trace "[routed.scalar] before wrong parameter negative"
+            let failure : Option Exception ← try
+              withBoundValue session.kernel.ledger.owners.identities context bound source other
+                fun context bound changed =>
+                  environment.methodParameters context bound transaction
+                    session.kernel.ledger.allocate route.family #[changed] route.receiver evaluate
+                    fun _ _ _ _ => pure ()
               pure none
             catch error => pure (some error)
-            dbg_trace "[routed.scalar] after wrong structure negative rejected={changedFailure.isSome}"
-            let some changedFailure := changedFailure
-              | throwError "an equal scalar satisfied another scalar's wrapped native field"
-            unless changedFailure.toMessageData.hasTag
-                (· == `CasRuntime.RuntimeEnvironment.dependentReferenceMismatch) do
-              throw changedFailure
-          let evaluate := session.kernel.run transaction context bound
-          let supplied ← markValue session.kernel.marks original source
-          dbg_trace "[routed.scalar] before original parameter admission"
-          let #[retained] ← request.environment.methodParameters context transaction
-              session.kernel.marks session.kernel.ledger.allocate route.family #[supplied]
-              route.receiver evaluate
-            | throwError "the retained category parameter changed its original arity"
-          unless sameExactInput original (← evaluate retained) do
-            throwError "rechecking a native category view replaced its original occurrence"
-          dbg_trace "[routed.scalar] after original parameter admission"
-          let changed ← markValue session.kernel.marks other source
-          dbg_trace "[routed.scalar] before wrong parameter negative"
-          let failure : Option Exception ← try
-            discard <| request.environment.methodParameters context transaction
-              session.kernel.marks session.kernel.ledger.allocate route.family #[changed]
-              route.receiver evaluate
-            pure none
-          catch error => pure (some error)
-          dbg_trace "[routed.scalar] after wrong parameter negative rejected={failure.isSome}"
-          let some failure := failure
-            | throwError "a separately produced equal scalar satisfied the original category input"
-          let message ← failure.toMessageData.toString
-          unless message.endsWith "the input result changed its original selected occurrence" ||
-              failure.toMessageData.hasTag (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
-            throw failure
+            dbg_trace "[routed.scalar] after wrong parameter negative rejected={failure.isSome}"
+            let some failure := failure
+              | throwError "a separately produced equal scalar satisfied the original category input"
+            let message ← failure.toMessageData.toString
+            unless message.endsWith "the input result changed its original selected occurrence" ||
+                failure.toMessageData.hasTag (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
+              throw failure
       finally discard <| transaction.abort
       unless (← session.kernel.dispatches.get).isEmpty do
         throwError "the source/packet controls dispatched a mathematical provider"

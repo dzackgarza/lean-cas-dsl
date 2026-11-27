@@ -14,7 +14,7 @@ namespace ReadMemberNotation
 open SourceReader
 
 def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
-    TermElabM (Except MessageData NativeSourceJudgement) := do
+    SourceReadM (Except MessageData NativeSourceJudgement) := do
   let source := context.source
   let member := memberCompleting context complete
   if source.raw.getKind == ``CasCatalogue.Language.casCallWith then do
@@ -23,10 +23,10 @@ def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
     member ⟨source.raw[0]⟩ (source.raw[2].getId.toString (escape := false)) arguments
   else throwReadRuleMismatch
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   match ← ruleCompleting context (fun value => pure (.ok value)) with
   | .ok value => pure value
-  | .error message => throwError message
+  | .error message => liftM (m := TermElabM) <| throwError message
 
 end ReadMemberNotation
 

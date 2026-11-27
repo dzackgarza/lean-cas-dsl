@@ -8,9 +8,9 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- The actual receiver of a member candidate and its structural transport, if any.
-A direct projection or parameter use has no structural transport; when its receiver has a
-selected category, that direct use is the empty route at that complete category. -/
+
+
+
 structure SourceMemberPath where
   receiver : NativeSourceJudgement
   inherited : Option Route := none
@@ -26,51 +26,96 @@ def SourceMemberPath.route? (path : SourceMemberPath) : TermElabM (Option Route)
     return some route
   return some ⟨selected.expression, selected.expression, #[]⟩
 
-/-- A produced reading and the exact native elaboration state which formed it. The evidence
-belongs to the producer; neither a printed result nor a recovered carrier selects a route. -/
+
+
 structure SourceMemberChoice (Evidence : Type) where
   path : SourceMemberPath
   evidence : Evidence
   judgement : NativeSourceJudgement
   nativeState : Lean.Elab.Term.SavedState
+  sourceScope : SourceReadScope
+  localContext : LocalContext
+  localInstances : LocalInstances
+
+
+
+def SourceMemberChoice.capture (path : SourceMemberPath) (evidence : Evidence)
+    (judgement : NativeSourceJudgement) : SourceReadM (SourceMemberChoice Evidence) := do
+  return {
+    path, evidence, judgement
+    nativeState := ← liftM (m := TermElabM) saveState
+    sourceScope := ← get
+    localContext := ← liftM (m := MetaM) getLCtx
+    localInstances := ← liftM (m := MetaM) getLocalInstances }
+
+
+
+def SourceMemberChoice.collectApplicable
+    (readings : Array (SourceReadM (Except MessageData (Option (SourceMemberChoice Evidence))))) :
+    SourceReadM (Array (SourceMemberChoice Evidence) × Array MessageData) :=
+  fun _ initial finish => do
+    let original ← saveState
+    let context ← getLCtx
+    let instances ← getLocalInstances
+    let result ← try
+      let mut choices : Array (SourceMemberChoice Evidence) := #[]
+      let mut mismatches : Array MessageData := #[]
+      for reading in readings do
+        original.restore
+        let result : Except MessageData (Option (SourceMemberChoice Evidence)) ←
+            withLCtx context instances <| reading.runK initial fun result _ => do
+              match result with
+              | .ok value => return .ok value
+              | .error message => return .error (← addMessageContext message)
+        match result with
+        | .ok (some choice) => choices := choices.push choice
+        | .ok none => pure ()
+        | .error message => mismatches := mismatches.push message
+      pure (choices, mismatches)
+    finally
+      original.restore
+    finish result initial
+
+
+
+def SourceMemberChoice.withScope (choice : SourceMemberChoice Evidence)
+    (action : SourceReadM α) : SourceReadM α :=
+  fun _ _ finish => do
+    let previous ← saveState
+    let completed ← liftM (m := IO) <| IO.mkRef false
+    try
+      choice.nativeState.restore
+      withLCtx choice.localContext choice.localInstances <|
+        action.runK choice.sourceScope fun value scope => do
+          completed.set true
+          finish value scope
+    catch error =>
+      unless ← completed.get do previous.restore
+      throw error
 
 private structure MemberResultSelection where
   type : Expr
   category : Option NativeSourceCategory
   declarations : NativeDeclarations
 
--- Freeze only in the state which actually completed this reading. No candidate's assigned
--- metavariables or local native declarations may be interpreted in another candidate state.
-private def memberResultSelection (judgement : NativeSourceJudgement) :
-    MetaM MemberResultSelection := do
-  let resolved := fun value => do
-    let value ← instantiateMVars value
+
+
+private def memberResultSelection (context : OpenContext)
+    (judgement : NativeSourceJudgement) : MetaM MemberResultSelection := do
+  let terms ← liftM (m := IO) <| IO.mkRef (#[] : Array Expr)
+  let close := fun original => do
+    let value ← instantiateMVars original
     if value.hasMVar || value.hasLevelMVar || value.hasLooseBVars then
       throwError "a competing member result has undetermined complete selection data"
+    let value ← context.withOriginalSources #[value] fun expressions => do
+      let formals := (← getLCtx).foldl
+        (fun result declaration => result.push (mkFVar declaration.fvarId)) #[]
+      mkLambdaFVars formals expressions[0]! (usedOnly := false) (usedLetOnly := false)
+    terms.modify (·.push value)
     return value
-  let type ← resolved (← inferType judgement.value)
-  let category ← judgement.category.mapM fun category => do
-    let bundle ← resolved category.bundle
-    let carrier ← category.carrier.mapM fun carrier => do
-      let actions ← carrier.actions.mapM resolved
-      let comparisons ← carrier.comparisons.mapM resolved
-      return { carrier with actions, comparisons }
-    let limit ← category.limit.mapM fun limit => do
-      let cone ← resolved limit.cone
-      let bundle ← resolved limit.bundle
-      let presentation ← resolved limit.presentation
-      let diagram ← resolved limit.diagram
-      let interface ← limit.interface.mapM resolved
-      return { limit with cone, bundle, presentation, diagram, interface }
-    return { category with bundle, carrier, limit }
-  let expressions := #[type] ++ category.toArray.flatMap fun category =>
-    #[category.bundle] ++
-      category.carrier.toArray.flatMap (fun carrier => carrier.actions ++ carrier.comparisons) ++
-      category.limit.toArray.flatMap (fun limit =>
-        #[limit.cone, limit.bundle, limit.presentation, limit.diagram,
-          limit.interface.presentation, limit.interface.diagram] ++
-          limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray)
-  return ⟨type, category, ← NativeDeclarations.capture expressions⟩
+  let type ← close (← inferType judgement.value)
+  let category ← judgement.category.mapM fun category => category.mapM close
+  return ⟨type, category, ← NativeDeclarations.capture (← terms.get)⟩
 
 private def memberExprAgrees (left right : Expr) : MetaM Bool :=
   withoutModifyingState do
@@ -83,47 +128,25 @@ private def memberExprArrayAgrees (left right : Array Expr) : MetaM Bool := do
     unless ← memberExprAgrees left right do return false
   return true
 
-private def memberExprOptionAgrees (left right : Option Expr) : MetaM Bool := do
-  match left, right with
-  | none, none => return true
-  | some left, some right => memberExprAgrees left right
-  | _, _ => return false
-
 private def memberCategoryAgrees (left right : Option NativeSourceCategory) : MetaM Bool := do
-  match left, right with
-  | none, none => return true
-  | some left, some right =>
-    unless left.role == right.role && left.expression.syntacticEq right.expression &&
-        (← memberExprAgrees left.bundle right.bundle) do return false
-    match left.carrier, right.carrier with
-    | none, none => pure ()
-    | some left, some right =>
-      unless left.refs == right.refs && left.target.syntacticEq right.target &&
-          left.identifications == right.identifications &&
-          (← memberExprArrayAgrees left.actions right.actions) &&
-          (← memberExprArrayAgrees left.comparisons right.comparisons) do return false
-    | _, _ => return false
-    match left.limit, right.limit with
-    | none, none => return true
-    | some left, some right =>
-      unless left.row == right.row && left.declaration == right.declaration &&
-          left.colimit == right.colimit && left.category.syntacticEq right.category do
-        return false
-      unless ← memberExprArrayAgrees
-          #[left.cone, left.bundle, left.presentation, left.diagram,
-            left.interface.presentation, left.interface.diagram]
-          #[right.cone, right.bundle, right.presentation, right.diagram,
-            right.interface.presentation, right.interface.diagram] do return false
-      unless ← memberExprOptionAgrees left.interface.standardization
-          right.interface.standardization do return false
-      memberExprOptionAgrees left.interface.dataConstructor right.interface.dataConstructor
-    | _, _ => return false
-  | _, _ => return false
+  let leftRecord : SourceSelection Expr := { value := mkSort .zero, category := left }
+  let rightRecord : SourceSelection Expr := { value := mkSort .zero, category := right }
+  unless SourceSelection.exactlyMatches (fun _ _ => true) leftRecord rightRecord do
+    return false
+  let terms ← liftM (m := IO) <| IO.mkRef (#[] : Array Expr)
+  let collect := fun value => do
+    terms.modify (·.push value)
+    return value
+  discard <| left.mapM fun category => category.mapM collect
+  let first ← terms.get
+  terms.set #[]
+  discard <| right.mapM fun category => category.mapM collect
+  memberExprArrayAgrees first (← terms.get)
 
-/-- Whole-family agreement does not erase a later result's selected structure. Compare the
-complete completed selection in addition to that independent family proof. Only full native
-bundles, unapplied carrier actions and the actual universal presentation are compared here;
-an equality of values at one receiver is never consulted. The chosen state stays unchanged. -/
+
+
+
+
 def checkSourceMemberSelections (choices : Array (SourceMemberChoice Evidence)) :
     TermElabM Unit := do
   if choices.size ≤ 1 then return
@@ -131,13 +154,14 @@ def checkSourceMemberSelections (choices : Array (SourceMemberChoice Evidence)) 
   try
     let selections ← choices.mapM fun choice => do
       choice.nativeState.restore
-      return ← memberResultSelection choice.judgement
+      withLCtx choice.localContext choice.localInstances <|
+        memberResultSelection choice.sourceScope.context choice.judgement
     original.restore
     let some first := selections[0]?
       | throwError "member comparison lost its first completed selection"
     for other in selections.drop 1 do
-      -- Candidate-local auxiliary names may coincide after rollback. Different checked
-      -- payloads cannot become equal by restoring one over the other's environment.
+
+
       for declaration in other.declarations.constants do
         if let some current := ((← getEnv).setExporting false).find? declaration.name then
           unless nativeConstantExactlyMatches declaration current do
@@ -149,10 +173,10 @@ def checkSourceMemberSelections (choices : Array (SourceMemberChoice Evidence)) 
   finally
     original.restore
 
-/-- Apply the existing C6 preference check to all actually surviving member kinds together.
-The considered categories include candidates rejected by their own native expected check,
-so a declared preference cannot silently disappear when its route fails that check. The
-returned indices refer to the original typed candidates; no reading is reconstructed. -/
+
+
+
+
 def sourceMemberPreference (name : String) (considered : Array NativeSourceCategory)
     (surviving : Array SourceMemberPath) : TermElabM (Option (Array (Nat × Route))) := do
   let state ← semanticState
@@ -172,15 +196,16 @@ def sourceMemberPreference (name : String) (considered : Array NativeSourceCateg
         selected := selected.push (index, actual)
   return if preferred then some selected else none
 
-/-- Retain the admitted route as an observation of the chosen reading. Its typed route and
-original receiver have already selected the candidate; this annotation is never a selector. -/
+
+
 def retainMemberPreference (judgement : NativeSourceJudgement) (route : Option Route) :
-    NativeSourceJudgement :=
-  match route with
-  | none => judgement
-  | some route =>
-    let data := KVMap.empty.setString `CasCompiler.source.preferredRoute
-      (reprStr (route.refs.map (·.label)))
-    { judgement with value := .mdata data judgement.value }
+    SourceReadM NativeSourceJudgement := do
+  let some route := route | return judgement
+  let selected := (← SourceReadM.selection? judgement.value).getD { value := judgement.value }
+  let value ← SourceReadM.select { selected with
+    value := judgement.value
+    category := judgement.category
+    preferredRoute := some route.refs }
+  return { judgement with value }
 
 end CasCompiler

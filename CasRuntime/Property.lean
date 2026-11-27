@@ -9,13 +9,14 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- One complete property source application before any registration is inspected. The native
-proposition, exact category parameters and original receiver keep their prepared authority. -/
+
+
 structure PreparedPropertyRoute where
   private mk ::
   preparation : RoleScope
   family : PropertyFamily
   actions : Array ClosedTerm
+  environment : RuntimeEnvironment
   receiverSource : ClosedTerm
   receiver : ValueBinding
   boundaries : Array RoutedSourceBoundary
@@ -40,25 +41,30 @@ opaque PreparedPropertyRoute.prepare (kernel : Kernel) (graph : ValueGraph)
     | throwError "the property observation has no actual original receiver"
   let some receiverSlot := application.arguments[family.parameterCount]?
     | throwError "the property observation lost its original receiver position"
-  withSourceScope request fun context _ => do
-    let mut parameters := #[]
-    for parameter in application.arguments.extract 0 family.parameterCount do
-      let source ← parameter.source.source.inContext context
-      let source ← match values[parameter.sourceIndex]?.bind id with
-        | some value => markValue kernel.marks value source
-        | none =>
-          unless parameter.wireIndex.isNone do
-            throwError "the property observation lost a computational category parameter"
-          pure source
-      parameters := parameters.push source
-    let actions ← family.specializeActions levels parameters
-    let receiverSource := receiverSlot.source.source
-    let boundaries ← routedSourceBoundaries family.route (← receiverSource.inContext context)
-    return ⟨request.roles.scope, family, ← actions.mapM context.close, receiverSource, receiver, boundaries,
-      request.scope⟩
+  withSourceScope request fun context bound => do
+    let selections ← request.environment.selections.inContext context
+    let some selectedId := request.selectionBinding
+      | throwError "the property request lost its original selected source binding"
+    let some originalSelection := selections[selectedId]?
+      | throwError "the property request lost its complete original source selection"
+    family.checkSelection context selections originalSelection
+    request.withArguments kernel.ledger.owners.identities context bound (family.parameterCount + 1)
+        fun context bound actual _ => do
+      let actions ← family.specializeActions levels (actual.extract 0 family.parameterCount)
+      let original ← receiver.selectedSource context
+      let selections ← SourceSelectionScope.merge
+        (← request.environment.selections.inContext context)
+        (← receiver.role.selections.inContext context)
+      let boundaries ← routedSourceBoundaries context selections family.route original
+      let some receiverSource := actual[family.parameterCount]?
+        | throwError "the property observation lost its original receiver position"
+      let environment ← RuntimeEnvironment.captureBound request.environment.worker
+        context bound graph (some request.environment) selections
+      return ⟨request.roles.scope, family, ← actions.mapM context.close, environment,
+        ← context.close receiverSource, receiver, boundaries, request.scope⟩
 
-/-- Registration selection retains its exact original source offset. No property derivation
-or synthetic computation address is introduced. -/
+
+
 structure SelectedPropertyBoundary where
   private mk ::
   route : PreparedPropertyRoute
@@ -75,8 +81,8 @@ def PreparedPropertyRoute.select (route : PreparedPropertyRoute) (profile : Real
     throwError "the selected property boundary changed its original source position"
   return ⟨route, boundary, registration⟩
 
-/-- The released property packet is its actual selected receiver. Complete native parameters
-and intermediate dependencies remain owned by the same prepared request and reservation. -/
+
+
 structure PreparedPropertyInvocation where
   private mk ::
   preparation : RoleScope
@@ -92,11 +98,15 @@ def SelectedPropertyBoundary.materialize (selection : SelectedPropertyBoundary) 
     (transaction : CellTransaction) : MetaM PreparedPropertyInvocation := do
   let route := selection.route
   request.requirePreparation route.preparation
-  let (receiver, source, dependencies) ← materializeSourcePrefix kernel evaluateSource request
-    transaction route.family.route route.actions route.receiverSource route.receiver
-    route.dependencies selection.boundary.offset
+  let (receiver, source, dependencies, environment) ← materializeSourcePrefix kernel evaluateSource request
+    transaction route.family.route route.family.actionFamilies route.actions route.receiverSource route.receiver
+    route.dependencies selection.boundary.offset route.environment
+  unless route.family.receiverViews.size == route.family.route.refs.size + 1 do
+    throwError "the property lost its complete original category-constructor positions"
+  let some receiverView := route.family.receiverViews[selection.boundary.offset]?
+    | throwError "the property receiver lost its original selected route position"
   let prepared ← sourceReceiverViews kernel evaluateSource request transaction
-    selection.boundary.category source receiver
+    selection.boundary.category receiverView source receiver environment
   let views ← InputDescriptorView.collect (← transaction.view) (← kernel.codes.get)
     #[receiver] prepared
   let dependencies := dependencies ++ views.flatMap (·.dependencies)
@@ -107,8 +117,8 @@ def PreparedPropertyInvocation.roots (invocation : PreparedPropertyInvocation) :
     Array InputPosition :=
   #[{ path := #[], binding := invocation.receiver }]
 
-/-- Encode only the independently retained receiver, under the raw property request grammar.
-The root and every nested scoped reference still refer to their original value bindings. -/
+
+
 def PreparedPropertyInvocation.encode (invocation : PreparedPropertyInvocation)
     (graph : ValueGraph) (connection : ConnectionGeneration) :
     Except String (EncodedInputs × Json) := do

@@ -12,8 +12,8 @@ namespace CasRuntime.PropertyTests
 
 open Lean Meta Elab Command Term CasCompiler CasCatalogue CasCatalogue.Backend
 
--- Source, packet and lifecycle controls only. Existing published properties supply every
--- proposition. These tests neither prove abelianness/finiteness nor supply mathematical answers.
+
+
 set_option maxHeartbeats 2000000 in
 run_cmd do
   let root ← IO.currentDir
@@ -53,12 +53,12 @@ run_cmd do
         catch error => pure (some error)
         let some failure := failure | throwError "the property identity negative was accepted"
         unless (← failure.toMessageData.toString).startsWith message do throw failure
-      -- The same production Lower/Execute capture pattern as RoutedMethodTests. Only the
-      -- final property observation is stopped; every input uses the ordinary interpreter.
+
+
       let capture (transaction : CellTransaction) (action : SourceEvaluation → MetaM ValueBinding) :
           MetaM (PreparedRequest × PreparedPropertyRoute) := do
         let captured ← IO.mkRef (none : Option PreparedRequest)
-        let evaluate : SourceEvaluation := fun cell program context bound expression => do
+        let evaluate : SourceEvaluation := fun cell program context bound selections expression => do
           let handler : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
             fun request current => do
               if let .primitive (.property _) _ := request.action then
@@ -67,16 +67,16 @@ run_cmd do
               let response ← Execute.run session.kernel.executor
                 (PFunctor.FreeM.lift (P := OperationalSignature) request) current
                 (some (session.kernel.resolveFixedInput
-                  (fun cell _ context bound expression => session.kernel.run cell context bound expression)
+                  (fun cell _ context bound selections expression => session.kernel.run cell context bound expression (selections := selections))
                   current program))
               return (response, current)
           lowerTerm {
             ledger := session.kernel.ledger, transaction := cell,
-            codes := session.kernel.codes, marks := session.kernel.marks
+            codes := session.kernel.codes
             run := fun computation => do
               let (result, _) ← handler.run computation cell
               return result }
-            program context bound expression
+            program context bound expression (selections := selections)
         let failure : Option Exception ← try
           discard <| action evaluate
           pure none
@@ -130,15 +130,24 @@ run_cmd do
           try
             let (request, route) ← term.source.withOpen fun bindings expression => do
               let context ← ContextTelescope.capture bindings
-              let some (data, _) ← propertySource? expression
-                | throwError "the source property lost its selected marker"
-              let family ← PropertyFamily.fromMark data
-              let (_, parameters, receiver) ← family.application expression
+              let selections ← term.selections.inContext context
+              let some originalSelection := selections.findAt? context expression
+                | throwError "the source property lost its selected binding"
+              let some selectedApplication := originalSelection.application
+                | throwError "the source property lost its complete typed application"
+              let .property family := selectedApplication.family
+                | throwError "the source property changed its selected family"
+              family.checkSelection context selections originalSelection
+              let parameters := selectedApplication.parameters
+              let #[receiver] := selectedApplication.arguments
+                | throwError "the source property lost its exact receiver position"
               let some selected := bindings.find? (·.id == originalEntry.id)
                 | throwError "the source property lost its original receiver binder"
+              let some (.classifier classifier) := originalSelection.observation
+                | throwError "the property source lost its complete selected classifier"
               unless receiver == selected.expression &&
-                  data.getString `CasCompiler.source.id == s!"prop.{propertyName}" &&
-                  data.getName `CasCompiler.source.declaration == family.classifier.declaration do
+                  family.entry.id.raw == s!"prop.{propertyName}" &&
+                  reprStr classifier == reprStr family.classifier do
                 throwError "the property source changed its receiver or accepted classifier"
               if let some scalarName := scalarName then
                 let some scalarEntry := session.source.context.entries.find? (·.userName == scalarName)
@@ -147,64 +156,80 @@ run_cmd do
                   | throwError "the property lost its chosen scalar binder"
                 let #[parameter] := parameters
                   | throwError "the property changed its exact category parameter arity"
-                let .mdata marker _ := parameter
-                  | throwError "the property lost its selected category parameter wrapper"
-                unless marker.contains `CasCompiler.source.objectOrigin do
-                  throwError "the property lost its explicit category parameter origin"
-                let some (parameterCategory, parameterSource) ← sourceObjectOrigin? parameter
-                  | throwError "the property lost its original category parameter"
+                let some parameterSelection := selections.findAt? context parameter
+                  | throwError "the property lost its selected category parameter binding"
+                let some parameterCategory := parameterSelection.category
+                  | throwError "the property lost its explicit category parameter origin"
                 let some selectedCategory := session.source.categoryFor scalarEntry.id
                   | throwError "the property lost its original scalar category"
-                unless parameterSource == scalar.expression && parameterCategory.role == .object &&
+                unless parameterSelection.value == scalar.expression && parameterCategory.role == .object &&
                     parameterCategory.expression.syntacticEq (.atom CategoryId.rings) &&
                     parameterCategory.expression.syntacticEq selectedCategory.expression &&
                     parameterCategory.bundle == (← selectedCategory.bundle.inContext context) do
                   throwError "the property source replaced its exact category parameter"
               else unless parameters.isEmpty do
                 throwError "the group property invented a category parameter"
-              -- A well-typed but inconsistent payload must not substitute an equal
-              -- receiver or complete category argument behind the literal Holds image.
+
+
               if let some peer := peer then
-                let (_, peerParameters, peerReceiver) ← family.application
-                  (← peer.source.inContext context)
-                let (position, replacement) ← match scalarName with
-                  | none => pure (family.parameterCount, peerReceiver)
-                  | some _ => do
-                    let #[parameter] := peerParameters
-                      | throwError "the equal-source property changed its complete parameter arity"
-                    pure (0, parameter)
-                let some witness := expression.find? fun term => match term with
-                    | .mdata marker _ => marker.getName
-                        `CasCompiler.source.propertyApplication == ``PropertyFamily
-                    | _ => false
-                  | throwError "the original property lost its application witness"
-                let .mdata witnessData retained := witness
-                  | throwError "the original property witness lost its metadata"
-                unless retained.isAppOfArity ``Function.const 4 do
-                  throwError "the original property witness changed its typed field shape"
-                let applied := retained.getAppArgs[3]!
-                let some originalArgument := applied.getAppArgs[position]?
-                  | throwError "the original property witness lost its complete argument position"
-                unless originalArgument != replacement &&
-                    (← isDefEq originalArgument replacement) do
-                  throwError "the property witness control needs distinct equal source arguments"
-                let changedApplication := mkAppN applied.getAppFn
-                  (applied.getAppArgs.set! position replacement)
-                let changedWitness := Expr.mdata witnessData (mkAppN retained.getAppFn
-                  (retained.getAppArgs.set! 3 changedApplication))
-                let forged := expression.replace fun term =>
-                  if term == witness then some changedWitness else none
-                check forged
-                withoutModifyingState <|
-                  failWith "the property source witness changed its original native proposition" do
-                    discard <| family.application forged
+                peer.source.context.withInContext context fun peerContext => do
+                  let peerSelections ← SourceSelectionScope.merge selections
+                    (← peer.selections.inContext peerContext)
+                  let peerExpression ← peer.source.inContext peerContext
+                  let some peerSelection := peerSelections.findAt? peerContext peerExpression
+                    | throwError "the equal-source property lost its selected binding"
+                  let some peerApplication := peerSelection.application
+                    | throwError "the equal-source property lost its complete application"
+                  let .property peerFamily := peerApplication.family
+                    | throwError "the equal-source property changed its family kind"
+                  unless peerFamily.entry.id == family.entry.id do
+                    throwError "the property witness control changed its selected property"
+                  let (originalArgument, replacement, changedApplication) ← match scalarName with
+                    | none => do
+                      let #[peerReceiver] := peerApplication.arguments
+                        | throwError "the equal-source property lost its exact receiver"
+                      pure (receiver, peerReceiver,
+                        { selectedApplication with arguments := #[peerReceiver] })
+                    | some _ => do
+                      let #[parameter] := peerApplication.parameters
+                        | throwError "the equal-source property changed its complete parameter arity"
+                      let #[originalParameter] := parameters
+                        | throwError "the original property lost its category parameter"
+                      pure (originalParameter, parameter,
+                        { selectedApplication with parameters := #[parameter] })
+                  unless originalArgument != replacement do
+                    throwError "the property witness control needs distinct equal source arguments"
+                  peerContext.withOriginalSources #[originalArgument, replacement] fun native => do
+                    unless ← isDefEq native[0]! native[1]! do
+                      throwError "the property witness control needs distinct equal source arguments"
+                  check originalSelection.value
+                  let .fvar originalId := expression
+                    | throwError "the original property lost its selected native binder"
+                  let some originalBinding := peerContext.bindings.find?
+                      (·.expression.fvarId! == originalId)
+                    | throwError "the original property lost its exact source binding"
+                  let forged := { originalSelection with application := some changedApplication }
+                  failWith "one source binding has incompatible retained selections" do
+                    discard <| peerSelections.merge
+                      (({} : SourceSelectionScope Expr).insert originalBinding.id forged)
+                  let changedNative := mkAppN
+                    (family.family.instantiateLevelParams family.universeParams changedApplication.universes)
+                    (changedApplication.parameters ++ changedApplication.arguments)
+                  let fresh := { forged with originalApplication := some changedNative }
+                  peerSelections.withBinding session.kernel.ledger.owners.identities peerContext fresh
+                    fun freshContext freshSelections freshSource => do
+                      check freshSource
+                      let some retained := freshSelections.findAt? freshContext freshSource
+                        | throwError "the forged property control lost its fresh selected binding"
+                      failWith "the property source witness changed its original native proposition" do
+                        family.checkSelection freshContext freshSelections retained
               let mut bound : Std.HashMap BindingId ValueBinding := {}
               for binding in bindings do
                 if let some actual := session.value? binding.id then
                   bound := bound.insert binding.id actual
               let program ← session.kernel.ledger.owners.identities.fresh .program
               capture transaction fun evaluate =>
-                evaluate transaction program context bound expression
+                evaluate transaction program context bound selections expression
             let expectedId := s!"prop.{propertyName}"
             unless request.source.kind == .typeValue && request.reference.isNone &&
                 route.family.entry.id.raw == expectedId &&
@@ -224,7 +249,7 @@ run_cmd do
                 | throwError "the group property changed its original receiver arity"
               unless exact original actualReceiver do
                 throwError "the group property changed its original receiver reference"
-            -- Rebuild only for the negative controls, keeping the original expected sources.
+
             let rebuild (replacement : Option (Nat × ValueBinding)) : MetaM PreparedRequest :=
               withSourceScope request fun context bound => do
                 let graph ← transaction.view
@@ -242,12 +267,14 @@ run_cmd do
                       | some (position, changed) => if position == index then changed else selected
                       | none => selected
                     actual := actual.push (← IO.ofExcept <|
-                      (RuntimeArgument.ofValue graph index selected (← session.kernel.marks.get)).mapError IO.userError)
+                      (RuntimeArgument.ofValue graph index selected).mapError IO.userError)
                 let .primitive boundary levels := request.action
                   | throwError "the property control lost its primitive request"
                 PreparedRequest.forBoundary session.kernel.ledger.owners.identities request.program
                   request.occurrence boundary levels context
                   (layout.arguments.map (·.source.source)) actual #[] parameters
+                  (selections := ← request.environment.selections.inContext context)
+                  (selectionBinding := request.selectionBinding)
             if name != "S3" then
               let replacement ← match scalarName with
                 | some scalar => originalValue (if scalar == `Rfirst then `Rsecond else `Rfirst)
@@ -302,8 +329,8 @@ run_cmd do
                 discard <| route.select multiple overlap
               unless (← session.kernel.dispatches.get).isEmpty do
                 throwError "property profile selection dispatched an implementation"
-              let evaluate : SourceEvaluation := fun cell _ context bound expression =>
-                session.kernel.run cell context bound expression
+              let evaluate : SourceEvaluation := fun cell _ context bound selections expression =>
+                session.kernel.run cell context bound expression (selections := selections)
               let invocation ← selection.materialize session.kernel evaluate request transaction
               unless invocation.offset == 0 && invocation.property.raw == expectedId &&
                   invocation.preparation == request.roles.scope && exact original invocation.receiver do
@@ -363,8 +390,8 @@ run_cmd do
                   discard <| session.kernel.child evaluate request transaction reservation scope
                     (Json.mkObj [("op", toJson expectedId), ("input", "cat.sets"),
                       ("args", (ScopedReference.input #[]).encode)])
-                -- Real reply admission, with a protocol-only payload. Rejection must leave
-                -- this exact occurrence pending and its isolated delta invisible.
+
+
                 let malformed := #[Json.bool true,
                   Json.mkObj [("ctor", "some"), ("args", .arr #[.bool true])],
                   Json.mkObj [("ctor", "none"), ("args", .arr #[.null])],
@@ -394,9 +421,9 @@ run_cmd do
           throwError "the property source controls dispatched a mathematical provider"
       finally session.kernel.ledger.owners.close connection.generation
 
--- Exercise the actual computing question path. The fixed protocol packets are deliberately
--- independent of the group: they test observation/lifecycle classification, never B0 mathematics.
--- The unchanged SessionPredicateTests separately retains ordinary predicate raw-Boolean behavior.
+
+
+
 run_cmd do
   let contract ← packageDir contractPackage
   let root ← IO.currentDir

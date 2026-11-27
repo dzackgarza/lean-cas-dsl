@@ -1,5 +1,8 @@
 module
 
+public import CasCompiler.SelectionData
+import all CasCompiler.SelectionData
+
 public import CasCompiler.SourceCarrier
 public import CasCompiler.RoutedMethodReturn
 public import CasCompiler.Layout
@@ -13,24 +16,9 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- A whole inherited method before its receiver is transported. The native actions and final
-functor are closed over the same complete category telescope as the callable result family.
-Source: SourceMethod's whole-family comparison and tasks.md T061/T026 boundary rule. -/
-structure RoutedMethodFamily where
-  private mk ::
-  entry : MethodEntry
-  route : Route
-  functor : FunctorEntry
-  categoryFamily : Expr
-  functorFamily : Expr
-  family : Expr
-  actions : Array Expr
-  universeParams : List Name
-  parameterCount : Nat
-  returns : Option RoutedMethodReturn := none
 
-/-- Generalize and canonically order the universes of one complete native source family.
-The input expressions remain closed together; no actual receiver or runtime data participates. -/
+
+
 opaque closeRoutedUniverses (expressions : Array Expr) : MetaM (Array Expr × List Name) := do
   let mut used : CollectLevelParams.State := {}
   for expression in expressions do used := used.collect (← instantiateMVars expression)
@@ -51,9 +39,22 @@ opaque closeRoutedUniverses (expressions : Array Expr) : MetaM (Array Expr × Li
   return (expressions.map (fun expression =>
     expression.instantiateLevelParams originalUniverses (universes.map Level.param)), universes)
 
-/-- Check a selected first-hit route and retain all its original native declaration applications.
-The formal receiver remains abstract while the result family is prepared. No registration,
-runtime value or equality of specialized receivers chooses this source family. -/
+
+
+
+def sourceReceiverViewPlans (state : SemanticState) (route : Route) :
+    MetaM (Array (Option ConstructorEntry)) := do
+  (#[route.source] ++ route.steps.map (·.target)).mapM fun category => do
+    match category with
+    | .construct constructor _ =>
+      let #[entry] := state.constructors.filter (·.id == constructor)
+        | throwError "the source route lost its unique original receiver constructor"
+      return some entry
+    | _ => return none
+
+
+
+
 private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
     (returnRows : Array LiftEntry) (returning : Route) : MetaM RoutedMethodFamily := withLCtx {} #[] do
   let state ← semanticState
@@ -66,27 +67,28 @@ private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
   let query ← SourceRoutes.forMethod route.source method.name
   let some routes ← query.finiteRoutes
     | throwUnsupportedSource "method inheritance requires its supplied uniform comparison"
-  unless routes.any (fun selected => selected.refs == route.refs &&
-      selected.target.syntacticEq route.target) do
-    throwError "the selected method route is not a complete first-hit source route"
-  -- A validated identity route has no return leg. Its declared result already belongs
-  -- to the source; nonidentity routes still require their actual selected lifting data.
+  unless routes.any (fun selected => selected.exactlyMatches route) do
+    throwError (MessageData.tagged `CasCompiler.RoutedMethodFamily.invalidRoute
+      m!"the selected method route is not a complete first-hit source route")
+
+
   if method.returnsToSource && !route.refs.isEmpty then
     unless !returning.refs.isEmpty && returnRows.size == returning.refs.size do
       throwUnsupportedSource "source method lifting requires its actual selected return data"
     unless returning.source.syntacticEq route.source &&
         returning.target.syntacticEq route.target &&
-        routes.any (fun selected => selected.refs == returning.refs &&
-          selected.target.syntacticEq returning.target) do
+        routes.any (fun selected => selected.exactlyMatches returning) do
       throwError "the selected method return route is not an original first-hit source route"
   else unless returnRows.isEmpty do
     throwError "the method has no declared return positions"
   let some entry := state.functor? method.functor
     | throwError "the source method has no registered functor"
   discard <| checkedDeclaration entry.declaration
-  -- The accepted method declaration fixes its own universe family. The independently named
-  -- owner may have more universe parameters (for example the two ModuleCat levels), whose
-  -- relations are determined only by the complete unapplied native functor boundary below.
+  let actionFamilies ← (route.refs.push (.functor entry.id)).mapM SourceActionFamily.forEdge
+  let receiverViews ← sourceReceiverViewPlans state route
+
+
+
   let categoryFamily ← nativeCategoryFamily state route.source fun _ => mkFreshLevelMVar
   let (functorFamily, family, actions, returns, count) ←
       forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
@@ -102,9 +104,9 @@ private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
     let function := rigid.expr
     let (_, expected) ← functorCategoryBundles transport
     let (declared, _) ← functorCategoryBundles function
-    -- Unify the complete unapplied source with whole declaration parameters first. Expanding
-    -- an already determined structure parameter would replace its original formal slot by
-    -- an eta constructor, whose later evaluation creates another computational occurrence.
+
+
+
     unless ← withoutModifyingState <| isDefEq declared expected do
       unless ← expandSourceStructures ((← getMVars function).map mkMVar) do
         throwError "the method functor has inconsistent native category parameters"
@@ -141,6 +143,13 @@ private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
       let resultFamily ← withLocalDeclD `methodReceiver sourceType fun receiver => do
         let result ← applyMethodReturns returnRows evidences returnSelected.actions receiver
           (mkApp callable receiver)
+          (fun selected expected => do
+            if let some expected := expected then
+              return ← mkExpectedTypeHint selected.value expected
+            return selected.value)
+          (fun _ _ action original => do
+            let (_, target) ← functorCategoryBundles action
+            functorObject action original target)
         let result ← retainMethodReturnAgreement agreement result
         unless ← isDefEq (← inferType result)
             (← mkAppM ``CategoryTheory.Bundled.α #[resultBundle]) do
@@ -150,6 +159,7 @@ private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
         route := returning
         rows := returnRows
         actions := ← returnSelected.actions.mapM close
+        actionFamilies := ← returning.refs.mapM SourceActionFamily.forEdge
         agreement := ← agreement.mapM close
         evidences := ← evidences.mapM close
         category := resultCategory
@@ -161,9 +171,9 @@ private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
       returned.actions ++ returned.agreement.toArray
   let (expressions, universes) ← closeRoutedUniverses
     (#[categoryFamily, functorFamily, family] ++ actions ++ returnExpressions)
-  -- The return proofs are formed under the original category telescope.
-  -- Kernel checking occurs only after that telescope and every universe
-  -- metavariable have been closed, including the monicity and route proofs.
+
+
+
   if returns.isSome then
     for expression in expressions do checkWithKernel expression
   let returns := returns.map fun returned =>
@@ -177,22 +187,23 @@ private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
       actions := expressions.extract afterEvidence afterActions
       agreement := if returned.agreement.isSome then expressions[afterActions]? else none }
   return ⟨method, route, entry, expressions[0]!, expressions[1]!,
-    expressions[2]!, expressions.extract 3 (3 + actions.size), universes, count, returns⟩
+    expressions[2]!, expressions.extract 3 (3 + actions.size), actionFamilies, receiverViews,
+    universes, count, returns⟩
 
-/-- A route alone cannot invent its return data. Callers retaining those data
-use forRouteWithReturns; the original missing-data rejection remains unchanged. -/
+
+
 opaque RoutedMethodFamily.forRoute (route : Route) (method : MethodEntry) :
     MetaM RoutedMethodFamily :=
   routedMethodWithReturns route method #[] route
 
-/-- Form a whole returning family using these exact independently registered
-return rows, checked against every original native route action. -/
+
+
 opaque RoutedMethodFamily.forRouteWithReturns (route : Route) (method : MethodEntry)
     (rows : Array LiftEntry) : MetaM RoutedMethodFamily :=
   routedMethodWithReturns route method rows route
 
-/-- An explicitly supplied different return route must retain its actual lift rows
-and a checked equality of the complete transport families. -/
+
+
 opaque RoutedMethodFamily.forComparedReturn (route : Route) (method : MethodEntry)
     (returning : Route) (rows : Array LiftEntry) : MetaM RoutedMethodFamily :=
   routedMethodWithReturns route method rows returning
@@ -206,31 +217,7 @@ def RoutedMethodFamily.resultCategory (family : RoutedMethodFamily) : CategoryEx
 def RoutedMethodFamily.comparisonFamily (family : RoutedMethodFamily) : Expr :=
   family.returns.map (·.resultFamily) |>.getD family.functorFamily
 
-/-- Specialize the retained whole return plan at the actual source arguments.
-Each application allocates its own selected field identities; no receiver is
-used to choose a lift or to prove agreement between complete method families. -/
-def RoutedMethodFamily.resultAt (family : RoutedMethodFamily) (levels : List Level)
-    (parameters : Array Expr) (receiver forward : Expr) : MetaM (Expr × Expr) := do
-  unless levels.length == family.universeParams.length &&
-      parameters.size == family.parameterCount do
-    throwError "the returning method changed its complete native parameter telescope"
-  let specialize := fun expression =>
-    (mkAppN (expression.instantiateLevelParams family.universeParams levels) parameters).headBeta
-  match family.returns with
-  | none =>
-    let (_, target) ← functorCategoryBundles (specialize family.functorFamily)
-    return (forward, target)
-  | some returned =>
-    let result ← applyMethodReturns returned.rows (returned.evidences.map specialize)
-      (returned.actions.map specialize) receiver forward
-    let result ← retainMethodReturnAgreement (returned.agreement.map specialize) result
-    let bundle := specialize returned.categoryFamily
-    unless ← isDefEq (← inferType result)
-        (← mkAppM ``CategoryTheory.Bundled.α #[bundle]) do
-      throwError "the returning method changed its complete actual result category"
-    return (result, bundle)
 
-/-- Recover only an independently registered first-hit route from the retained source syntax. -/
 def RoutedMethodFamily.forSelection (source : CategoryExpr) (method : String)
     (refs : Array EdgeRef) (returnIds : Array String := #[])
     (returnRefs : Option (Array EdgeRef) := none) : MetaM RoutedMethodFamily := do
@@ -255,8 +242,8 @@ def RoutedMethodFamily.forSelection (source : CategoryExpr) (method : String)
       | throwError "the selected method return lost its original route"
     RoutedMethodFamily.forComparedReturn route entry returning rows
 
-/-- All independently read first-hit method families at the nominal source category. Provider
-availability and a particular receiver play no part in this source inventory. -/
+
+
 def RoutedMethodFamily.atSource (source : CategoryExpr) (name : String) :
     MetaM (Array RoutedMethodFamily) := do
   let state ← semanticState
@@ -290,8 +277,8 @@ def RoutedMethodFamily.atSource (source : CategoryExpr) (name : String) :
           families := families.push (← RoutedMethodFamily.forRoute route entry)
   return families
 
-/-- Compare the complete surviving source families before any receiver specialization.
-The caller supplies actual checked families; no equality of receiver images is an agreement. -/
+
+
 def RoutedMethodFamily.agreementsWith (family : RoutedMethodFamily)
     (families : Array RoutedMethodFamily) (evidence : Array Expr) :
     MetaM (Array Expr) := do
@@ -310,9 +297,9 @@ def RoutedMethodFamily.agreementsWith (family : RoutedMethodFamily)
     proofs := proofs.push proof
   return proofs
 
-/-- Deferred native method calls use the same admitted route preference as source reading.
-A preference chooses an actual surviving route and asserts no equality with other routes;
-several entries on that route still require their whole native family agreement. -/
+
+
+
 def RoutedMethodFamily.agreements (family : RoutedMethodFamily) (evidence : Array Expr) :
     MetaM (Array Expr) := do
   let families ← RoutedMethodFamily.atSource family.route.source family.entry.name
@@ -332,72 +319,24 @@ def RoutedMethodFamily.instantiate (family : RoutedMethodFamily) : MetaM (Expr �
   let levels ← family.universeParams.mapM fun _ => mkFreshLevelMVar
   return (family.family.instantiateLevelParams family.universeParams levels, levels)
 
-/-- Only source syntax is metadata. Native abstraction and substitution retain every parameter
-inside the original unapplied family application; no encoded local-expression cache is used. -/
-def RoutedMethodFamily.mark (family : RoutedMethodFamily) (applied : Expr) : Expr :=
-  .mdata (KVMap.empty
-    |>.setName `CasCompiler.source.kind ``RoutedMethodFamily
-    |>.setString `CasCompiler.source.id family.entry.id.raw
-    |>.setString `CasCompiler.source.methodSource (toJson family.route.source).compress
-    |>.setString `CasCompiler.source.methodRoute (toJson family.route.refs).compress
-    |>.setString `CasCompiler.source.methodReturns (toJson family.returnIdentities).compress
-    |>.setString `CasCompiler.source.methodReturnRoute
-      (toJson (family.returns.map (·.route.refs))).compress) applied
 
-/-- Retain complete actual action inputs of a deferred call as typed native source data.
-Function.const leaves the mathematical method application unchanged; metadata contains only
-the complete array arities. Lowering admits these data into the ordinary family's scope. -/
-def RoutedMethodFamily.markInputs (family : RoutedMethodFamily) (applied : Expr)
-    (inputs : Array (Array Expr)) : MetaM Expr := do
-  let mut body := applied
-  for input in inputs.flatten.reverse do
-    body ← mkAppM ``Function.const #[← inferType input, body, input]
-  let .mdata data _ := family.mark applied
-    | throwError "the routed method lost its source marker"
-  return .mdata (data.setString `CasCompiler.source.methodInputs
-    (toJson (inputs.map (·.size))).compress) body
+def RoutedMethodFamily.selected (family : RoutedMethodFamily) (levels : List Level)
+    (parameters : Array Expr) (receiver : Expr)
+    (inputs : Option (Array (Array Expr)) := none) : MetaM (SourceSelection Expr) := do
+  unless levels.length == family.universeParams.length &&
+      parameters.size == family.parameterCount do
+    throwError "the routed method changed its complete native parameter telescope"
+  let value := mkAppN
+    (family.family.instantiateLevelParams family.universeParams levels) (parameters.push receiver)
+  check value
+  return {
+    value, reference := some (.method family.entry family.functor), originalApplication := some value
+    application := some {
+      family := .routedMethod family, universes := levels, parameters, arguments := #[receiver] }
+    routedInputs := inputs }
 
-/-- Read precisely the typed source wrappers emitted above, before any head reduction. -/
-def routedMethodInputs (data : MData) (source : Expr) :
-    MetaM (Expr × Option (Array (Array Expr))) := do
-  let encoded := data.getString `CasCompiler.source.methodInputs
-  if encoded.isEmpty then return (source, none)
-  let counts ← IO.ofExcept <| ((Json.parse encoded).bind
-    (fromJson? (α := Array Nat))).mapError IO.userError
-  let mut body := source
-  let mut inputs := #[]
-  for count in counts do
-    let mut parameters := #[]
-    for _ in [:count] do
-      unless body.isAppOfArity ``Function.const 4 do
-        throwError "the method call lost a typed actual action input"
-      let some input := body.getAppArgs[3]?
-        | throwError "the method call lost its original typed input"
-      let some next := body.getAppArgs[2]?
-        | throwError "the method call lost its original native application"
-      parameters := parameters.push input
-      body := next
-    inputs := inputs.push parameters
-  return (body, some inputs)
 
-/-- Decode the exact selected source syntax, then rebuild its checked native family. -/
-def RoutedMethodFamily.fromMark (data : MData) : MetaM RoutedMethodFamily := do
-  let source ← IO.ofExcept <| ((Json.parse (data.getString `CasCompiler.source.methodSource)).bind
-    (fromJson? (α := CategoryExpr))).mapError IO.userError
-  let route ← IO.ofExcept <| ((Json.parse (data.getString `CasCompiler.source.methodRoute)).bind
-    (fromJson? (α := Array EdgeRef))).mapError IO.userError
-  let encodedReturns := data.getString `CasCompiler.source.methodReturns
-  let returns ← if encodedReturns.isEmpty then pure #[] else
-    IO.ofExcept <| ((Json.parse encodedReturns).bind
-      (fromJson? (α := Array String))).mapError IO.userError
-  let encodedReturnRoute := data.getString `CasCompiler.source.methodReturnRoute
-  let returning ← if encodedReturnRoute.isEmpty then pure none else
-    IO.ofExcept <| ((Json.parse encodedReturnRoute).bind
-      (fromJson? (α := Option (Array EdgeRef)))).mapError IO.userError
-  RoutedMethodFamily.forSelection source (data.getString `CasCompiler.source.id) route returns returning
 
-/-- Specialize the same complete actions in their original source order, including the final
-registered method functor. Only native beta substitution is performed. -/
 def RoutedMethodFamily.specializeActions (family : RoutedMethodFamily) (levels : List Level)
     (arguments : Array Expr) : MetaM (Array Expr) := do
   unless levels.length == family.universeParams.length &&
@@ -406,17 +345,17 @@ def RoutedMethodFamily.specializeActions (family : RoutedMethodFamily) (levels :
   return family.actions.map fun action =>
     (mkAppN (action.instantiateLevelParams family.universeParams levels) arguments).headBeta
 
-/-- A native parameter view certified against the complete original declaration telescope.
-The selected positions retain their original ordinals. Every computational result field and
-its source/type dependencies are covered before the executable telescope is restricted. -/
+
+
+
 structure MethodCategoryAssembly where
   private mk ::
   arity : Nat
   positions : Array Nat
   family : Expr
 
-/-- The source of one category parameter in a receiver's independently authored family. A fixed
-term contains no receiver parameter; an assembly is only a complete native input view. -/
+
+
 inductive MethodCategoryParameter
   | input (index : Nat) (path : Array Name)
   | fixed (source : Expr)
@@ -468,11 +407,11 @@ private def sourceCategoryRoutesAt (categoryFamily : Expr) (universeParams : Lis
       return .assembly assembly
     return .unavailable
 
-/-- Locate category parameters in the receiver declaration's complete rigid source telescope.
-Only this abstract type family determines the positions. A source projection route identifies
-an original slot; complete native record views retain their original input positions. For the
-reader's Arrow wrapper, inspect the original hom declaration under that same native wrapper.
-No actual receiver expression participates in this correspondence. -/
+
+
+
+
+
 opaque sourceCategoryParameterRoutes (categoryFamily : Expr) (universeParams : List Name)
     (parameterCount : Nat) (declaration : Name) (morphism : Bool := false) : MetaM (Array MethodCategoryParameter) :=
     withLCtx {} #[] do
@@ -484,11 +423,11 @@ opaque sourceCategoryParameterRoutes (categoryFamily : Expr) (universeParams : L
       else pure result
     sourceCategoryRoutesAt categoryFamily universeParams parameterCount originals result
 
-/-- Compose an original selected result projection with its sole actual declared input.
-Both declarations stay abstract over the input producer's complete rigid telescope. Only
-native typing determines the outer declaration's parameters; no actual input or result is
-substituted, and no missing argument is synthesized. The returned routes name the input
-producer's original positions, using the same coverage rules as direct receivers. -/
+
+
+
+
+
 opaque sourceCategoryProjectionInputRoutes (categoryFamily : Expr)
     (universeParams : List Name) (parameterCount : Nat) (declaration : Name) (path : Array Name) (position : Nat) (inputDeclaration : Name) :
     MetaM (Array MethodCategoryParameter) := withLCtx {} #[] do
@@ -516,7 +455,7 @@ opaque sourceCategoryProjectionInputRoutes (categoryFamily : Expr)
       result ← mkAppM projection #[result]
     sourceCategoryRoutesAt categoryFamily universeParams parameterCount originals (← inferType result)
 
-/-- Method callers use the same original category-parameter correspondence as properties. -/
+
 def RoutedMethodFamily.receiverParameterRoutes (family : RoutedMethodFamily)
     (declaration : Name) (morphism : Bool := false) : MetaM (Array MethodCategoryParameter) :=
   sourceCategoryParameterRoutes family.categoryFamily family.universeParams family.parameterCount
@@ -551,21 +490,23 @@ private def declaredApplication (name : Name) (expression : Expr) : MetaM Expr :
     throwError "the routed action lost its complete original declaration telescope"
   return expression
 
-/-- The exact declaration application inside the wrappers installed by registeredFunctorInstance,
-classifierForgetInstance and applyConstructorInterface. This follows the selected native spine;
-it does not search for a declaration or a value elsewhere in the source expression. -/
-private partial def routedActionApplicationCore (edge : EdgeRef) (expression : Expr) : MetaM Expr := do
+
+
+
+private partial def routedActionApplicationCore (edge : EdgeRef)
+    (references : List SelectedSourceReference) (expression : Expr) : MetaM Expr := do
   let expression := expression.consumeMData
-  let state ← semanticState
-  match edge with
-  | .functor id =>
-    let some entry := state.functor? id | throwError "the routed functor is not registered"
+  match edge, references with
+  | .functor id, [.functor entry] =>
+    unless entry.id == id do
+      throwError "the routed functor changed its complete selected row"
     let expression ← if expression.getAppFn.isConstOf ``CategoryTheory.Cat.Hom.toFunctor then
         projectionArgument ``CategoryTheory.Cat.Hom.toFunctor expression
       else pure expression
     declaredApplication entry.declaration expression
-  | .classifierForget id =>
-    let some entry := state.classifier? id | throwError "the routed classifier is not registered"
+  | .classifierForget id, [.classifierForget entry] =>
+    unless entry.id == id do
+      throwError "the routed classifier changed its complete selected row"
     let expression ← projectionArgument ``CategoryTheory.Cat.Hom.toFunctor expression
     let expression ← projectionArgument ``LeanCategories.Classifier.forget expression
     let expression ← if expression.getAppFn.isConstOf ``LeanCategories.PropertyClassifier.toClassifier then
@@ -574,22 +515,30 @@ private partial def routedActionApplicationCore (edge : EdgeRef) (expression : E
         projectionArgument ``LeanCategories.StructureClassifier.toClassifier expression
       else pure expression
     declaredApplication entry.declaration expression
-  | .constructMap constructor inner =>
-    let some action := (state.constructor? constructor).bind (·.functorialAction)
+  | .constructMap constructor inner, .constructorInterface entry .functorialAction :: remaining =>
+    unless entry.id == constructor do
+      throwError "the routed constructor changed its complete selected row"
+    let some action := entry.functorialAction
       | throwError "the routed constructor lost its declared action"
     let expression ← declaredApplication action expression
-    routedActionApplicationCore inner (← projectionArgument action expression)
+    routedActionApplicationCore inner remaining (← projectionArgument action expression)
+  | _, _ => throwError "the routed action lost its complete original selected rows"
 
-/-- Read the checked native action spine while keeping its implementation helpers private. -/
-opaque routedActionApplication (edge : EdgeRef) (expression : Expr) : MetaM Expr :=
-  routedActionApplicationCore edge expression
 
-/-- Original explicit computational positions of one complete action declaration. Implicit and
-proof positions remain in the checked native application; every nonproof explicit occurrence
-is returned in order, even when two occurrences have equal source terms. -/
-def routedActionParameters (edge : EdgeRef) (expression : Expr) :
+opaque routedActionApplication (family : SourceActionFamily) (expression : Expr) : MetaM Expr := do
+  let declared ← routedActionApplicationCore family.edge family.references.toList expression
+  unless declared.getAppFn.isConstOf family.declaration &&
+      declared.getAppNumArgs == family.parameterCount &&
+      declared.getAppFn.constLevels!.length == family.universeParams.length do
+    throwError "the routed action changed its complete selected declaration"
+  return declared
+
+
+
+
+def routedActionParameters (family : SourceActionFamily) (expression : Expr) :
     MetaM (Array (Nat × Expr)) := do
-  let declared ← routedActionApplication edge expression
+  let declared ← routedActionApplication family expression
   let info ← getFunInfoNArgs declared.getAppFn declared.getAppNumArgs
   let mut parameters := #[]
   for argument in declared.getAppArgs, index in [:declared.getAppNumArgs] do
@@ -609,20 +558,22 @@ private def mapProjectionArgument (name : Name) (expression : Expr)
     | throwError "the routed action wrapper lost its complete input"
   return mkAppN expression.getAppFn (expression.getAppArgs.set! index (← transform original))
 
-/-- Replace only the original declared application along the independently accepted wrapper
-spine. This is position-preserving source substitution, never an expression/value search. -/
-private partial def mapRoutedAction (edge : EdgeRef) (expression : Expr)
+
+
+private partial def mapRoutedAction (edge : EdgeRef)
+    (references : List SelectedSourceReference) (expression : Expr)
     (transform : Expr → MetaM Expr) : MetaM Expr := do
-  let state ← semanticState
-  match edge with
-  | .functor id =>
-    let some entry := state.functor? id | throwError "the routed functor is absent"
+  match edge, references with
+  | .functor id, [.functor entry] =>
+    unless entry.id == id do
+      throwError "the routed functor changed its complete selected row"
     let declaredMap := fun expression => do transform (← declaredApplication entry.declaration expression)
     if expression.getAppFn.isConstOf ``CategoryTheory.Cat.Hom.toFunctor then
       mapProjectionArgument ``CategoryTheory.Cat.Hom.toFunctor expression declaredMap
     else declaredMap expression
-  | .classifierForget id =>
-    let some entry := state.classifier? id | throwError "the routed classifier is absent"
+  | .classifierForget id, [.classifierForget entry] =>
+    unless entry.id == id do
+      throwError "the routed classifier changed its complete selected row"
     mapProjectionArgument ``CategoryTheory.Cat.Hom.toFunctor expression fun forget =>
       mapProjectionArgument ``LeanCategories.Classifier.forget forget fun classifier => do
         let declaredMap := fun expression => do transform (← declaredApplication entry.declaration expression)
@@ -631,18 +582,22 @@ private partial def mapRoutedAction (edge : EdgeRef) (expression : Expr)
         else if classifier.getAppFn.isConstOf ``LeanCategories.StructureClassifier.toClassifier then
           mapProjectionArgument ``LeanCategories.StructureClassifier.toClassifier classifier declaredMap
         else declaredMap classifier
-  | .constructMap constructor inner =>
-    let some action := (state.constructor? constructor).bind (·.functorialAction)
+  | .constructMap constructor inner, .constructorInterface entry .functorialAction :: remaining =>
+    unless entry.id == constructor do
+      throwError "the routed constructor changed its complete selected row"
+    let some action := entry.functorialAction
       | throwError "the routed constructor lost its declared action"
     discard <| declaredApplication action expression
-    mapProjectionArgument action expression fun selected => mapRoutedAction inner selected transform
+    mapProjectionArgument action expression fun selected =>
+      mapRoutedAction inner remaining selected transform
+  | _, _ => throwError "the routed action lost its complete original selected rows"
 
-/-- Install already checked actual inputs at the complete native explicit parameter positions.
-Both prefix evaluation and final descriptor encoding then read these same supplied nodes. -/
-opaque routedActionWithParameters (edge : EdgeRef) (expression : Expr) (parameters : Array Expr) :
-    MetaM Expr := do
-  let result ← mapRoutedAction edge expression fun declared => do
-    let originals ← routedActionParameters edge expression
+
+
+opaque routedActionWithParameters (family : SourceActionFamily) (expression : Expr)
+    (parameters : Array Expr) : MetaM Expr := do
+  let originals ← routedActionParameters family expression
+  let result ← mapRoutedAction family.edge family.references.toList expression fun declared => do
     unless originals.size == parameters.size do
       throwError "the routed action changed its complete explicit parameter arity"
     let mut arguments := declared.getAppArgs
@@ -652,9 +607,9 @@ opaque routedActionWithParameters (edge : EdgeRef) (expression : Expr) (paramete
   checkWithKernel result
   return result
 
-/-- Which complete category slot supplies an entire explicit action parameter. This is read
-from the rigid native family before specialization. It lets a deferred call retain an actual
-supplied parameter at that original position; native equality does not recover a value. -/
+
+
+
 def RoutedMethodFamily.actionParameterInputs (family : RoutedMethodFamily) :
     MetaM (Array (Array (Option Nat))) := withLCtx {} #[] do
   forallTelescopeReducing (← inferType family.categoryFamily) fun parameters _ => do
@@ -668,10 +623,14 @@ def RoutedMethodFamily.actionParameterInputs (family : RoutedMethodFamily) :
     let context ← ContextTelescope.capture bindings
     let actions ← family.specializeActions (family.universeParams.map Level.param) parameters
     let edges := family.route.refs.push (.functor family.functor.id)
+    unless edges.size == actions.size && actions.size == family.actionFamilies.size do
+      throwError "the routed method lost a complete selected action family"
     let mut result := #[]
-    for edge in edges, action in actions do
+    for edge in edges, action in actions, actionFamily in family.actionFamilies do
+      unless actionFamily.edge == edge do
+        throwError "the routed method changed an original action position"
       let mut selected := #[]
-      for (_, source) in ← routedActionParameters edge action do
+      for (_, source) in ← routedActionParameters actionFamily action do
         let route ← (← context.close source).inputProjectionAt #[] (bindings.map (·.id))
         let index := do
           let route ← route
@@ -682,7 +641,7 @@ def RoutedMethodFamily.actionParameterInputs (family : RoutedMethodFamily) :
       result := result.push selected
     return result
 
-/-- Existing public action grammar, with complete parameters supplied at their native positions. -/
+
 def routedActionDescriptor (edge : EdgeRef) (parameters : Array Json) : Json :=
   match edge with
   | .functor id => Json.mkObj [("ctor", toJson id.raw), ("args", .arr parameters)]
@@ -691,7 +650,7 @@ def routedActionDescriptor (edge : EdgeRef) (parameters : Array Json) : Json :=
   | .constructMap constructor inner => Json.mkObj [("ctor", toJson "constructorMap"),
       ("args", .arr #[toJson constructor.raw, routedActionDescriptor inner parameters])]
 
-/-- The wire path of the same positioned declaration parameter inside its action descriptor. -/
+
 def routedActionParameterPath (edge : EdgeRef) (index : Nat) : Array CasCatalogue.Backend.InputPathStep :=
   match edge with
   | .functor _ => #[.field "args", .index index]
@@ -699,15 +658,55 @@ def routedActionParameterPath (edge : EdgeRef) (index : Nat) : Array CasCatalogu
   | .constructMap _ inner => #[.field "args", .index 1] ++ routedActionParameterPath inner index
 
 
-/-- Form a selected method at its actual original receiver and declared action inputs.
-Both the ordinary source reader and published requests use this producer, including the
-same independently supplied return plan and result-category interface. -/
-def RoutedMethodFamily.applyAt (family : RoutedMethodFamily) (levels : List Level)
-    (parameters : Array Expr) (receiver : Expr) (inputs : Array (Array Expr) := #[]) :
-    MetaM (Expr × Expr) := do
-  let callable := mkAppN (family.family.instantiateLevelParams family.universeParams levels) parameters
-  let forward ← if inputs.isEmpty then pure (family.mark (mkApp callable receiver))
-    else family.markInputs (mkApp callable receiver) inputs
-  family.resultAt levels parameters receiver forward
+
+def RoutedMethodFamily.resultAt [Monad m] [MonadLiftT MetaM m]
+    (family : RoutedMethodFamily) (levels : List Level) (parameters : Array Expr)
+    (receiver forward : Expr) (select : SourceSelection Expr → Option Expr → m Expr) :
+    m (Expr × Expr) := do
+  liftM (m := MetaM) do
+    unless levels.length == family.universeParams.length &&
+        parameters.size == family.parameterCount do
+      throwError "the returning method changed its complete native parameter telescope"
+  let specialize := fun expression =>
+    (mkAppN (expression.instantiateLevelParams family.universeParams levels) parameters).headBeta
+  match family.returns with
+  | none =>
+    let (_, target) ← liftM (m := MetaM) <|
+      functorCategoryBundles (specialize family.functorFamily)
+    return (forward, target)
+  | some returned =>
+    liftM (m := MetaM) do
+      unless returned.actionFamilies.size == returned.rows.size do
+        throwError "the returning method lost a complete original action family"
+    let result ← applyMethodReturns returned.rows (returned.evidences.map specialize)
+      (returned.actions.map specialize) receiver forward select fun index edge action original => do
+        let selected ← liftM (m := MetaM) do
+          let some actionFamily := returned.actionFamilies[index]?
+            | throwError "the returning route lost its original selected action position"
+          unless actionFamily.edge == edge do
+            throwError "the returning route changed its complete selected action"
+          let declared ← routedActionApplication actionFamily action
+          let .const _ levels := declared.getAppFn
+            | throwError "the returning route lost its original declared action"
+          actionFamily.selected levels declared.getAppArgs original
+        select selected none
+    liftM (m := MetaM) do
+      let result ← retainMethodReturnAgreement (returned.agreement.map specialize) result
+      let bundle := specialize returned.categoryFamily
+      unless ← isDefEq (← inferType result)
+          (← mkAppM ``CategoryTheory.Bundled.α #[bundle]) do
+        throwError "the returning method changed its complete actual result category"
+      return (result, bundle)
+
+
+def RoutedMethodFamily.applyAt [Monad m] [MonadLiftT MetaM m]
+    (family : RoutedMethodFamily) (levels : List Level)
+    (parameters : Array Expr) (receiver : Expr)
+    (select : SourceSelection Expr → Option Expr → m Expr)
+    (inputs : Array (Array Expr) := #[]) : m (Expr × Expr) := do
+  let selected ← liftM (m := MetaM) <| family.selected levels parameters receiver
+    (if inputs.isEmpty then none else some inputs)
+  let forward ← select selected none
+  family.resultAt levels parameters receiver forward select
 
 end CasCompiler

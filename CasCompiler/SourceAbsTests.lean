@@ -1,18 +1,20 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.SourceTestSupport
 import CasCompiler.Parse
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.SourceTestSupport
 meta import CasCompiler.Parse
 meta import LeanCategories.Catalogue
 
-open Lean Meta Elab Term CasCompiler
+open Lean Meta Elab Term CasCompiler CasCompiler.SourceTest
 
-/- The bars of an element are its registered absolute value: `|z|` for `z` in ℂ is the morphism
-of sets `abs : ℂ → ℝ` (`mor.sets.complex_abs`), as in tests/acceptance/numbers.cas; the bars of
-an object remain its cardinality. -/
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let file ← SourceFile.parse "source-abs.cas" "let z := 2 + 2i in ℂ\n"
@@ -26,7 +28,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let .ok source := Parser.runParserCategory (← getEnv) `cas_term "|z|"
     | throwError "the absolute value did not parse"
   let value ← session.read ⟨source⟩
-  value.source.withOpen fun _ value => do
-    unless ((← instantiateMVars value).find?
-        (·.isConstOf ``CasCatalogue.Algebra.NumberSystems.abs)).isSome do
-      throwError "`|z|` is not the registered absolute value: {value}"
+  checkSelected value fun expression => do
+    checkOriginal #[expression] fun native => do
+      let value ← instantiateMVars native[0]!
+      unless (value.find? (·.isConstOf ``CasCatalogue.Algebra.NumberSystems.abs)).isSome do
+        throwError "`|z|` is not the registered absolute value: {value}"
