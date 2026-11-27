@@ -599,8 +599,9 @@ class FeedbackTests(unittest.TestCase):
         self.assert_run_records(record, module, completed=False)
 
     def test_warm_consumer_executes_again(self) -> None:
-        manifest = ROOT / ".tmp/kernel-session-leaves.json"
-        command = ["just", "loop", "CasRuntime.SessionTests"]
+        manifest = ROOT / ".tmp/feedback-log-leaves.json"
+        command = ["just", "slow", "T114 complete warm consumer regression",
+                   "CasRuntime.FeedbackLogTests"]
         if not manifest.exists():
             subprocess.run(command, cwd=ROOT, check=True)
         previous = manifest.stat().st_mtime_ns
@@ -612,7 +613,7 @@ class FeedbackTests(unittest.TestCase):
             "a warm loop replayed the previous elaboration instead of executing the consumer",
         )
         record = json.loads((ROOT / "timing/runs.jsonl").read_text().splitlines()[-1])
-        self.assert_run_records(record, "CasRuntime.SessionTests", completed=True)
+        self.assert_run_records(record, "CasRuntime.FeedbackLogTests", completed=True)
         summary = record["computations"]
         self.assertTrue(summary["complete"], summary["malformed"])
         all_rows = [json.loads(line) for line in
@@ -655,7 +656,7 @@ class FeedbackTests(unittest.TestCase):
             self.assertNotIn("start", row)
             self.assertEqual(row["completion"], event)
             self.assertEqual(row["outcome"], data)
-            self.assertEqual(row["file"], "CasRuntime/SessionTests.lean")
+            self.assertEqual(row["file"], "CasRuntime/FeedbackLogTests.lean")
             self.assertEqual(row["input_sha256"], record["inputs"][row["file"]])
             self.assertEqual(row["statement_sha256"],
                              hashlib.sha256(data["source"].encode()).hexdigest())
@@ -677,7 +678,7 @@ class FeedbackTests(unittest.TestCase):
         for key, row in measured.items():
             self.assertTrue(row["complete"])
             self.assertEqual(row["start"], originals[key])
-            self.assertEqual(row["file"], "CasRuntime/SessionTests.lean")
+            self.assertEqual(row["file"], "CasRuntime/FeedbackLogTests.lean")
             self.assertEqual(row["input_sha256"], record["inputs"][row["file"]])
             self.assertEqual(row["statement_sha256"],
                              hashlib.sha256(originals[key]["data"]["source"].encode()).hexdigest())
@@ -687,7 +688,7 @@ class FeedbackTests(unittest.TestCase):
             self.assertAlmostEqual(row["inclusive_seconds"], row["execution_seconds"] +
                                    row["setup_seconds"] + row["shared_setup_seconds"] +
                                    row["shared_worker_setup_seconds"] + row["shared_session_setup_seconds"])
-        fixture = (ROOT / "tests/runtime/application_log.cas").resolve()
+        fixture = (ROOT / "tests/runtime/feedback_log.cas").resolve()
         rows = [row for row in all_rows if Path(row["file"]).resolve() == fixture]
         self.assertTrue(rows, "the original public file lost its computation records")
         source_hash = hashlib.sha256(fixture.read_bytes()).hexdigest()
@@ -729,7 +730,7 @@ class FeedbackTests(unittest.TestCase):
                                     ordered[0]["execution_seconds"])
 
         seeded = [row for row in direct if row.get("start", {}).get("data", {}).get("source") ==
-                  "let timingPrepared := 17 + 29 in ℤ"]
+                  "let timingPrepared := Fin(3)"]
         self.assertEqual(len(seeded), 1)
         seed = seeded[0]
         self.assertEqual(seed["outcome"]["kind"], "holds")
@@ -755,7 +756,7 @@ class FeedbackTests(unittest.TestCase):
             if row["ordinal"] < 4:
                 expected_setup += row["completion"]["data"]["executionMilliseconds"]
         later = [row for row in direct if row.get("start", {}).get("data", {}).get("source") ==
-                 "assert timingPrepared = 46 in ℤ"]
+                 "assert implemented |timingPrepared|"]
         self.assertEqual(len(later), 1)
         self.assertEqual(later[0]["session"], seed["session"])
         self.assertEqual(later[0]["outcome"]["kind"], "holds")

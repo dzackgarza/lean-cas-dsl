@@ -1102,3 +1102,33 @@ and terminated its following empty-selection probe with status 143. That failure
 by the intervention and requires an unchanged rerun. It is not evidence of an empty-selection
 implementation defect. The missing-input control then passed. This whole-suite result remains
 failed; no failed or interrupted observation is counted as a passing gate.
+
+## T114 report-control repairs and warm prerequisites, 2026-11-27
+
+At `00904bf`, the repaired partial-report and missing-consumer controls and the
+unchanged empty-selection control all passed. The complete public command took
+391.47095123911276 s (380.398 s inside unittest). The first two controls retain
+their original inputs and every downstream corruption and invalidation assertion;
+their preconditions now require fresh complete reports, source and inventory
+identity, and exact agreement between observed failures and native worker status.
+
+| Regression control | Case duration | Result |
+| --- | ---: | --- |
+| Partial report cannot reuse complete results | 166.002 s | Pass |
+| Missing consumer invalidates the previous report | 124.952 s | Pass |
+| Empty selection is a current failure | 89.321 s | Pass |
+
+The complete result is `timing/logs/t114-report-controls-00904bf/gate-1-result.json`.
+Its transcript is `gate-1-output.log` in the same directory, SHA256
+`f60ef2a8726790637c4ac28c882b95a6c5f593d218eb419c6adf2d81ecc7f9ab`.
+
+A separate native prerequisite probe exited zero in 571.2666624393314 s. It
+verified an actual retained `Fin(3)` definition and later cardinality dispatch to
+the existing protocol peer, then a fresh seed, a complete six-root/two-child file,
+the exact setup recurrence, later use of the seed and `let timingRejected :=` as
+a completed parse rejection. Every guard passed. All recorded source hashes,
+including the original `CasRuntime/SessionTests.lean` and
+`tests/runtime/application_log.cas`, were unchanged. The evidence is
+`timing/logs/t114-warm-prerequisite-06f4584/result.json`; the transcript SHA256 is
+`1a6f1ee9e92c3565abee6abde326c61bf897493322cc6931d4c9538a320dde47`.
+This verifies the fixture prerequisites, not the complete Python warm control.

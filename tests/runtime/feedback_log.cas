@@ -1,0 +1,13 @@
+let loggingA := Fin(3)
+let loggingB := Fin(3)
+let loggingC := Fin(3)
+let loggingD := Fin(3)
+
+test logging.direct "retained finite object":
+  assert implemented |loggingD|
+
+context do
+  let loggingNested := Fin(3)
+  test logging.nested "nested retained finite object":
+    assert implemented |loggingNested|
+end
