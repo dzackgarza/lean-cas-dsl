@@ -6,6 +6,7 @@ public import CasTools.NativeExpression
 public meta import CasTools.NativeExpression
 public import CasContract.Registration
 public import CasContract.Port
+public import Mathlib.CategoryTheory.Limits.Creates
 public import Lean.Elab.Command
 
 @[expose] public section
@@ -14,9 +15,9 @@ namespace CasTools.InterfaceExport
 
 open Lean Meta Elab Command CasCatalogue CasCompiler
 
--- These codecs derive from the independently owned records. Adding a field to a
--- record changes the export at compilation; a hand-written field inventory cannot
--- silently discard a new law, choice, parameter, or published action.
+
+
+
 local instance : ToJson Name := ⟨NativeExpression.nameJson⟩
 deriving instance ToJson for ParameterMorphismId, ParameterKindId, VarianceId
 deriving instance ToJson for FibrationId, MethodId, PropertyId, LiftId, LimitId
@@ -28,8 +29,8 @@ deriving instance ToJson for CategoryFamilySchema, CategoryFamilyTransportSemant
 deriving instance ToJson for FibrationVariance, MethodShape, LiftKind
 deriving instance ToJson for InclusionParameterization, ConstructorArgKind
 
-/-- The native indexed expression retains the complete source, intermediate and
-target categories, with its actual constructors and all parameters. -/
+
+
 instance {source target : CategoryExpr} : ToJson (FunctorExpr source target) :=
   ⟨fun expression => NativeExpression.encode #[toExpr expression]⟩
 
@@ -44,8 +45,8 @@ deriving instance ToJson for ClassifierEntry, FunctorEntry, PresentationComparis
 deriving instance ToJson for ConstructionEntry, StructuralPortEntry, OpaqueCategoryEntry
 deriving instance ToJson for SemanticEntry
 
-/-- All authored entry points of a row. Reuse the registry's declaration inventory
-and retain the additional object ports used by the public contract exporter. -/
+
+
 def rowDeclarations (row : SemanticEntry) : Array Name :=
   row.declarations ++ match row with
     | .object object => object.generator.toArray ++ object.application.toArray ++
@@ -53,14 +54,15 @@ def rowDeclarations (row : SemanticEntry) : Array Name :=
       object.refines.toArray.map (·.identification)
     | _ => #[]
 
-/-- The data-only ABI is described by its actual public declarations. Its complete
-dependent fields remain attached to the same native type; this list creates no
-wire grammar, mathematical operation, law, or route preference. -/
+
+
+
 def dataInterfaces : Array Name :=
   #[``BackendProgram, ``PreferredRoute, ``Registration, ``Manifest,
     ``Backend.ObjectField, ``Backend.MorphismEndpoint, ``Backend.TypedMap,
     ``Backend.LiftImages, ``Backend.LiftInput, ``Backend.LiftFactorInput,
-    ``Backend.CartesianMap, ``Backend.ConstructionField, ``Backend.CreatedCone,
+    ``Backend.CartesianMap, ``Backend.ConstructionField,
+    ``CategoryTheory.LiftableCone, ``CategoryTheory.LiftsToLimit,
     ``Backend.CategoryParameter,
     ``Backend.ConstructedCategory, ``Backend.StructuredProjectionAction,
     ``Backend.FunctorParameter, ``Backend.CellComponent, ``Backend.ConstructedCellComponent,
@@ -79,8 +81,8 @@ def uniqueNames (names : Array Name) : Array Name := Id.run do
       result := result.push name
   return result
 
-/-- Include native record constructors and projections. In particular the preferred
-route's ordered edges and registration's fields are read from their actual owner. -/
+
+
 def declarationMembers (name : Name) : MetaM (Array Name) := do
   let env ← getEnv
   match ← getConstInfo name with
@@ -112,9 +114,9 @@ def declarationDocument (info : ConstantInfo) : MetaM Json := do
     ("documentation", toJson (← findDocString? env info.name)),
     ("fields", Json.arr fields)]
 
-/-- Prepare a public interface from the current accepted registry and native
-environment. No leaf is imported, no provider is called, and no declaration value
-or proof procedure is executed. This document is descriptive, never admission. -/
+
+
+
 def prepare : MetaM Json := do
   let snapshot ← RegistrySnapshot.snapshot
   match snapshot.validateDerived #[] with
@@ -155,8 +157,8 @@ def prepare : MetaM Json := do
     ("declarations", Json.arr documents),
     ("native", NativeExpression.encodeWithDeclarations #[] declarations)]
 
-/-- Render the already prepared document. Refreshing help performs no elaboration,
-proof search, provider request, native evaluation, or extensible formatting. -/
+
+
 def help (document : Json) : Except String String := do
   let rows ← document.getObjValAs? (Array Json) "registry"
   let declarations ← document.getObjValAs? (Array Json) "declarations"
@@ -199,4 +201,3 @@ def help (document : Json) : Except String String := do
   return result
 
 end CasTools.InterfaceExport
-
