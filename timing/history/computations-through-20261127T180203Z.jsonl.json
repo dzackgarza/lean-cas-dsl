@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "archive": "timing/history/computations-through-20261127T180203Z.jsonl.gz",
+  "source_file": "timing/computations.jsonl",
+  "cutoff_utc": "2026-11-27T18:02:03.971121+00:00",
+  "revision": "b4b7efd789485a1dfbf41ce1c6699a920225f94e",
+  "records": 137,
+  "expanded_bytes": 66511236,
+  "expanded_sha256": "a359cd00a4b3820637e1626c3de561ac5ceced075c17e0ce1ba909046db26fbe",
+  "compressed_bytes": 1254054,
+  "compressed_sha256": "a18f8bb5de291606cb3522e074d9804834c82fa646ac1af1573f402ba6b1b3ab",
+  "verification": "gzip decompression equals the complete original ledger byte for byte, preserving order and multiplicity",
+  "complete": true
+}

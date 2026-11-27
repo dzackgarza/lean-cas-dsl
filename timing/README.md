@@ -1546,3 +1546,109 @@ its 181951-byte archive has SHA256
 Each archive and manifest was durably written and its decompression verified
 before removing the uncompressed file. These exact historical bytes remain
 recoverable; the interrupted broad run is unchanged.
+
+## Current KM0 gates after the T369 repair, 2026-11-27
+
+At committed `main` revision `b4b7efd789485a1dfbf41ce1c6699a920225f94e`,
+the complete public T362 check
+`just test-feedback AcceptanceRunTests.test_source_occurrences_survive_reporting`
+ran three times with unchanged source, test, original input and pin hashes.
+The public times were 313.672199969, 234.525654690 and 178.532456268 seconds.
+All three test invocations passed, but the first exceeded the 300-second
+focused bound and stopped the gate chain. Its native run took 293.113014099
+seconds, including 85.620283097 seconds of build work and 178.651754972 seconds
+of fresh execution. The complete series has median 234.5256546898745 seconds;
+the latest complete ordinary check is within the bound. This is an unchanged
+measurement series, not evidence of a source optimization. The receipts remain
+at `timing/logs/t362-current-b4b7efd/gate-{1,2,3}-result.json`; their output hashes
+are `cfd301b766f6ba971dc6e7efc30d9513732065c4e6764365553ac8222ee4ccac`,
+`a4a4cd27dc2f4a175949a424c975756ec5bcca6cf8d9feb915b5096ade8cc854`
+and `5cd0b8ae976d356fc7a83c5d42d00fd25780a98accf8707ce457a639bc0eeac9`.
+
+The remaining required feedback gates then completed on the same production,
+test, input and pin bytes:
+
+| Public command | Public seconds | Result |
+| --- | ---: | --- |
+| `just test-feedback FeedbackTests.test_extension_is_an_unchanged_kernel_observation SuiteTests.test_empty_selection_is_a_current_failure SuiteTests.test_missing_input_is_infrastructure_failure` | 187.652537713 | All three controls pass |
+| `just test-feedback FeedbackTests.test_warm_consumer_executes_again --durations 0` | 381.522057613 | Complete standalone warm control passes, retaining all 97 assertions |
+| `just test-feedback --durations 0` | 2323.912214907 | All 23 controls pass; 2315.784 seconds inside unittest |
+
+The corresponding receipts are
+`timing/logs/km0-runner-regressions-b4b7efd/gate-1-result.json`,
+`timing/logs/km0-warm-control-b4b7efd/gate-1-result.json` and
+`timing/logs/km0-feedback-suite-b4b7efd/gate-1-result.json`.
+Their complete-output SHA256 values are
+`7b49018678b0dc7c866f43a004a3e9c40706f7beacdeb41f1f44e022b3ce1616`,
+`3615e9543d603ce1c7d332863abc37c77044f94d8b59a0b271b92ef018860ebf`
+and `dec07b81abdf324f612c57ca18e6218e55efd710b37d49f3efdc0725f7b69a7e`.
+Within the complete suite, T369 took 249.644 seconds and T362 took 203.116
+seconds. The standalone warm control and full suite are explicitly long
+milestone regressions, not substitutes for bounded focused checks.
+
+The three-control group's RX09 input is the original
+`rx09-constant-one-rejection.cas`, selected by its native acceptance context;
+the outer receipt also hashes an additional successor-series file without
+selecting it. Its five source occurrences and timings retain their original
+identity and admitted-false/computing-true outcome. The native file failure
+remains a failure. The missing-input control names its actually requested
+`missing.cas`, and the empty selection remains an infrastructure failure.
+No admission expectation or original T127 case was removed.
+
+The restored installed-leaf input was also checked through its original
+consumer with `just loop "CasRuntime.RealizationProfileTests"`. That complete
+public command took 140.361595974 seconds and returned status 1. Its build
+passed; the first two original test blocks executed without a missing-manifest
+diagnostic, using the default installed manifest at revision
+`a11186d98cfa7ec9381699d642afac040585cda4` and SHA256
+`318403323bfd15af750ac0fc7a726bbb08d74487e4496c337a70b4cdef8c6ea7`.
+The later block fails on the unavailable `admitManifest` and
+`publishedOperation` names and their cascading elaboration errors. This does
+not establish a passing module or mathematical acceptance. The unmodified
+result and output are in
+`timing/logs/restored-leaf-consumer-b4b7efd/gate-1-result.json` and its named log.
+
+Current CI is also retained as failed, not promoted to a passing delivery:
+the kernel-purity job has the same 158 first-line diagnostics in 50 modules
+as the preceding revision; the Python gate has the same one failure and six
+errors among 56 tests; meaning permanence retains the same 153 unread IDs
+and multiplicities. The four compared 201-row acceptance reports agree after
+excluding only their measured timing fields. Dependency preparation and the
+restored leaf checkout succeed, with no missing-leaf diagnostic. The current
+run is <https://github.com/dzackgarza/lean-cas-dsl/actions/runs/46036367629>;
+the exact comparisons and diagnostic ownership limits are preserved in
+`timing/logs/ci-main-b4b7efd-review/`. These failures do not close F or T352.
+
+After the suite ended, a fresh process census found only the census's own
+wrapper processes in this checkout. Under the live ledger's existing inode
+lock, all 137 computation rows were retained in
+`timing/history/computations-through-20261127T180203Z.jsonl.gz` and its adjacent
+verification manifest. The 66511236 original bytes have SHA256
+`a359cd00a4b3820637e1626c3de561ac5ceced075c17e0ce1ba909046db26fbe`;
+the 1254054 compressed bytes have SHA256
+`a18f8bb5de291606cb3522e074d9804834c82fa646ac1af1573f402ba6b1b3ab`.
+Decompression was compared byte for byte, and the archive, manifest and
+directories were synchronized before truncating the live file in place.
+
+Forty-one completed derived evidence files from three completed native runs
+and eight completed replay directories were also retained as adjacent gzip
+archives. Their 410840993 original bytes occupy 5744019 compressed bytes.
+Both computation paths in each replay remain separately recoverable; replay
+copies are not counted as additional native runs. The complete paths, hashes,
+stable original-file metadata and restore commands are in
+`timing/logs/km0-feedback-suite-b4b7efd/completed-derived-evidence/retention.json`
+(SHA256 `b17c0f345be8c6bb63d66b30ccfa740f0ffe3aecda0331ad27f8821cf5912ba3`).
+Three closed application logs retain all 765107 original bytes in 100437
+compressed bytes, with session IDs, event counts and restore commands in
+`timing/logs/km0-feedback-suite-b4b7efd/completed-application-logs/retention.json`
+(SHA256 `47c527ea039ccbed22c22ca98abf026f3fb3a69242458335db3de230252b49c8`).
+Every archive was verified and durably recorded before its original was
+removed. Restore the recorded original paths before historical replay.
+Native results, statuses and the interrupted `trTxyp` run remain unchanged.
+
+The plan now records PR #87 reconciliation as completed history. Issue #92's
+current acceptance wording names `main`; its original acceptance conditions
+and historical comments are preserved. The complete new broad milestone run
+is still required. T362, T368 and T369 remain open until that run and the
+current-source convergence review satisfy the complete KM0 obligations;
+standing T355–T361 contingency checkboxes remain unchecked.
