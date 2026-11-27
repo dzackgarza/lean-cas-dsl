@@ -1,9 +1,0 @@
-[build] native lake --log-level=error build +CasRuntime.LiteralTests:deps +CasRuntime.NativeFieldPrefixTests:deps +CasRuntime.FixedInputRouteTests:deps 
-✔ [1566/1589] Built CasRuntime.Value (43s)
-✔ [1573/1589] Built CasRuntime.Environment (32s)
-✔ [1577/1589] Built CasRuntime.PreparedRequest (16s)
-Build completed successfully (1589 jobs).
-[execution] native lake --log-level=error lean CasRuntime/LiteralTests.lean -- -DstderrAsMessages=false 
-[execution] native lake --log-level=error lean CasRuntime/NativeFieldPrefixTests.lean -- -DstderrAsMessages=false 
-[execution] native lake --log-level=error lean CasRuntime/FixedInputRouteTests.lean -- -DstderrAsMessages=false 
-slow: execution status 0; status 0 in 282.728 s; log timing/logs/20261125T173603Z-slow.mex1R2/output.log

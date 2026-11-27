@@ -1,2 +1,0 @@
-source scripts/container.sh
-incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow "Validate supplied proofs and remaining structured source controls" CasRuntime.ConstrainedPointTests CasCompiler.SourceGeneratorTests CasCompiler.SourceOperationTests CasCompiler.SourceRingTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCatalogue.EvidencePresentationProbes CasCatalogue.StructuredParameterProbes

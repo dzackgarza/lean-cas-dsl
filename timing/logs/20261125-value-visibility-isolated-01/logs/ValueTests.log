@@ -1,8 +1,0 @@
-/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-value-visibility-20261125-01/src/CasRuntime/ValueTests.lean:128:71: error(lean.invalidField): Invalid field `isError`: The environment does not contain `Except.isError`, so it is not possible to project the field `isError` from an expression
-  graph.requiredOwners #[previous, changedParameters]
-of type
-  Except String (Array ConnectionGeneration)
-/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-value-visibility-20261125-01/src/CasRuntime/ValueTests.lean:130:73: error(lean.invalidField): Invalid field `isError`: The environment does not contain `Except.isError`, so it is not possible to project the field `isError` from an expression
-  graph.requiredOwners #[previous, changedDependencies]
-of type
-  Except String (Array ConnectionGeneration)

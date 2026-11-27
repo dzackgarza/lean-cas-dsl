@@ -1,5 +1,0 @@
-[build] native lake --log-level=error build +CasRuntime.ConstrainedPointTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCatalogue.EvidencePresentationProbes:deps +CasCatalogue.StructuredParameterProbes:deps 
-Build completed successfully (3976 jobs).
-[execution] native lake --log-level=error lean CasRuntime/ConstrainedPointTests.lean -- -DstderrAsMessages=false 
-/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/ConstrainedPointTests.lean:140:0: error: the original RX08 declaration did not read: let row := [1, 0] in RectangularMatrices(1, 2, Q); the source finite tuple requires its declared indexed domain
-slow: execution status 1; status 1 in 224.775 s; log timing/logs/20261126T170215Z-slow.XOk16m/output.log

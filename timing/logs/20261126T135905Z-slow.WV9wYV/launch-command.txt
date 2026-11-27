@@ -1,2 +1,0 @@
-source scripts/container.sh
-incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate the native constant collector with complete context cost instrumentation' CasCompiler.NativeDeclarationTests CasCompiler.ContextTests

@@ -1,2 +1,0 @@
-source scripts/container.sh
-incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow "Validate selected tuple domains and original structured source controls" CasCompiler.SourceTupleTests CasRuntime.ConstrainedPointTests CasCompiler.SourceInstanceTests CasCompiler.SourceGeneratorTests CasCompiler.SourceOperationTests CasCompiler.SourceRingTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCatalogue.EvidencePresentationProbes CasCatalogue.StructuredParameterProbes

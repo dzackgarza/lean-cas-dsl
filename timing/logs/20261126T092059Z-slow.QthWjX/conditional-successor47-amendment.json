@@ -1,8 +1,0 @@
-{
-  "recorded_utc": "2026-11-26T09:24:59.566224+00:00",
-  "authority": "parent explicit final scope amendment during46",
-  "condition": "All eight46 fresh modules pass, source hashes unchanged and native inventory empty",
-  "reason": "ProofTests already receives fresh evidence in46; preserve all nine public and related controls, including SessionDependentReferenceTests",
-  "command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate all four typed-carrier observations through the public session' CasRuntime.BindingIdentityTests CasRuntime.NamedApplicationTests CasRuntime.FixedInputResultTests CasRuntime.SessionOccurrenceTests CasRuntime.SessionDependentReferenceTests CasCompiler.SourceIdentityTests CasCompiler.SourceLimitTests CasCompiler.SourceNamedLimitTests CasRuntime.SessionLimitObservationTests -- sets functions finite_sets\n",
-  "native_launch": false
-}

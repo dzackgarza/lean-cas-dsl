@@ -6,7 +6,7 @@ started=$(now)
 cd "$(dirname "$0")/.."
 limit=300
 records=timing/runs.jsonl
-die() { printf 'feedback: %s\n' "$*" | tee -a "$log" >&2; exit 2; }
+die() { printf 'feedback: %s\n' "$*" >&2; exit 2; }
 usage() {
   printf '%s\n' \
     'Current-source feedback (C21/C24). Called by just loop, slow, milestone and stop.' \
@@ -57,6 +57,9 @@ run_dir=$(mktemp -d "timing/logs/$(date -u +%Y%m%dT%H%M%SZ)-$command.XXXXXX")
 log=$run_dir/output.log
 context=$run_dir/context.json
 touch "$log" "$records"
+exec {original_stdout}>&1 {original_stderr}>&2
+exec > >(trap '' INT TERM; tee --output-error=warn -a "$log" >&"$original_stdout") 2>&1
+log_writer=$!
 
 CAS_FEEDBACK_PARENT_RUN=${CAS_FEEDBACK_RUN:-}
 CAS_FEEDBACK_RUN=${run_dir##*/}
@@ -68,6 +71,7 @@ native() {
   incontainer env CAS_FEEDBACK_RUN="$CAS_FEEDBACK_RUN" \
     CAS_FEEDBACK_CONTEXT="$CAS_FEEDBACK_CONTEXT" \
     CAS_FEEDBACK_PARENT_RUN="$CAS_FEEDBACK_PARENT_RUN" \
+    CAS_FEEDBACK_IMAGE_DIGEST="${CAS_FEEDBACK_IMAGE_DIGEST:-}" \
     CAS_APPLICATION_LOG_DIR="$CAS_APPLICATION_LOG_DIR" \
     CAS_FEEDBACK_STEP="${CAS_FEEDBACK_STEP:-}" \
     CAS_FEEDBACK_SOURCE="${CAS_FEEDBACK_SOURCE:-}" "$@"
@@ -78,33 +82,59 @@ preparation_finished=false
 context_pending=true
 attempted=false
 attempted_sources=()
+active_pid=
+interruption_signal=
+run_active() {
+  local status=0
+  setsid env --default-signal=INT,TERM bash -c '"$@"' bash "$@" &
+  active_pid=$!
+  wait "$active_pid" || status=$?
+  active_pid=
+  return "$status"
+}
+interrupt() {
+  interruption_signal=$1
+  trap '' INT TERM
+  if [[ -n "$active_pid" ]]; then
+    kill -s "$1" -- "-$active_pid" 2>/dev/null || true
+    wait "$active_pid" || true
+    active_pid=
+  fi
+  exit "$2"
+}
 finish() {
-  local status=$?
+  local status=$? drain_status=0
   trap - EXIT
+  trap '' INT TERM
   set +e
   if [[ "$context_pending" == true ]]; then
     python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
       "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
-      "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
+      "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
     local refresh_status=$?
     [[ "$status" -ne 0 ]] || status=$refresh_status
   fi
   if [[ "$preparation_finished" != true ]]; then preparation_ns=$(( $(now) - started )); fi
   python3 scripts/feedback_records.py finish "$records" "$context" "$status" "$limit" \
     "$(( $(now) - started ))" "$preparation_ns" "$build_ns" "$execution_ns" "$acceptance_ns" \
-    "$build_status" "$execution_status" "$acceptance_status" "$attempted" "${attempted_sources[@]}" \
-    2> >(tee -a "$log" >&2)
+    "$build_status" "$execution_status" "$acceptance_status" "$attempted" \
+    "$interruption_signal" "${attempted_sources[@]}"
   status=$?
+  exec 1>&"$original_stdout" 2>&"$original_stderr"
+  wait "$log_writer" || drain_status=$?
+  exec {original_stdout}>&- {original_stderr}>&-
+  if [[ -f "$run_dir/result.json" ]]; then
+    python3 scripts/feedback_records.py finalize "$records" "$context" "$drain_status"
+    status=$?
+  fi
   exit "$status"
 }
 trap finish EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+trap 'interrupt INT 130' INT
+trap 'interrupt TERM 143' TERM
 python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
-  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
-
-source scripts/container.sh > >(tee -a "$log") 2> >(tee -a "$log" >&2)
+  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
 
 case "$command" in
   loop)
@@ -171,21 +201,27 @@ fi
 
 python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
-  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
-active=$(running 2> >(tee -a "$log" >&2))
+  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
+source scripts/container.sh
+export root
+export -f native incontainer
+run_active native python3 scripts/feedback_records.py identity "$context"
+active=$(running)
 [[ -z "$active" ]] || die "a run is in progress in this checkout (just stop stops it): $active"
 if [[ ${#stems[@]} -gt 0 && -f .tmp/accept-run.json ]]; then
   mv .tmp/accept-run.json "$run_dir/prior-accept-run.json"
 fi
+if [[ ${#stems[@]} -gt 0 && -f .tmp/accept-current.json ]]; then
+  mv .tmp/accept-current.json "$run_dir/prior-accept-current.json"
+fi
 if [[ ${#stems[@]} -gt 0 ]]; then
-  python3 scripts/acceptance_inputs.py "$run_dir/selected-inputs.json" "${stems[@]}" \
-    2>&1 | tee -a "$log"
+  python3 scripts/acceptance_inputs.py "$run_dir/selected-inputs.json" "${stems[@]}"
 fi
 
 if [[ "$command" == milestone ]]; then
-  native lake env lean --deps-json CasCompilerTests.lean CasRuntimeTests.lean CasDslTests.lean \
-    > "$run_dir/imports.json" 2> >(tee -a "$log" >&2)
-  python3 - "$run_dir/imports.json" > "$run_dir/sources" 2> >(tee -a "$log" >&2) <<'PY'
+  run_active native lake env lean --deps-json CasCompilerTests.lean CasRuntimeTests.lean CasDslTests.lean \
+    > "$run_dir/imports.json"
+  python3 - "$run_dir/imports.json" > "$run_dir/sources" <<'PY'
 import json, sys
 from pathlib import Path
 roots = ("CasCompilerTests", "CasRuntimeTests", "CasDslTests")
@@ -211,22 +247,22 @@ PY
   mapfile -t sources < "$run_dir/sources"
 fi
 
-native python3 scripts/feedback_records.py context "$context" "$command" "$reason" "$log" \
+run_active native python3 scripts/feedback_records.py context "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
-  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
+  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
 context_pending=false
 preparation_ns=$(( $(now) - started ))
 preparation_finished=true
 
 for file in "${sources[@]}"; do
   [[ -f "$file" ]] || {
-    printf 'feedback: no local source for selected consumer: %s\n' "$file" | tee -a "$log" >&2
+    printf 'feedback: no local source for selected consumer: %s\n' "$file" >&2
     exit 2
   }
 done
 
 if [[ "$command" == loop ]]; then
-  python3 - "$records" "$context" "$limit" <<'PY' 2>&1 | tee -a "$log"
+  python3 - "$records" "$context" "$limit" <<'PY'
 import json, sys
 from pathlib import Path
 records, context, limit = sys.argv[1:]
@@ -244,22 +280,18 @@ fi
 step() {
   local phase=$1 source=$2 before elapsed result
   shift 2
-  printf '[%s] ' "$phase" | tee -a "$log"
-  printf '%q ' "$@" | tee -a "$log"
-  printf '\n' | tee -a "$log"
+  printf '[%s] ' "$phase"
+  printf '%q ' "$@"
+  printf '\n'
   attempted=true
   before=$(now)
   python3 scripts/feedback_records.py step-start "$context" "$phase" "$source" "$before" \
-    "$(( preparation_ns + build_ns ))" "$@" 2>&1 | tee -a "$log" || return $?
-  set +e
-  CAS_FEEDBACK_STEP="$phase:$before" CAS_FEEDBACK_SOURCE="$source" "$@" 2>&1 | tee -a "$log"
-  local codes=("${PIPESTATUS[@]}")
-  set -e
+    "$(( preparation_ns + build_ns ))" "$@" || return $?
+  result=0
+  CAS_FEEDBACK_STEP="$phase:$before" CAS_FEEDBACK_SOURCE="$source" run_active "$@" || result=$?
   elapsed=$(( $(now) - before ))
-  result=${codes[0]}
-  [[ "$result" -ne 0 ]] || result=${codes[1]}
   python3 scripts/feedback_records.py step-finish "$context" "$before" "$elapsed" "$result" \
-    2>&1 | tee -a "$log" || return $?
+    || return $?
   case "$phase" in
     build) build_ns=$(( build_ns + elapsed )); build_status=$result ;;
     execution) execution_ns=$(( execution_ns + elapsed ));
@@ -282,7 +314,7 @@ if [[ "$status" -eq 0 || "$command" == milestone ]]; then
   done
 fi
 if [[ ${#stems[@]} -gt 0 && ( "$status" -eq 0 || "$command" == milestone ) ]]; then
-  if step acceptance "" scripts/accept_files.sh "${stems[@]}"; then :; else
+  if CAS_FEEDBACK_PARENT_CONTEXT="$context" step acceptance "" scripts/accept_files.sh "${stems[@]}"; then :; else
     result=$?
     [[ "$status" -ne 0 ]] || status=$result
   fi

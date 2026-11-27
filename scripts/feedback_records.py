@@ -6,10 +6,14 @@ import datetime
 from decimal import Decimal
 from fractions import Fraction
 import fcntl
+import gzip
 import hashlib
 import json
+import math
 import os
 import platform
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -51,6 +55,53 @@ def append_record(path: Path, value: dict) -> None:
         os.fsync(output.fileno())
 
 
+def utc_at(context: dict, monotonic_ns: int) -> str:
+    start = datetime.datetime.fromisoformat(context["utc"])
+    elapsed = datetime.timedelta(microseconds=(monotonic_ns - context["started_monotonic_ns"]) // 1000)
+    return (start + elapsed).isoformat()
+
+
+def terminal_row(context: dict, *, target: str, input_sha256: str | None,
+                 utc_start: str, seconds: float, status: str,
+                 log_path: str, log_sha256: str) -> dict:
+    if status not in {"pass", "fail", "interrupted"}:
+        raise ValueError("invalid terminal timing status")
+    if not math.isfinite(seconds) or seconds < 0:
+        raise ValueError("invalid terminal timing duration")
+    environment = context["environment"]
+    return {
+        "run_id": context["run"], "parent_run": context.get("parent_run"),
+        "utc_start": utc_start, "seconds": seconds, "status": status,
+        "revision": context["revision"], "dirty": context["dirty"],
+        "environment": {"lean": environment.get("lean"),
+                        "image_digest": environment.get("image_digest")},
+        "target": target, "input_sha256": input_sha256,
+        "log_path": log_path, "log_sha256": log_sha256,
+    }
+
+
+def compress_log(path: Path) -> tuple[str, str]:
+    compressed = path if path.suffix == ".gz" else path.with_name(path.name + ".gz")
+    if path != compressed and path.is_file():
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w+b", dir=path.parent, delete=False) as output:
+                temporary = Path(output.name)
+                with path.open("rb") as source, gzip.GzipFile(
+                        filename="", mode="wb", fileobj=output, mtime=0) as archive:
+                    shutil.copyfileobj(source, archive)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, compressed)
+            path.unlink()
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    if not compressed.is_file():
+        raise FileNotFoundError(f"no finalized run log: {compressed}")
+    return str(compressed), hashlib.sha256(compressed.read_bytes()).hexdigest()
+
+
 def identity(context: dict) -> dict:
     return {key: context.get(key) for key in (
         "run", "kind", "revision", "context", "context_status", "parent_run",
@@ -67,8 +118,15 @@ def begin(argv: list[str]) -> None:
     cursor += stem_count
     sources = argv[cursor:cursor + source_count]
     cursor += source_count
+    from acceptance_inputs import parse_selection
+    try:
+        _, acceptance_files = parse_selection(stems)
+    except (OSError, KeyError, TypeError, ValueError, SystemExit):
+        acceptance_files = []
+    selected_inputs = [*sources, *(item["source"] for item in acceptance_files)]
     selection = {"reason": reason, "targets": targets, "acceptance": stems, "sources": sources,
-                 "inputs": {source: digest(Path(source)) for source in sources}}
+                 "acceptance_files": acceptance_files,
+                 "inputs": {source: digest(Path(source)) for source in selected_inputs}}
     current = {"kind": kind, "run": Path(out).parent.name, "context": out,
                "log": log, "command": argv[cursor:]}
     if Path(out).exists():
@@ -76,26 +134,55 @@ def begin(argv: list[str]) -> None:
         if context["context_status"] != "pending" or any(
                 context.get(key) != value for key, value in current.items()):
             raise ValueError("a pending feedback selection changed its original run identity")
+        selection["inputs"] = {**selection["inputs"], **context["inputs"]}
         context.update(selection)
         atomic_json(Path(out), context)
-        return
-    context = {
-        "utc": utc(), "started_monotonic_ns": time.monotonic_ns(),
-        **current, **selection, "context_status": "pending",
-        "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-        "parent_run": os.environ.get("CAS_FEEDBACK_PARENT_RUN"),
-        "environment": {"host": platform.node(), "system": platform.platform(),
-                        "machine": platform.machine(), "python": platform.python_version()},
-    }
-    atomic_json(Path(out), context)
-    append_record(Path(out).parent / "events.jsonl",
-                  {**identity(context), "event": "run.started", "utc": context["utc"]})
+    else:
+        context = {
+            "utc": utc(), "started_monotonic_ns": time.monotonic_ns(),
+            **current, **selection, "context_status": "pending",
+            "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+            "dirty": bool(subprocess.check_output([
+                "git", "status", "--porcelain", "--untracked-files=all", "--", ".", ":(exclude)timing"])),
+            "parent_run": os.environ.get("CAS_FEEDBACK_PARENT_RUN") or None,
+            "environment": {"host": platform.node(), "system": platform.platform(),
+                            "machine": platform.machine(), "python": platform.python_version(),
+                            "lean": None, "image_digest": os.environ.get("CAS_FEEDBACK_IMAGE_DIGEST")},
+        }
+        atomic_json(Path(out), context)
+        append_record(Path(out).parent / "events.jsonl",
+                      {**identity(context), "event": "run.started", "utc": context["utc"]})
+    if kind == "accept":
+        parent = os.environ.get("CAS_FEEDBACK_PARENT_CONTEXT")
+        if parent:
+            parent_context = read_json(Path(parent))
+            if parent_context["run"] != context["parent_run"]:
+                raise ValueError("acceptance child changed its original parent run")
+            atomic_json(Path(parent).parent / "acceptance-child.json",
+                        {"context": out, "run": context["run"]})
+        atomic_json(Path(".tmp/accept-current.json"),
+                    {"result": str(Path(out).parent / "result.json")})
+
+
+def capture_identity(context_file: Path) -> None:
+    context = read_json(context_file)
+    environment = context["environment"]
+    environment.update(host=platform.node(), system=platform.platform(), machine=platform.machine(),
+                       python=platform.python_version(),
+                       image_digest=os.environ.get("CAS_FEEDBACK_IMAGE_DIGEST"))
+    try:
+        environment["lean"] = subprocess.check_output(["lean", "--version"], text=True).strip()
+    finally:
+        atomic_json(context_file, context)
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", environment.get("image_digest") or ""):
+        raise SystemExit("the running container has no verified image digest")
 
 
 def capture_context(argv: list[str]) -> None:
     import datetime, hashlib, json, os, platform, subprocess, sys
     from pathlib import Path
     out, kind, reason, log = argv[1:5]
+    capture_identity(Path(out))
     target_count, stem_count, source_count = map(int, argv[5:8])
     cursor = 8
     targets = argv[cursor:cursor + target_count]
@@ -162,7 +249,8 @@ def capture_context(argv: list[str]) -> None:
     source = git_state(checkout)
     environment = {"host": platform.node(), "system": platform.platform(), "machine": platform.machine(),
         "python": platform.python_version(),
-        "lean": subprocess.check_output(["lean", "--version"], text=True).strip(),
+        "lean": read_json(Path(out))["environment"]["lean"],
+        "image_digest": os.environ["CAS_FEEDBACK_IMAGE_DIGEST"],
         "lake": subprocess.check_output(["lake", "--version"], text=True).strip(),
         "selectors": {key: os.environ[key] for key in ("ELAN_TOOLCHAIN", "LEAN_PATH", "LEAN_SYSROOT",
             "CAS_LEAVES", "CAS_REALIZATION_PROFILE", "CAS_LEAF_CONTRACT_PATH", "CAS_SAGE_PYTHON",
@@ -178,6 +266,7 @@ def capture_context(argv: list[str]) -> None:
     entry["utc"] = prior["utc"]
     entry["started_monotonic_ns"] = prior["started_monotonic_ns"]
     entry["parent_run"] = prior.get("parent_run")
+    entry["acceptance_files"] = prior.get("acceptance_files", [])
     entry["context"] = out
     entry["context_status"] = "complete"
     atomic_json(Path(out), entry)
@@ -189,7 +278,7 @@ def step_start(argv: list[str]) -> None:
     context = read_json(Path(context_file))
     record = {
         **identity(context), "event": "module.started" if phase == "execution" else "phase.started",
-        "phase": phase, "step": f"{phase}:{started}", "utc": utc(),
+        "phase": phase, "step": f"{phase}:{started}", "utc": utc_at(context, int(started)),
         "started_monotonic_ns": int(started), "source": source or None,
         "module": source.removesuffix(".lean").replace("/", ".") if source else None,
         "input_sha256": digest(Path(source)) if source else None,
@@ -200,8 +289,6 @@ def step_start(argv: list[str]) -> None:
     run = Path(context_file).parent
     atomic_json(run / "steps" / f"{started}.json", record)
     append_record(run / "events.jsonl", record)
-    if phase == "execution":
-        append_record(Path("timing/modules.jsonl"), record)
 
 
 def step_finish(argv: list[str]) -> None:
@@ -217,8 +304,6 @@ def step_finish(argv: list[str]) -> None:
     })
     atomic_json(path, record)
     append_record(path.parent.parent / "events.jsonl", record)
-    if record["phase"] == "execution":
-        append_record(Path("timing/modules.jsonl"), record)
 
 
 def collect_computations(context_file: Path, shared_setup_seconds: float) -> dict:
@@ -698,19 +783,31 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
         if start and finish:
             matched = matched and all(start["data"][field] == finish["data"][field]
                                       for field in ("file", "fileRun", "sourceSha256"))
+        terminal = finish or failure
+        file_seconds = ((terminal["monotonicMilliseconds"] - begin["monotonicMilliseconds"]) / 1000
+                        if terminal is not None and begin is not None else None)
+        matched = matched and (file_seconds is None or file_seconds >= 0)
         matched = matched and session not in invalid_sessions
         complete = complete and matched
         file_records.append({"file": file, "file_run": file_run, "session": session, "statements": count,
                              "executed": executed, "records": len(starts), "nested_records": len(nested),
                              "total_records": len(file_rows), "complete": matched,
-                             "begin": begin, "failure": failure, "failure_seconds": failure_seconds})
+                             "begin": begin, "start": start, "completion": finish,
+                             "failure": failure, "failure_seconds": failure_seconds,
+                             "seconds": file_seconds, "worker": session_workers.get(session),
+                             "step": session_steps.get(session),
+                             "utc_start": utc_at(context, begin["monotonicMilliseconds"] * 1000000)
+                                 if begin is not None else None})
     for key, begin in beginnings.items():
         if key not in recorded_beginnings:
             complete = False
             file_records.append({"file": begin["data"]["file"], "file_run": None,
                                  "session": key[0], "statements": None, "executed": None,
                                  "records": 0, "nested_records": 0, "total_records": 0,
-                                 "complete": False, "begin": begin, "failure": None})
+                                 "complete": False, "begin": begin, "start": None,
+                                 "completion": None, "failure": None, "seconds": None,
+                                 "worker": session_workers.get(key[0]), "step": session_steps.get(key[0]),
+                                 "utc_start": utc_at(context, begin["monotonicMilliseconds"] * 1000000)})
 
 
     with (run / "computations.jsonl").open("w") as output:
@@ -730,15 +827,15 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
 
 def finish_feedback(argv: list[str]) -> int:
     (records, context_file, status, limit, total, preparation, build, execution, acceptance,
-     bs, es, acs, attempted) = argv[1:14]
-    attempted_sources = argv[14:]
+     bs, es, acs, attempted, signal) = argv[1:15]
+    attempted_sources = argv[15:]
     context_path = Path(context_file)
     entry = read_json(context_path)
     seconds = int(total) / 1e9
     over = entry["kind"] == "loop" and seconds > int(limit)
     execution_result = int(status)
     result = execution_result or (1 if over else 0)
-    interrupted = False
+    interrupted = bool(signal)
     phases = {name: {"seconds": int(elapsed) / 1e9, "status": int(code) if code else None}
               for name, elapsed, code in (("build", build, bs), ("execution", execution, es),
                                          ("acceptance", acceptance, acs))}
@@ -754,10 +851,14 @@ def finish_feedback(argv: list[str]) -> int:
                          "status": execution_result or 1, "finished_utc": utc()})
             atomic_json(path, step)
             append_record(context_path.parent / "events.jsonl", step)
-            if step["phase"] == "execution":
-                append_record(Path("timing/modules.jsonl"), step)
         if step["phase"] in phase_steps:
             phase_steps[step["phase"]].append(step)
+        if (step["phase"] == "execution" and step["complete"] and
+                step["input_sha256"] != step.get("final_input_sha256")):
+            result = result or 1
+            print(f"feedback: selected module changed during execution: {step['source']}; "
+                  f"initial sha256 {step['input_sha256']}; final sha256 {step.get('final_input_sha256')}",
+                  file=sys.stderr)
     for name, steps in phase_steps.items():
         if steps:
             phases[name] = {"seconds": sum(step["seconds"] for step in steps),
@@ -767,7 +868,7 @@ def finish_feedback(argv: list[str]) -> int:
     shared = int(preparation) / 1e9 + phases["build"]["seconds"]
     for source in entry["sources"]:
         if source not in attempted_sources:
-            append_record(Path("timing/modules.jsonl"), {
+            append_record(context_path.parent / "events.jsonl", {
                 **identity(entry), "event": "module.not_run", "source": source,
                 "module": source.removesuffix(".lean").replace("/", "."),
                 "input_sha256": entry["inputs"].get(source), "seconds": None,
@@ -783,22 +884,69 @@ def finish_feedback(argv: list[str]) -> int:
         "attempted": attempted == "true", "attempted_sources": attempted_sources,
         "finished_utc": utc(), "complete": not interrupted, "computations": computations,
         "preparation_seconds": int(preparation) / 1e9,
-        "phases": phases,
+        "phases": phases, "interruption_signal": signal or None,
     })
     summary = (f"{entry['kind']}: execution status {execution_result}; status {result} "
-               f"in {seconds:.3f} s; log {entry['log']}")
+               f"in {seconds:.3f} s; log {entry['log']}.gz")
     if over:
         summary += (f"\nOVER THE LIMIT: the {limit}-second development loop needs repair. "
                     "The run was allowed to finish.")
-    with Path(entry["log"]).open("a") as output:
-        output.write(summary + "\n")
     atomic_json(context_path.parent / "result.json", entry)
-    append_record(Path(records), entry)
-    append_record(context_path.parent / "events.jsonl",
-                  {**identity(entry), "event": "run.finished", "status": result,
-                   "seconds": seconds, "finished_utc": entry["finished_utc"]})
     print(summary)
     return result
+
+
+def finalize_feedback(argv: list[str]) -> int:
+    records, context_file, drain_status = argv[1:4]
+    context_path = Path(context_file)
+    context = read_json(context_path)
+    run = context_path.parent
+    entry = read_json(run / "result.json")
+    entry["status"] = entry["status"] or int(drain_status)
+    if int(drain_status):
+        entry["complete"] = False
+        entry["log_writer_status"] = int(drain_status)
+    log_path, log_sha256 = compress_log(Path(entry["log"]))
+    context["log"] = entry["log"] = log_path
+    entry["log_sha256"] = log_sha256
+    atomic_json(context_path, context)
+    atomic_json(run / "result.json", entry)
+    steps = [read_json(path) for path in (run / "steps").glob("*.json")]
+    for source in dict.fromkeys(context["sources"]):
+        observed = sorted((step for step in steps
+                           if step["phase"] == "execution" and step["source"] == source),
+                          key=lambda step: step["started_monotonic_ns"])
+        if observed:
+            status = ("interrupted" if entry["interruption_signal"] and
+                      any(not step["complete"] for step in observed) else
+                      "pass" if not int(drain_status) and all(step["complete"] and step["status"] == 0
+                                    and step.get("input_sha256") == step.get("final_input_sha256")
+                                    for step in observed) else "fail")
+            start = observed[0]["utc"]
+            seconds = sum(step["seconds"] for step in observed)
+            input_sha256 = observed[0]["input_sha256"]
+        else:
+            status = "interrupted" if entry["interruption_signal"] else "fail"
+            start, seconds = context["utc"], 0
+            input_sha256 = context["inputs"].get(source)
+        append_record(Path("timing/modules.jsonl"), terminal_row(
+            context, target=source.removesuffix(".lean").replace("/", "."),
+            input_sha256=input_sha256, utc_start=start, seconds=seconds,
+            status=status, log_path=log_path, log_sha256=log_sha256))
+    if not (run / "acceptance-child.json").is_file():
+        for selected in context.get("acceptance_files", []):
+            source = selected["source"]
+            append_record(Path("timing/acceptance.jsonl"), terminal_row(
+                context, target=source, input_sha256=context["inputs"].get(source),
+                utc_start=context["utc"], seconds=0,
+                status="interrupted" if entry["interruption_signal"] else "fail",
+                log_path=log_path, log_sha256=log_sha256))
+    append_record(Path(records), entry)
+    append_record(run / "events.jsonl",
+                  {**identity(entry), "event": "run.finished", "status": entry["status"],
+                   "seconds": entry["seconds"], "finished_utc": entry["finished_utc"],
+                   "interruption_signal": entry["interruption_signal"]})
+    return entry["status"]
 
 
 if __name__ == "__main__":
@@ -806,6 +954,8 @@ if __name__ == "__main__":
     arguments = [sys.argv[0], *sys.argv[2:]]
     if command == "begin":
         begin(arguments)
+    elif command == "identity":
+        capture_identity(Path(arguments[1]))
     elif command == "context":
         capture_context(arguments)
     elif command == "step-start":
@@ -814,5 +964,7 @@ if __name__ == "__main__":
         step_finish(arguments)
     elif command == "finish":
         raise SystemExit(finish_feedback(arguments))
+    elif command == "finalize":
+        raise SystemExit(finalize_feedback(arguments))
     else:
         raise SystemExit(f"unknown timing operation: {command}")

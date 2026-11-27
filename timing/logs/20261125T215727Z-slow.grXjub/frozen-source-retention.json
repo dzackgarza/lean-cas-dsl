@@ -1,7 +1,0 @@
-{
-  "observed_utc": "2026-11-25T22:05:49.250679+00:00",
-  "snapshot_sha256": "287c37adcf5ea41500da226199d05525df1644474b9452458f43dfd35e2b2bf9",
-  "source_files": 754,
-  "archive": "timing/logs/20261125T215727Z-slow.grXjub/frozen-source-bytes.tar.gz",
-  "archive_sha256": "613cb3addf7bde76b9687810e518d8946adf66544857daaa70526a6b8b86ff41"
-}

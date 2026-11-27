@@ -1,6 +1,0 @@
-test_changed_extension_file_fails_before_execution (__main__.FeedbackTests.test_changed_extension_file_fails_before_execution) ... ok
-
-----------------------------------------------------------------------
-Ran 1 test in 27.279s
-
-OK

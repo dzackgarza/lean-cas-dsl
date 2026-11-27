@@ -1,8 +1,0 @@
-[build] native lake --log-level=error build +CasCompiler.SourceSubsetTests:deps 
-Build completed successfully (3879 jobs).
-[execution] native lake --log-level=error lean CasCompiler/SourceSubsetTests.lean -- -DstderrAsMessages=false 
-/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceSubsetTests.lean:3:1: error: failed to synthesize
-  DecidableEq selectedSource✝¹⁸
-
-Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
-loop: execution status 1; status 1 in 98.157 s; log timing/logs/20261125T234302Z-loop.qLw4IP/output.log

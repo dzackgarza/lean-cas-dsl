@@ -1,4 +1,0 @@
-CASE number: equal=true original=1 encoded={"nodes":[["num",10,1]],"root":0} decoded=1
-CASE array: equal=true original=["x",null] encoded={"nodes":[["str","x"],["null"],["arr",[0,1]]],"root":2} decoded=["x",null]
-CASE object: equal=true original={"a":1,"b":2} encoded={"nodes":[["num",1,0],["num",2,0],["obj",[["a",0],["b",1]]]],"root":2} decoded={"a":1,"b":2}
-CASE nested: equal=false original={"a":[1,null],"b":{"original":true}} encoded={"nodes":[["num",10,1],["null"],["arr",[0,1]],["bool",true],["obj",[["original",3]]],["obj",[["a",2],["b",4]]]],"root":5} decoded=[1,null]

@@ -1,6 +1,0 @@
-[build] native lake --log-level=error build +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCatalogue.EvidencePresentationProbes:deps +CasCatalogue.StructuredParameterProbes:deps 
-✔ [3896/3903] Built CasCompiler.SourceTestSupport (47s)
-Build completed successfully (3903 jobs).
-[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false 
-/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:22:0: error: the finite-subset dictionary erased its original base binding
-slow: execution status 1; status 1 in 360.067 s; log timing/logs/20261126T160638Z-slow.pza7Xt/output.log

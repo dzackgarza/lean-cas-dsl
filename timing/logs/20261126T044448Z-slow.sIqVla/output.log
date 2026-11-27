@@ -1,7 +1,0 @@
-[build] native lake --log-level=error build +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceMemberCompetitionTests:deps 
-✔ [3884/3896] Built CasCompiler.ReadOperation (40s)
-✔ [3891/3896] Built CasCompiler.Read (13s)
-Build completed successfully (3896 jobs).
-[execution] native lake --log-level=error lean CasCompiler/SourceSubsetTests.lean -- -DstderrAsMessages=false 
-/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceSubsetTests.lean:6:0: error: the source argument does not match its dependent native type
-slow: execution status 1; status 1 in 186.092 s; log timing/logs/20261126T044448Z-slow.sIqVla/output.log

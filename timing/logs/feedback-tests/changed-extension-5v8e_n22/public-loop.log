@@ -1,3 +1,0 @@
-extension source changed: tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas; expected sha256 89ea7a08af111782af8e8465629698040c0ee0780caecf3ab400d5f0651aee8e, received cc5e2532f378d9c13fadb00e745d7ab58454e4eff33b415f4447e6892d79748f
-loop: execution status 1; status 1 in 10.481 s; log timing/logs/20261126T194301Z-loop.UIbfmI/output.log
-error: recipe `loop` failed on line 41 with exit code 1

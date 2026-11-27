@@ -1,4 +1,0 @@
-[build] native lake --log-level=error build +CasTools.JsonGraphTests:deps 
-Build completed successfully (4 jobs).
-[execution] native lake --log-level=error lean CasTools/JsonGraphTests.lean -- -DstderrAsMessages=false 
-loop: execution status 0; status 0 in 75.466 s; log timing/logs/20261126T212447Z-loop.L5UIZy/output.log

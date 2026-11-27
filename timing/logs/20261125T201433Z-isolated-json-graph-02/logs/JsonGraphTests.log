@@ -1,6 +1,0 @@
-/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-json-graph-20261125-02/src/CasTools/JsonGraphTests.lean:11:0: error: diagnostic graph transport changed original structured data
-/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-json-graph-20261125-02/src/CasTools/JsonGraphTests.lean:31:0: error: diagnostic graph sharing identified distinct original occurrences
-/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-json-graph-20261125-02/src/CasTools/JsonGraphTests.lean:79:9: error(lean.synthInstanceFailed): failed to synthesize instance of type class
-  BEq (Except String Json)
-
-Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.

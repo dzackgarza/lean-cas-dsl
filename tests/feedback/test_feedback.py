@@ -6,9 +6,12 @@ The probes retain their sources, reports and diagnostics under timing/logs/feedb
 """
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
+import gzip
 import hashlib
 import json
+import math
 import os
 import signal
 import shutil
@@ -27,6 +30,279 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from application_log import dumps_exact_json, loads_application_event
 from acceptance_inputs import SOURCE_REVISION
 from feedback_checkout import retain_checkout, restore_checkout
+
+
+TIMING_FIELDS = {
+    "run_id", "parent_run", "utc_start", "seconds", "status", "revision", "dirty",
+    "environment", "target", "input_sha256", "log_path", "log_sha256",
+}
+
+
+def read_log(path: Path) -> str:
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt") as source:
+            return source.read()
+    return path.read_text()
+
+
+def current_acceptance_result() -> dict:
+    current = json.loads((ROOT / ".tmp/accept-current.json").read_text())
+    return json.loads((ROOT / current["result"]).read_text())
+
+
+def process_children(pid: int) -> set[int]:
+    children = set()
+    for path in Path(f"/proc/{pid}/task").glob("*/children"):
+        try:
+            children.update(int(child) for child in path.read_text().split())
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+    return children
+
+
+class FeedbackRecordTests(unittest.TestCase):
+    def setUp(self) -> None:
+        directory = ROOT / "timing/logs/feedback-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        self.control = Path(tempfile.mkdtemp(prefix="module-record-", dir=directory))
+        self.checkout = self.control / "checkout"
+        subprocess.run(["git", "clone", "--shared", "--no-checkout", "--quiet",
+                        str(ROOT), str(self.checkout)], check=True)
+        self.revision = subprocess.check_output(
+            ["git", "-C", str(self.checkout), "rev-parse", "HEAD"], text=True).strip()
+        self.feedback_pending = False
+        self.addCleanup(self.retain_feedback_checkout)
+        for name in [".gitignore", "justfile", "lean-toolchain", "scripts/feedback.sh",
+                     "scripts/container.sh", "scripts/feedback_records.py",
+                     "scripts/application_log.py", "scripts/acceptance_inputs.py",
+                     "scripts/check_acceptance_permanent.py"]:
+            target = self.checkout / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / name, target)
+        for name in ["FeedbackPass", "FeedbackFail"]:
+            shutil.copy2(ROOT / f"tests/feedback/fixtures/{name}.lean",
+                         self.checkout / f"{name}.lean")
+        manifest = json.loads((ROOT / "lake-manifest.json").read_text())
+        manifest.update(name="feedback_records", packages=[])
+        (self.checkout / "lake-manifest.json").write_text(json.dumps(manifest) + "\n")
+        configuration = (ROOT / "lakefile.lean").read_text()
+        marker = "script «feedback-context» do\n"
+        self.assertEqual(configuration.count(marker), 1)
+        context_script = marker + configuration.split(marker, 1)[1]
+        (self.checkout / "lakefile.lean").write_text(
+            "import Lake\nopen Lake DSL\npackage feedback_records\n"
+            "lean_lib FeedbackPass\nlean_lib FeedbackFail\n\n" + context_script)
+        image_digest = os.environ.get("CAS_FEEDBACK_IMAGE_DIGEST", "")
+        self.assertRegex(image_digest, r"^sha256:[0-9a-f]{64}$")
+        self.environment = {
+            "lean": subprocess.check_output(
+                ["lean", "--version"], cwd=self.checkout, text=True).strip(),
+            "image_digest": image_digest,
+        }
+        self.log = self.control / "public-loop.log"
+
+    def retain_feedback_checkout(self) -> None:
+        self.assertFalse(self.feedback_pending,
+                         "the feedback run did not finalize; its checkout is retained in place")
+        retain_checkout(self.checkout, self.revision, ["lean-toolchain", "scripts/feedback.sh"])
+
+    def wait_feedback_finished(self) -> None:
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            records = self.checkout / "timing/modules.jsonl"
+            contexts = list((self.checkout / "timing/logs").glob("*/context.json"))
+            if len(contexts) == 1 and records.is_file():
+                result = contexts[0].with_name("result.json")
+                events = contexts[0].with_name("events.jsonl")
+                try:
+                    rows = records.read_text().splitlines()
+                    terminal = events.read_text().splitlines()
+                    if (result.is_file() and len(rows) == 1 and terminal
+                            and json.loads(terminal[-1]).get("event") == "run.finished"):
+                        row = json.loads(rows[0])
+                        if (self.checkout / row["log_path"]).is_file():
+                            self.run_directory = contexts[0].parent
+                            self.feedback_pending = False
+                            return
+                except (FileNotFoundError, json.JSONDecodeError):
+                    pass
+            time.sleep(0.01)
+        self.fail(f"the actual run did not finalize its row and gzip log: {self.log.read_text()}")
+
+    def run_feedback(self, module: str, interrupted: bool = False) -> int:
+        hold = self.checkout / "feedback-record-hold"
+        ready = self.checkout / "feedback-record-ready"
+        if interrupted:
+            hold.write_text("hold the actual consumer until SIGTERM\n")
+        self.started_at = datetime.datetime.now(datetime.timezone.utc)
+        self.started_clock = time.monotonic()
+        with self.log.open("w") as output:
+            process = subprocess.Popen(
+                ["just", "loop", module], cwd=self.checkout, stdout=output,
+                stderr=subprocess.STDOUT, start_new_session=True)
+            self.feedback_pending = True
+            finalization_waited = False
+            try:
+                if interrupted:
+                    observed = None
+                    deadline = time.monotonic() + 300
+                    while process.poll() is None and time.monotonic() < deadline:
+                        if ready.is_file():
+                            pending = [process.pid]
+                            descendants = set()
+                            natives = []
+                            while pending:
+                                pid = pending.pop()
+                                if pid in descendants:
+                                    continue
+                                proc = Path(f"/proc/{pid}")
+                                try:
+                                    descendants.add(pid)
+                                    pending.extend(process_children(pid) - descendants)
+                                    arguments = (proc / "cmdline").read_bytes().decode().split("\0")
+                                    if ((proc / "comm").read_text().strip() == "lean"
+                                            and (proc / "cwd").resolve() == self.checkout
+                                            and any((self.checkout / argument).resolve() ==
+                                                    self.checkout / f"{module}.lean"
+                                                    for argument in arguments if argument.endswith(".lean"))):
+                                        natives.append((pid, arguments, os.getpgid(pid)))
+                                except (FileNotFoundError, ProcessLookupError):
+                                    continue
+                            if natives:
+                                self.assertEqual(len(natives), 1, self.log.read_text())
+                                pid, arguments, group = natives[0]
+                                self.assertIn(group, descendants)
+                                self.assertEqual(os.getpgid(group), group)
+                                self.assertEqual(Path(f"/proc/{group}/cwd").resolve(), self.checkout)
+                                self.assertEqual(ready.read_text(), "feedback passing module entered\n")
+                                observed = {"pid": pid, "command": arguments,
+                                            "group": group, "signal": signal.SIGTERM,
+                                            "monotonic_ns": time.monotonic_ns()}
+                                (self.control / "interruption.json").write_text(
+                                    json.dumps(observed, indent=2) + "\n")
+                                os.killpg(process.pid, signal.SIGTERM)
+                                break
+                        time.sleep(0.01)
+                    if observed is None and process.poll() is None:
+                        try:
+                            os.killpg(process.pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                status = process.wait(timeout=300)
+                finalization_waited = True
+                self.wait_feedback_finished()
+                if interrupted:
+                    self.assertIsNotNone(observed, self.log.read_text())
+            finally:
+                try:
+                    if process.poll() is None:
+                        try:
+                            os.killpg(process.pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                        try:
+                            process.wait(timeout=30)
+                        except subprocess.TimeoutExpired:
+                            os.killpg(process.pid, signal.SIGKILL)
+                            process.wait(timeout=30)
+                    if not finalization_waited:
+                        self.wait_feedback_finished()
+                finally:
+                    hold.unlink(missing_ok=True)
+        self.finished_at = datetime.datetime.now(datetime.timezone.utc)
+        return status
+
+    def assert_record(self, module: str, status: str) -> bytes:
+        rows = [json.loads(line) for line in
+                (self.checkout / "timing/modules.jsonl").read_text().splitlines()]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(set(row), TIMING_FIELDS)
+        context = json.loads((self.run_directory / "context.json").read_text())
+        result = json.loads((self.run_directory / "result.json").read_text())
+        runs = [json.loads(line) for line in
+                (self.checkout / "timing/runs.jsonl").read_text().splitlines()]
+        self.assertEqual(runs, [result])
+        self.assertEqual(context["context_status"], "complete")
+        self.assertEqual(context["targets"], [module])
+        self.assertEqual(context["sources"], [f"{module}.lean"])
+        self.assertEqual(context["dependencies"], [])
+        self.assertEqual(len(context["resolution"]["packages"]), 1)
+        self.assertEqual(Path(context["resolution"]["packages"][0]["path"]).resolve(), self.checkout)
+        self.assertEqual(row["run_id"], context["run"])
+        self.assertEqual(row["parent_run"], context["parent_run"])
+        self.assertEqual(row["revision"], self.revision)
+        self.assertEqual(row["dirty"], context["dirty"])
+        self.assertIs(row["dirty"], True)
+        self.assertEqual(row["environment"], self.environment)
+        self.assertEqual(row["environment"], {
+            key: context["environment"][key] for key in ("lean", "image_digest")})
+        self.assertEqual(row["target"], module)
+        self.assertEqual(row["status"], status)
+        original = ROOT / f"tests/feedback/fixtures/{module}.lean"
+        source = self.checkout / f"{module}.lean"
+        self.assertEqual(source.read_bytes(), original.read_bytes())
+        self.assertEqual(row["input_sha256"], hashlib.sha256(original.read_bytes()).hexdigest())
+        self.assertEqual(row["input_sha256"], context["inputs"][f"{module}.lean"])
+        steps = [json.loads(path.read_text()) for path in
+                 (self.run_directory / "steps").glob("*.json")]
+        build = [step for step in steps if step["phase"] == "build"]
+        executed = [step for step in steps if step["phase"] == "execution"]
+        self.assertEqual(len(build), 1)
+        self.assertIn(f"+{module}:deps", build[0]["command"])
+        self.assertEqual(build[0]["status"], 0)
+        self.assertEqual(len(executed), 1)
+        self.assertIn(f"{module}.lean", executed[0]["command"])
+        self.assertEqual(executed[0]["source"], f"{module}.lean")
+        self.assertEqual(row["utc_start"], executed[0]["utc"])
+        self.assertEqual(row["seconds"], executed[0]["seconds"])
+        started = datetime.datetime.fromisoformat(row["utc_start"])
+        self.assertEqual(started.utcoffset(), datetime.timedelta(0))
+        self.assertLessEqual(self.started_at, started)
+        self.assertLessEqual(started, self.finished_at)
+        self.assertIsInstance(row["seconds"], (int, float))
+        self.assertTrue(math.isfinite(row["seconds"]))
+        self.assertGreater(row["seconds"], 0)
+        self.assertLessEqual(row["seconds"], time.monotonic() - self.started_clock)
+        log = self.checkout / row["log_path"]
+        self.assertEqual(log, self.run_directory / "output.log.gz")
+        self.assertEqual(row["log_path"], result["log"])
+        self.assertEqual(row["log_path"], context["log"])
+        self.assertEqual(row["log_sha256"], hashlib.sha256(log.read_bytes()).hexdigest())
+        self.assertFalse(log.with_suffix("").exists())
+        raw = gzip.decompress(log.read_bytes())
+        self.assertTrue(raw)
+        events = [json.loads(line) for line in
+                  (self.run_directory / "events.jsonl").read_text().splitlines()]
+        self.assertEqual(events[0]["event"], "run.started")
+        self.assertEqual(events[-1]["event"], "run.finished")
+        self.assertEqual(result["interruption_signal"], "TERM" if status == "interrupted" else None)
+        self.assertEqual(result["status"], 143 if status == "interrupted" else executed[0]["status"])
+        if status == "pass":
+            self.assertEqual(executed[0]["status"], 0)
+        elif status == "fail":
+            self.assertNotEqual(executed[0]["status"], 0)
+        else:
+            self.assertFalse(executed[0]["complete"])
+        return raw
+
+    def test_passing_module_writes_one_row(self) -> None:
+        self.assertEqual(self.run_feedback("FeedbackPass"), 0, self.log.read_text())
+        raw = self.assert_record("FeedbackPass", "pass")
+        self.assertEqual(raw.count(b"feedback passing module entered"), 1)
+        self.assertEqual(raw.count(b"feedback passing module finished"), 1)
+
+    def test_failing_module_writes_fail(self) -> None:
+        self.assertNotEqual(self.run_feedback("FeedbackFail"), 0, self.log.read_text())
+        raw = self.assert_record("FeedbackFail", "fail")
+        self.assertIn(b"feedback failing module reached execution", raw)
+
+    def test_terminated_run_writes_interrupted(self) -> None:
+        self.assertNotEqual(self.run_feedback("FeedbackPass", interrupted=True), 0,
+                            self.log.read_text())
+        raw = self.assert_record("FeedbackPass", "interrupted")
+        self.assertEqual(raw.count(b"feedback passing module entered"), 1)
+        self.assertNotIn(b"feedback passing module finished", raw)
 
 
 class FeedbackTests(unittest.TestCase):
@@ -90,14 +366,14 @@ class FeedbackTests(unittest.TestCase):
     def assert_run_records(self, record: dict, module: str, completed: bool) -> dict:
         run = (ROOT / record["log"]).parent
         self.assertEqual(run.parent, ROOT / "timing/logs")
-        self.assertTrue((run / "output.log").is_file())
+        self.assertTrue((run / "output.log.gz").is_file())
         self.assertTrue((run / "context.json").is_file())
         events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
         self.assertEqual(events[0]["event"], "run.started")
         self.assertEqual(events[-1]["event"], "run.finished")
         modules = [json.loads(line) for line in (ROOT / "timing/modules.jsonl").read_text().splitlines()]
-        selected = [entry for entry in modules
-                    if entry["run"] == record["run"] and entry["module"] == module]
+        selected = [entry for entry in events
+                    if entry.get("run") == record["run"] and entry.get("module") == module]
         self.assertTrue(selected, "the current module has no durable timing record")
         result = selected[-1]
         self.assertEqual(result["complete"], completed)
@@ -117,10 +393,32 @@ class FeedbackTests(unittest.TestCase):
             self.assertEqual(result["event"], "module.not_run")
             self.assertIsNone(result["seconds"])
             self.assertIsNone(result["status"])
+        compact = [entry for entry in modules
+                   if entry.get("run_id") == record["run"] and entry.get("target") == module]
+        self.assertEqual(len(compact), 1)
+        row = compact[0]
+        self.assertEqual(set(row), TIMING_FIELDS)
+        self.assertEqual(row["revision"], record["revision"])
+        self.assertEqual(row["parent_run"], record["parent_run"])
+        self.assertEqual(row["environment"], {
+            key: record["environment"][key] for key in ("lean", "image_digest")})
+        self.assertEqual(row["status"], "pass" if completed else
+                         "interrupted" if record.get("interruption_signal") else "fail")
+        self.assertEqual(row["input_sha256"], record["inputs"].get(result["source"]))
+        self.assertEqual(row["log_path"], record["log"])
+        self.assertEqual(row["log_sha256"],
+                         hashlib.sha256((ROOT / row["log_path"]).read_bytes()).hexdigest())
+        if completed:
+            self.assertEqual(row["utc_start"], result["utc"])
+            self.assertEqual(row["seconds"], result["seconds"])
         ignored = subprocess.run(
-            ["git", "check-ignore", str(run.relative_to(ROOT)), "timing/modules.jsonl",
+            ["git", "check-ignore", str(run.relative_to(ROOT))], cwd=ROOT,
+            stdout=subprocess.PIPE, text=True, check=False)
+        self.assertEqual(ignored.returncode, 0, f"raw timing logs are not ignored: {ignored.stdout}")
+        tracked = subprocess.run(
+            ["git", "check-ignore", "timing/modules.jsonl", "timing/acceptance.jsonl",
              "timing/computations.jsonl"], cwd=ROOT, stdout=subprocess.PIPE, text=True, check=False)
-        self.assertEqual(ignored.returncode, 1, f"timing evidence is ignored: {ignored.stdout}")
+        self.assertEqual(tracked.returncode, 1, f"timing records are ignored: {tracked.stdout}")
         return result
 
     def test_argument_failures_have_current_durable_records(self) -> None:
@@ -174,7 +472,7 @@ class FeedbackTests(unittest.TestCase):
                 self.assertEqual(list((run / "steps").glob("*.json")), [])
                 self.assertEqual(record["computations"]["records"], 0)
                 self.assertEqual(record["computations"]["logs"], [])
-                log = (ROOT / record["log"]).read_text()
+                log = read_log(ROOT / record["log"])
                 self.assertIn(f"feedback: {diagnostic}", log)
                 self.assertIn(f"{arguments[0]}: execution status 2; status 2", log)
 
@@ -210,7 +508,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertGreater(record["preparation_seconds"], 0)
         self.assertFalse(record["attempted"])
         self.assertTrue(all(phase["status"] is None for phase in record["phases"].values()))
-        self.assertIn(marker, (checkout / record["log"]).read_text())
+        self.assertIn(marker, read_log(checkout / record["log"]))
         run = (checkout / record["context"]).parent
         events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
         self.assertEqual(events[0]["event"], "run.started")
@@ -537,7 +835,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(record["phases"]["build"]["status"], 0, result.stdout)
         self.assertEqual(record["phases"]["execution"]["status"], 0, result.stdout)
         self.assert_run_records(record, module, completed=True)
-        acceptance = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+        acceptance = current_acceptance_result()
         self.assertEqual(acceptance["parent_run"], record["run"])
         self.assertEqual(acceptance["files"], ["ellipses"])
         self.assertEqual(acceptance["status"], record["phases"]["acceptance"]["status"],
@@ -555,11 +853,31 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(acceptance["environment"], record["environment"])
         run = ROOT / acceptance["run"]
         self.assertEqual(run.parent, ROOT / "timing/logs")
+        compact = [json.loads(line) for line in
+                   (ROOT / "timing/acceptance.jsonl").read_text().splitlines()]
+        compact = [row for row in compact if row.get("run_id") == run.name]
+        self.assertEqual(len(compact), 1)
+        self.assertEqual(set(compact[0]), TIMING_FIELDS)
+        self.assertEqual(compact[0]["target"], "tests/acceptance/ellipses.cas")
+        self.assertEqual(compact[0]["parent_run"], record["run"])
+        self.assertEqual(compact[0]["revision"], acceptance["revision"])
+        self.assertEqual(compact[0]["environment"], {
+            key: acceptance["environment"][key] for key in ("lean", "image_digest")})
+        self.assertEqual(compact[0]["status"], "fail" if acceptance["status"] else "pass")
+        self.assertEqual(compact[0]["input_sha256"],
+                         hashlib.sha256((ROOT / "tests/acceptance/ellipses.cas").read_bytes()).hexdigest())
+        self.assertEqual(compact[0]["log_path"], acceptance["log"])
+        self.assertEqual(compact[0]["log_sha256"],
+                         hashlib.sha256((ROOT / compact[0]["log_path"]).read_bytes()).hexdigest())
         summary = acceptance["computations"]
         rows = [json.loads(line) for line in
                 (ROOT / summary["record_file"]).read_text().splitlines()]
         self.assertTrue(rows)
         self.assertEqual(len(summary["files"]), 1)
+        file_timing = summary["files"][0]
+        self.assertEqual(compact[0]["seconds"],
+                         (file_timing["completion"]["monotonicMilliseconds"] -
+                          file_timing["begin"]["monotonicMilliseconds"]) / 1000)
         top = [row for row in rows if row["unit"] == "statement"]
         self.assertEqual(summary["files"][0]["statements"], len(top))
         self.assertEqual(summary["files"][0]["executed"], len(top))
@@ -668,7 +986,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertTrue(outcome["fails"])
         self.assertIn("polynomials.cas:24:", log.read_text())
         self.assertTrue(all("stratum" in row for row in rows))
-        recorded = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+        recorded = current_acceptance_result()
         self.assertTrue(recorded["complete"], recorded)
         self.assertTrue(recorded["timing_complete"], recorded)
         self.assertNotEqual(recorded["status"], 0)
@@ -769,10 +1087,14 @@ class FeedbackTests(unittest.TestCase):
                 self.assertEqual((checkout / selected).read_bytes(),
                                  original + b"\n-- changed-source guard control\n")
                 retained_path = str((checkout / selected).relative_to(ROOT))
-                listed = subprocess.check_output(
-                    ["git", "ls-files", "--others", "--exclude-standard", "--", retained_path],
-                    cwd=ROOT, text=True).splitlines()
-                self.assertIn(retained_path, listed, "the tested input is hidden inside a gitlink")
+                ignored = subprocess.run(
+                    ["git", "check-ignore", "--", retained_path], cwd=ROOT,
+                    capture_output=True, text=True, check=False)
+                self.assertEqual(ignored.returncode, 0, ignored.stdout + ignored.stderr)
+                self.assertEqual(ignored.stdout.splitlines(), [retained_path])
+                indexed = subprocess.check_output(
+                    ["git", "ls-files", "--stage", "--", retained_path], cwd=ROOT, text=True)
+                self.assertFalse(indexed, "retained raw evidence entered the Git index")
                 with tempfile.TemporaryDirectory(prefix="feedback-checkout-restore-") as temporary:
                     restored = Path(temporary) / "checkout"
                     restore_checkout(evidence, restored)
@@ -845,7 +1167,7 @@ class FeedbackTests(unittest.TestCase):
             result = subprocess.run(
                 ["just", "loop", "--extension", source.stem], cwd=ROOT,
                 stdout=output, stderr=subprocess.STDOUT, check=False)
-        recorded = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+        recorded = current_acceptance_result()
         self.assertTrue(recorded["complete"], log.read_text())
         self.assertTrue(recorded["timing_complete"], log.read_text())
         self.assertEqual(recorded["inputs"][str(source)], hashlib.sha256(original).hexdigest())
@@ -938,17 +1260,23 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                         deadline = time.monotonic() + 300
                         while process.poll() is None and time.monotonic() < deadline:
                             pending = [process.pid]
+                            descendants = set()
                             while pending:
                                 pid = pending.pop()
+                                if pid in descendants:
+                                    continue
                                 proc = Path(f"/proc/{pid}")
                                 try:
-                                    pending.extend(int(child) for child in
-                                                   (proc / f"task/{pid}/children").read_text().split())
+                                    descendants.add(pid)
+                                    pending.extend(process_children(pid) - descendants)
                                     arguments = (proc / "cmdline").read_bytes().decode().split("\0")
                                     if ((proc / "comm").read_text().strip() != "lake"
                                             or (proc / "cwd").resolve() != ROOT
-                                            or os.getpgid(pid) != process.pid
                                             or not required.issubset(arguments)):
+                                        continue
+                                    group = os.getpgid(pid)
+                                    if (group not in descendants or os.getpgid(group) != group
+                                            or Path(f"/proc/{group}/cwd").resolve() != ROOT):
                                         continue
                                     os.kill(process.pid, signal.SIGSTOP)
                                     stopped = True
@@ -956,19 +1284,19 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                                     native = [pid]
                                     while native:
                                         native_pid = native.pop()
-                                        native_proc = Path(f"/proc/{native_pid}")
+                                        if native_pid in owned:
+                                            continue
                                         try:
-                                            if os.getpgid(native_pid) != process.pid:
+                                            if os.getpgid(native_pid) != group:
                                                 continue
                                             os.kill(native_pid, signal.SIGSTOP)
                                             owned.append(native_pid)
-                                            native.extend(int(child) for child in
-                                                (native_proc / f"task/{native_pid}/children").read_text().split())
+                                            native.extend(process_children(native_pid) - set(owned))
                                         except (FileNotFoundError, ProcessLookupError):
                                             continue
                                     self.assertIn(pid, owned, f"the actual {phase} process escaped; see {log}")
                                     observed = {"phase": phase, "pid": pid, "command": arguments,
-                                                "owned": owned}
+                                                "group": group, "owned": owned}
                                     (control / "interruption.json").write_text(json.dumps(observed, indent=2) + "\n")
                                     os.kill(process.pid, signal.SIGTERM)
                                     for native_pid in reversed(owned):
@@ -1005,7 +1333,7 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                                 os.killpg(process.pid, signal.SIGKILL)
                                 process.wait(timeout=30)
                 self.assertEqual(status, 143, log.read_text())
-                record = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+                record = current_acceptance_result()
                 self.assertEqual(record["status"], 143)
                 self.assertEqual(record["unfinished_phase"], phase)
                 self.assertFalse(record["complete"])
@@ -1021,7 +1349,7 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                                      record["seconds"])
                 run = ROOT / record["run"]
                 self.assertIn(f"Acceptance run: {record['run']}", log.read_text())
-                self.assertTrue((run / "output.log").read_text())
+                self.assertTrue(read_log(run / "output.log.gz"))
                 events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
                 self.assertEqual(events[-1]["event"], "run.finished")
                 self.assertEqual(events[-1]["unfinished_phase"], phase)
@@ -1049,12 +1377,15 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                 interrupted = False
                 while process.poll() is None and time.monotonic() < deadline:
                     pending = [process.pid]
+                    descendants = set()
                     while pending:
                         pid = pending.pop()
+                        if pid in descendants:
+                            continue
                         proc = Path(f"/proc/{pid}")
                         try:
-                            pending.extend(int(child) for child in
-                                           (proc / f"task/{pid}/children").read_text().split())
+                            descendants.add(pid)
+                            pending.extend(process_children(pid) - descendants)
                             arguments = (proc / "cmdline").read_bytes().decode().split("\0")
                             workers = [arg for arg in arguments if arg.endswith("/worker0.lean")]
                             if ((proc / "comm").read_text().strip() == "lean"
@@ -1082,12 +1413,12 @@ class AcceptanceFeedbackTests(unittest.TestCase):
             self.assertNotEqual(status, 0, f"the interrupted worker was reported successful; see {log}")
         with self.subTest("current selected result"):
             self.assertEqual(current, [], "the interrupted run inherited previous selected results")
-        latest = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+        latest = current_acceptance_result()
         run = ROOT / latest["run"]
         self.assertEqual(run.parent, ROOT / "timing/logs")
         self.assertFalse(latest["complete"])
         self.assertNotEqual(latest["status"], 0)
-        self.assertTrue((run / "output.log").is_file())
+        self.assertTrue((run / "output.log.gz").is_file())
         events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
         self.assertEqual(events[0]["event"], "run.started")
         self.assertTrue(any(entry["event"] == "phase.started" and
@@ -1126,16 +1457,21 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                             for worker in range(2)
                         }
                         pending = [process.pid]
+                        descendants = set()
                         while pending:
                             pid = pending.pop()
+                            if pid in descendants:
+                                continue
                             proc = Path(f"/proc/{pid}")
                             try:
-                                pending.extend(int(child) for child in
-                                               (proc / f"task/{pid}/children").read_text().split())
+                                descendants.add(pid)
+                                pending.extend(process_children(pid) - descendants)
                                 arguments = (proc / "cmdline").read_bytes().decode().split("\0")
+                                group = os.getpgid(pid)
                                 if ((proc / "comm").read_text().strip() == "lean"
                                         and (proc / "cwd").resolve() == ROOT
-                                        and os.getpgid(pid) == process.pid
+                                        and group in descendants and os.getpgid(group) == group
+                                        and Path(f"/proc/{group}/cwd").resolve() == ROOT
                                         and selected_workers.intersection(
                                             (ROOT / argument).resolve() for argument in arguments
                                             if argument.endswith(".lean"))):
@@ -1224,7 +1560,7 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                         process.wait(timeout=30)
 
         current = json.loads((ROOT / ".tmp/accept-run.json").read_text())
-        latest = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+        latest = current_acceptance_result()
         self.assertEqual(latest["run"], str(run.relative_to(ROOT)))
         self.assertNotEqual(status, 0, f"the partial selected report was accepted; see {log}")
         self.assertNotEqual(latest["status"], 0)

@@ -1,5 +1,0 @@
-[build] native lake --log-level=error build +CasCompiler.SourceInstanceTests:deps +CasCompiler.ContextTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceMemberCompetitionTests:deps 
-Build completed successfully (3897 jobs).
-[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false 
-/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:11:28: error: the selected source action has a different complete native source category
-slow: execution status 1; status 1 in 120.616 s; log timing/logs/20261126T055034Z-slow.0DjN9R/output.log

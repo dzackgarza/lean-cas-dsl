@@ -1,2 +1,0 @@
-[build] native lake --log-level=error build +CasRuntime.SessionTests:deps 
-slow: execution status 143; status 143 in 26.212 s; log timing/logs/20261126T234001Z-slow.4zrbem/output.log

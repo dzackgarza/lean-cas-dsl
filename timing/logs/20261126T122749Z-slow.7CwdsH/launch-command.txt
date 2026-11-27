@@ -1,2 +1,0 @@
-source scripts/container.sh
-incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate complete context reopening and the original structured source controls' CasCompiler.ContextTests CasCompiler.SourceInstanceTests CasCompiler.SourceGeneratorTests CasCompiler.SourceOperationTests CasCompiler.SourceRingTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCatalogue.EvidencePresentationProbes CasCatalogue.StructuredParameterProbes

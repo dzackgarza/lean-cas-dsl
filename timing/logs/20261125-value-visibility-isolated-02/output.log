@@ -1,2 +1,0 @@
-warning: cas_leaf_contracts: repository '/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts' has local changes
-{"module": "CasRuntime.ValueTests", "pid": 682473, "log": "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-value-visibility-20261125-02/logs/ValueTests.log"}

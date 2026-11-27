@@ -1,8 +1,0 @@
-[build] native lake --log-level=error build +CasRuntime.LiteralTests:deps +CasRuntime.NativeFieldPrefixTests:deps +CasRuntime.FixedInputRouteTests:deps 
-✔ [1566/1588] Built CasRuntime.Value (46s)
-✔ [1576/1588] Built CasRuntime.PreparedRequest (13s)
-Build completed successfully (1588 jobs).
-[execution] native lake --log-level=error lean CasRuntime/LiteralTests.lean -- -DstderrAsMessages=false 
-[execution] native lake --log-level=error lean CasRuntime/NativeFieldPrefixTests.lean -- -DstderrAsMessages=false 
-/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/NativeFieldPrefixTests.lean:233:0: error: standalone dependent record projection: the source lost a retained runtime binding
-loop: execution status 1; status 1 in 156.646 s; log timing/logs/20261125T150139Z-loop.ffDOC7/output.log

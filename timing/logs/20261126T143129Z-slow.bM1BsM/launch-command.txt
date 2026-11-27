@@ -1,2 +1,0 @@
-source scripts/container.sh
-incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow "Validate exact source sharing and complete original structured source controls" CasCompiler.NativeDeclarationTests CasCompiler.ContextTests CasCompiler.SourceInstanceTests CasCompiler.SourceGeneratorTests CasCompiler.SourceOperationTests CasCompiler.SourceRingTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCatalogue.EvidencePresentationProbes CasCatalogue.StructuredParameterProbes
