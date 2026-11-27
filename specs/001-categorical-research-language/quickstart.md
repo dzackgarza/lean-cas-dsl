@@ -1,14 +1,14 @@
 # Validation entrypoint — fast feedback, complete functionality and original acceptance
 
-**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-25 (Asia/Taipei).
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-27 (UTC).
 
 Use the [requirements](spec.md), the [plan](plan.md), the [task list](tasks.md), the [mathematical-input contract](contracts/mathematical-input.md) and the [runtime contract](contracts/computational-runtime.md). The [permanent constitution](https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md) and the [owner's current handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237) govern. This guide states how to validate a change and which inputs the final assessments keep fixed. Observed outcomes and acceptance records remain in the owning issues; this guide records no run.
 
 ## Current development feedback comes first
 
-T114/#84 uses the commands in the kernel implementation worktree; locate that checkout with
-`git worktree list` and inspect its actual `justfile` and dependency tuple. Documentation on
-`main` does not establish that implementation commands are present there. The
+T114/#84 and the current Spec Kit implement/converge cycle run directly on `main`. Locate the
+active `main` checkout with `git worktree list`, preserve its existing build and dependency
+workspace, and inspect its actual `justfile` and compatible dependency tuple. The
 [feedback command reference](../../CONTRIBUTING.md#feedback-loops) gives the full usage.
 
 A named local module is checked by building its `+Module:deps` and freshly executing its source

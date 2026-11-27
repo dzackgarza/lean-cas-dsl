@@ -10,6 +10,42 @@
 
 **Alternatives considered.** Keeping the kernel on a separate development branch conflicts with the current direct-main instruction. Replacing either whole source tree would lose distinct work; preserve both histories and resolve the Lake files as one compatible tuple. Applying the withdrawn selection-boundary branch wholesale would bypass its still-open task T309. Moving source to `main` does not certify F, the published image, or an unchecked milestone.
 
+## 2026-11-27 — Preserve the inherited contract source used by main
+
+**Decision** (the owner's cumulative-work preservation instruction). Retain the inherited
+`CasContract/Port.lean` implementation at contract commit
+[`3d265fef5039174967c8466ddf2cb11bcfc91ce5`](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/commit/3d265fef5039174967c8466ddf2cb11bcfc91ce5),
+a direct child of `a0417b062a7160783bf13fa553f7d1473141b22c`, on
+`preserved/lean-cas-dsl-kernel-20261127`. Use that exact source revision in the current
+compatible development tuple; retain the other dependency pins.
+
+**Rationale and source.** Inspection at kernel `06f9079` found that the contract checkout's
+uncommitted Port change supplies behavior required by the committed
+[`PublishedPointPacketTests`](https://github.com/dzackgarza/lean-cas-dsl/blob/06f9079fdd80ff258aed472a7dac12eb292070d6/CasCompiler/PublishedPointPacketTests.lean),
+which `CasCompilerTests` imports. The clean parent accepts only the original `map` envelope;
+the tests also require complete returned `typedMap` packets. The inherited `returnedMap?`
+branch in `decodeFunctorMap` and `decodeActionMap` retains those packets and their invocation
+fields, checks their endpoints, and preserves the selected action identity and parameters.
+Resetting the dependency to its clean parent would discard this cumulative work.
+
+The preservation commit changes only Port. Its hook-required comment-to-whitespace cleanup
+preserves all 8,472 executable/literal tokens and their byte offsets, all 1,950 newline
+positions, and every noncomment byte. The original source and inherited diff (SHA-256
+`43e6a54ac3375bc983c4a9906c99a734b871a41054bd741846a60bc6295fbb4b`) and the cleanup verification
+remain under `timing/logs/branch-reconciliation-20261127/cas-leaf-contracts-port-a0417b/`.
+The historical 23.923555632-second passing record in `timing/runs.jsonl` used that inherited
+diff with an earlier test input; it is not a current result for the complete committed test
+file. Source preservation and normal commit-hook success establish neither all returned-map
+continuations nor a milestone pass. In particular, `CasCompiler/PublishedSource.lean` also
+consumes the original action descriptor after decoding; its complete public continuation
+retains its existing functional obligations.
+
+**Alternatives considered.** Discarding the inherited change removes behavior demanded by
+the committed consumer. Leaving it only in a dirty dependency prevents an exact fresh
+checkout from obtaining that source. A broader dependency refresh would change unrelated
+inputs. Preserve and pin the existing source now; the full T352/#90 published-image,
+`just test` and CI acceptance and T105's compatible latest-main delivery remain unchanged.
+
 ## 2026-11-25 — Acceptance of kernel work, and the order of computational work
 
 **Decision** (owner instructions of 2026-11-25; constitution v4.0.0; spec clarifications of that date). Kernel work is accepted on kernel behaviour, with a protocol peer or an empty manifest. A computed mathematical result is leaf work and needs an implementation of every category on the selected structural route. Computational work has version milestones of its own, after kernel readiness, in the order of the structural scaffolding of the categories.
