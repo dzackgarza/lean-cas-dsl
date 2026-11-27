@@ -16,9 +16,9 @@ namespace CasRuntime.InspectTests
 
 open Lean Meta Elab Command Term CasCompiler CasCatalogue
 
--- Use the public source statement entrance, with an explicitly empty provider
--- manifest. A registered property remains mathematically applicable even
--- when there is no provider for its computation.
+
+
+
 run_cmd liftTermElabM do
   let env ← getEnv
   try
@@ -42,6 +42,21 @@ run_cmd liftTermElabM do
           | throwError "discovery did not observe exactly the retained source binding"
         unless observed.name == "S" && observed.members.contains "is_finite" do
           throwError "the selected finite object's applicable property was not discovered"
+        let source := observed.details.getObjValD "source"
+        let .ok sourceContext := source.getObjValAs? (Array Json) "context"
+          | throwError "inspection omitted the complete original source telescope"
+        let .ok sourceSelections := source.getObjValAs? (Array Json) "selections"
+          | throwError "inspection omitted the complete typed source selection table"
+        unless sourceContext.map (·.getObjValD "id") ==
+              session.source.context.entries.map
+                (fun entry => ContextSnapshot.bindingJson entry.id) &&
+            sourceSelections.size == session.source.selections.size &&
+            !sourceSelections.isEmpty do
+          throwError "inspection dropped original source bindings or selections"
+        for (id, _) in session.source.selections.toArray do
+          unless (sourceSelections.filter fun row =>
+              row.getObjValD "binding" == ContextSnapshot.bindingJson id).size == 1 do
+            throwError "inspection changed an exact source selection identity"
         let .ok candidates := observed.details.getObjValAs? (Array Json) "candidates"
           | throwError "the observation has no source candidate inventory"
         let some property := candidates.find? fun row =>
@@ -60,6 +75,17 @@ run_cmd liftTermElabM do
         unless (selected.getObjVal? "native").isOk &&
             (selected.getObjVal? "nativeExpressions").isOk do
           throwError "the selected property lost its original native term"
+        let .ok selectedScopes := selected.getObjValAs? (Array Json) "selections"
+          | throwError "the completed property lost its original typed source scope"
+        let .ok propertyId := alternative.getObjValAs? String "id"
+          | throwError "the property candidate lost its original registry identity"
+        let some propertyRow := (← semanticState).properties.find? (·.id.raw == propertyId)
+          | throwError "the property observation does not name its original registry row"
+        unless selectedScopes.any (fun row =>
+            let application := (row.getObjValD "selection").getObjValD "application"
+            let selectedFamily := (application.getObjValD "family").getObjValD "property"
+            (selectedFamily.getObjValD "family").getObjValD "entry" == toJson propertyRow) do
+          throwError "the completed property discarded its complete original registry row"
         unless (← session.kernel.dispatches.get).size == before.size do
           throwError "mathematical discovery dispatched a computation"
       finally
@@ -67,8 +93,8 @@ run_cmd liftTermElabM do
     finally initial.close
   finally setEnv env
 
--- An operation that still needs its exponent is observed as its complete native
--- family. Discovery must neither invent an exponent nor demand a computation.
+
+
 run_cmd liftTermElabM do
   let env ← getEnv
   try
@@ -100,6 +126,13 @@ run_cmd liftTermElabM do
             (power.getObjValAs? Nat "arity").toOption == some 1 &&
             (power.getObjValAs? (Array Json) "permittedRegistrationForms").toOption == some #[] do
           throwError "the power family's dependent interface or availability changed"
+        let some powerRow := (← semanticState).operations.find? (·.id.raw == "op.rings.pow")
+          | throwError "the power observation lost its independent source row"
+        unless power.getObjValD "reference" ==
+            toJson (some (.operation powerRow : SelectedSourceReference)) &&
+            (power.getObjVal? "nativeRoute").isOk &&
+            (power.getObjVal? "selections").isOk do
+          throwError "the power family lost its complete original row, route or source scope"
         let .ok native := power.getObjVal? "nativeExpressions"
           | throwError "the discovered power family lost its complete native expression graph"
         let .ok #[expression, type] := NativeExpression.decode native

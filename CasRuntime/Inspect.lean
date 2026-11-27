@@ -15,9 +15,9 @@ namespace CasRuntime.Inspect
 
 open Lean Meta Elab Term CasCompiler CasCatalogue CasTools
 
-/-- A declaration observation is prepared from the actual retained source binding,
-not from the carrier or the name of a resulting Lean expression. Its data are
-inert and may be shared by all committed observations of one source scope. -/
+
+
+
 structure BindingObservation where
   binding : BindingId
   name : String
@@ -39,15 +39,16 @@ private def contextDocument (source : SourceContextObservation) : Json := Id.run
     return ([
       ("context", context), ("instances", ContextSnapshot.instancesJson source.context),
       ("categories", toJson categories), ("ringVariables", toJson ringVariables),
+      ("selections", ← SourceSnapshot.selectionsJson source.selections),
       ("declarations", toJson declarations),
       ("descriptions", toJson source.descriptions),
       ("spans", toJson (source.spans.map SourceSnapshot.spanJson))], roots)
   let ((fields, roots), builder) := build.run {}
   return Json.mkObj (fields ++ [("nativeExpressions", builder.finish roots)])
 
-/-- Exact registration information, not an inferred name for a backend routine.
-The executable configuration is retained separately from any actual routine
-observations returned during negotiation-authorized execution. -/
+
+
+
 private def registrationDocument (kernel : Kernel) (identity : DispatchIdentity) : Json :=
   let registration := identity.registration
   let backend := kernel.manifest.backends.find? (·.name == registration.backend)
@@ -91,10 +92,10 @@ private def completionDocument (kernel : Kernel) (association : CompletionAssoci
     ("sourceSnapshot", toJson observation.sourceSnapshot),
     ("result", Observation.identityJson association.response.root.value)]
 
-/-- The graph's actual source role and exact supplying occurrence are observed
-without forcing a field, reconstructing a closure, or asking any provider.
-Availability at preparation is explicitly distinct from the immutable
-mathematical data and exact owner dependency identities. -/
+
+
+
+
 private def retainedValue (session : KernelSession) (transaction : CellTransaction)
     (graph : ValueGraph) (binding : ValueBinding) : IO Json := do
   let some node := graph.find binding.value
@@ -107,9 +108,10 @@ private def retainedValue (session : KernelSession) (transaction : CellTransacti
     binding.instantiations.map (·.association.occurrence)).toList.eraseDups.toArray
   let completions ← occurrences.filterMapM fun occurrence => do
     return (← transaction.completionFor? occurrence).map (completionDocument session.kernel)
-  -- Inspect only the stored packet representation, never an exported token or
-  -- a delayed program. The original native role is retained separately.
+
+
   let packet ← IO.ofExcept ((graph.packet? binding).mapError IO.userError)
+  let (native, expressions) := (Observation.valueJson binding).run {}
   return Json.mkObj [
     ("reference", Observation.identityJson binding.value),
     ("occurrence", Observation.identityJson node.origin.occurrence),
@@ -118,12 +120,13 @@ private def retainedValue (session : KernelSession) (transaction : CellTransacti
     ("owners", toJson (owners.map ownerDocument)),
     ("availableAtPreparation", toJson available),
     ("hasPacket", toJson packet.isSome), ("packet", toJson packet),
+    ("native", Json.mkObj [("binding", native), ("nativeExpressions", expressions.finish #[])]),
     ("completion", toJson (completion.map (completionDocument session.kernel))),
     ("completions", toJson completions)]
 
-/-- List the frozen registration forms permitted for an independently selected
-source family. This is an inventory of forms, not a claim that an arbitrary
-future operand matches a form or that a provider is currently live. -/
+
+
+
 private def permittedForms (kernel : Kernel) (state : SemanticState)
     (target : ProfileTarget) : MetaM (Array Json) := do
   let selected ← kernel.manifest.registrations.filterM fun row => do
@@ -133,8 +136,8 @@ private def permittedForms (kernel : Kernel) (state : SemanticState)
     Json.mkObj [("operation", toJson row.operation), ("input", toJson row.input),
       ("backend", toJson row.backend)]
 
-/-- Close an already chosen category interface, including its dependent carrier and
-limit data, in the exact original native scope. None of these expressions is evaluated. -/
+
+
 private def closeSelection (context : OpenContext) (category : NativeSourceCategory) :
     MetaM (StateM NativeExpression.Builder Json) := do
   let bundle ← context.close category.bundle
@@ -164,40 +167,45 @@ private def closeSelection (context : OpenContext) (category : NativeSourceCateg
       ("expression", toJson (reprStr category.expression)),
       ("bundle", bundle), ("carrier", toJson carrier), ("limit", toJson limit)]
 
-/-- Freeze an actual checked judgement, retaining both its complete native type
-and its selected mathematical interface, in the same expression graph. -/
-private def judgementDocument (context : OpenContext)
+
+
+private def judgementDocument (scope : SourceReadScope)
     (judgement : NativeSourceJudgement) : TermElabM Json := do
+  let context := scope.context
   let term ← context.close judgement.value
+  let selections ← SourceSelectionScope.close scope.selections context
   let selection ← judgement.category.mapM (fun selected => liftM (closeSelection context selected))
-  let build : StateM NativeExpression.Builder (Json × Option Json × Array Nat) := do
+  let build : StateM NativeExpression.Builder (List (String × Json) × Array Nat) := do
     let native ← ContextSnapshot.closedTermJson term
     let category ← selection.mapM id
+    let selections ← SourceSnapshot.selectionsJson selections
     let expression ← NativeExpression.Builder.add term.expression
     let type ← NativeExpression.Builder.add term.type
-    return (native, category, #[expression, type])
-  let ((native, category, roots), builder) := build.run {}
-  return Json.mkObj [
+    return ([("native", native), ("category", toJson category),
+      ("selections", selections)], #[expression, type])
+  let ((fields, roots), builder) := build.run {}
+  return Json.mkObj (fields ++ [
     ("type", toJson (← ppExpr (← inferType judgement.value)).pretty),
-    ("native", native), ("category", toJson category),
-    ("nativeExpressions", builder.finish roots)]
+    ("nativeExpressions", builder.finish roots)])
 
-/-- Freeze an actual typed operation family before its additional operands are supplied.
-The independent source row fixes the registration address; it does not select a provider. -/
+
+
 private def candidateDocument (kernel : Kernel) (state : SemanticState)
-    (context : OpenContext) (kind name id : String) (target : ProfileTarget)
-    (route : Option Route) (expression : Expr) : TermElabM Json := do
-  let document ← judgementDocument context ⟨expression, none⟩
+    (scope : SourceReadScope) (kind name id : String) (target : ProfileTarget)
+    (reference : Option SelectedSourceReference) (route : Option Route) (expression : Expr) : TermElabM Json := do
+  let document ← judgementDocument scope ⟨expression, none⟩
   return document
     |>.setObjVal! "kind" (toJson kind)
     |>.setObjVal! "name" (toJson name)
     |>.setObjVal! "id" (toJson id)
     |>.setObjVal! "route" (toJson (route.map fun route => reprStr route.refs))
+    |>.setObjVal! "nativeRoute" (toJson route)
+    |>.setObjVal! "reference" (toJson reference)
     |>.setObjVal! "status" (toJson "typed_candidate")
     |>.setObjVal! "permittedRegistrationForms" (toJson (← permittedForms kernel state target))
 
 private def memberCandidateDocument (kernel : Kernel) (state : SemanticState)
-    (context : OpenContext) (name : String) (choice : SourceMemberChoice SourceReader.MemberEvidence) :
+    (scope : SourceReadScope) (name : String) (choice : SourceMemberChoice SourceReader.MemberEvidence) :
     TermElabM Json := do
   let (kind, id, target) : String × Option String × Option ProfileTarget :=
     match choice.evidence with
@@ -211,22 +219,23 @@ private def memberCandidateDocument (kernel : Kernel) (state : SemanticState)
       let entry := choice.evidence.family.entry
       ("property", some entry.id.raw, some (.property entry.id))
     | .element row => ("element", some row.id.raw, some (.computation (.morphism row.id)))
-  let document ← judgementDocument context choice.judgement
+  let document ← judgementDocument scope choice.judgement
   let route ← choice.path.route?
   return document
     |>.setObjVal! "kind" (toJson kind)
     |>.setObjVal! "name" (toJson name)
     |>.setObjVal! "id" (toJson id)
     |>.setObjVal! "route" (toJson (route.map fun route => reprStr route.refs))
+    |>.setObjVal! "nativeRoute" (toJson route)
     |>.setObjVal! "status" (toJson "typed_candidate")
     |>.setObjVal! "permittedRegistrationForms"
       (toJson ((← target.mapM (fun target => liftM (permittedForms kernel state target))) |>.getD #[]))
 
-/-- Prepare the same zero-additional-argument member that source syntax would select.
-The retained receiver is passed directly, never reparsed or reread. An ambiguous
-member retains its original typed alternatives but contributes no completion name. -/
+
+
+
 private def observeMember (kernel : Kernel) (state : SemanticState)
-    (context : OpenContext) (receiver : NativeSourceJudgement)
+    (initial : SourceReadScope) (receiver : NativeSourceJudgement)
     (name : String) : TermElabM (Option (Json × Bool)) := do
   let saved ← saveState
   let reader : ReadContext := {
@@ -236,44 +245,52 @@ private def observeMember (kernel : Kernel) (state : SemanticState)
     qualification := none
     expectedCategory := none
     project := readProjection
-    read := fun _ _ _ _ _ => throwError "observation cannot read additional source"
+    read := fun _ _ _ _ _ =>
+      liftM (m := TermElabM) <| throwError "observation cannot read additional source"
   }
   try
-    let candidates ← SourceReader.memberChoicesAtReceiver reader receiver name #[] none
-    let baseline ← saveState
-    let alternatives ← candidates.choices.mapM fun choice => do
-      choice.nativeState.restore
-      memberCandidateDocument kernel state context name choice
-    baseline.restore
-    if alternatives.isEmpty && candidates.mismatches.isEmpty then
-      discard <| sourceMemberPreference name candidates.considered #[]
-      return none
-    let result : Except Outcome Json ← try
-        match ← SourceReader.completeMemberChoices reader (checkReadJudgementApplicable reader)
-            name #[] candidates.considered candidates.choices candidates.mismatches with
-        | .ok judgement =>
-          pure (.ok (← judgementDocument context judgement))
-        | .error message =>
-          pure (.error (.invalid (← message.toString)))
-      catch error =>
-        pure (.error (← Outcome.ofException error))
-    let base := Json.mkObj [("kind", "member"), ("name", toJson name),
-      ("alternatives", toJson alternatives)]
-    match result with
-    | .ok selected =>
-      return some (base.setObjVal! "status" (toJson "applicable")
-        |>.setObjVal! "selected" selected, true)
-    | .error failure =>
-      return some (base.setObjVal! "status" (toJson "unresolved")
-        |>.setObjVal! "outcome" (toJson failure.kind)
-        |>.setObjVal! "stratum" (toJson failure.stratum?)
-        |>.setObjVal! "diagnostic" (toJson failure.detail), false)
+    (SourceReader.memberChoicesAtReceiver reader receiver name #[] none).runK initial
+        fun candidates scope => do
+      let baseline ← saveState
+      let alternatives ← candidates.choices.mapM fun choice => do
+        baseline.restore
+        (choice.withScope do
+          let selected ← get
+          liftM (m := TermElabM) <|
+            memberCandidateDocument kernel state selected name choice).runK scope
+              fun document _ => pure document
+      baseline.restore
+      if alternatives.isEmpty && candidates.mismatches.isEmpty then
+        discard <| sourceMemberPreference name candidates.considered #[]
+        return none
+      let result : Except Outcome Json ← try
+          (SourceReader.completeMemberChoices reader (checkReadJudgementApplicable reader)
+              name #[] candidates.considered candidates.choices candidates.mismatches).runK scope
+            fun result completed => do
+              match result with
+              | .ok judgement =>
+                pure (.ok (← judgementDocument completed judgement))
+              | .error message =>
+                pure (.error (.invalid (← message.toString)))
+        catch error =>
+          pure (.error (← Outcome.ofException error))
+      let base := Json.mkObj [("kind", "member"), ("name", toJson name),
+        ("alternatives", toJson alternatives)]
+      match result with
+      | .ok selected =>
+        return some (base.setObjVal! "status" (toJson "applicable")
+          |>.setObjVal! "selected" selected, true)
+      | .error failure =>
+        return some (base.setObjVal! "status" (toJson "unresolved")
+          |>.setObjVal! "outcome" (toJson failure.kind)
+          |>.setObjVal! "stratum" (toJson failure.stratum?)
+          |>.setObjVal! "diagnostic" (toJson failure.detail), false)
   finally
     saved.restore
 
-/-- Specialize only the rigid source-object slot of the whole independently
-registered operation. All other arguments and dependent binder types remain
-native lambda data; no numeral, operand or selected structure is fabricated. -/
+
+
+
 private partial def specializeObject (family : Expr) (index : Nat)
     (object : Expr) : MetaM Expr := do
   let .lam name type body info := family
@@ -286,7 +303,7 @@ private partial def specializeObject (family : Expr) (index : Nat)
     mkLambdaFVars #[argument] (← specializeObject (body.instantiate1 argument) (index - 1) object)
 
 private def observeOperation (kernel : Kernel) (state : SemanticState)
-    (context : OpenContext) (receiver : NativeSourceJudgement)
+    (scope : SourceReadScope) (receiver : NativeSourceJudgement)
     (name : String) : TermElabM (Array Json) := do
   let some category := receiver.category | return #[]
   unless category.role == .object do return #[]
@@ -303,22 +320,22 @@ private def observeOperation (kernel : Kernel) (state : SemanticState)
           row.declaration
           (fun binders => if binders.size > row.numerals then
             some (binders.size - 1 - row.numerals) else none)
-          (some (``OperationEntry, row.id.raw))
+          (some (.operation row))
         let expression ← specializeObject family.value family.objectIndex receiver.value
         discard <| levelMVarToParam (← instantiateMVars expression)
         let expression ← instantiateMVars expression
-        let candidate ← candidateDocument kernel state context "operation" name row.id.raw
-          (.computation (.operation row.id)) (some route) expression
+        let candidate ← candidateDocument kernel state scope "operation" name row.id.raw
+          (.computation (.operation row.id)) family.reference (some route) expression
         result := result.push (candidate.setObjVal! "arity" (toJson row.arity))
     return result
   finally
     original.restore
 
-/-- Enumerate actual member competition and independently typed operation families.
-Projection spellings come from the source reader; they are advertised only when
-that reader selects an actual typed value. An operation still requiring an operand
-is a typed family, not a promise of applicability to an invented argument. -/
-private def discover (kernel : Kernel) (context : OpenContext)
+
+
+
+
+private def discover (kernel : Kernel) (scope : SourceReadScope)
     (receiver : NativeSourceJudgement) : TermElabM (Array Json × Array String) := do
   let state ← semanticState
   let mut rows := #[]
@@ -331,7 +348,7 @@ private def discover (kernel : Kernel) (context : OpenContext)
       saved.restore
       Core.checkSystem "source member discovery"
       try
-        if let some (document, applicable) ← observeMember kernel state context receiver name then
+        if let some (document, applicable) ← observeMember kernel state scope receiver name then
           rows := rows.push document
           if applicable then names := names.push name
       catch error =>
@@ -345,7 +362,7 @@ private def discover (kernel : Kernel) (context : OpenContext)
         saved.restore
         Core.checkSystem "source operation discovery"
         try
-          rows := rows ++ (← observeOperation kernel state context receiver name)
+          rows := rows ++ (← observeOperation kernel state scope receiver name)
         catch error =>
           let failure ← Outcome.ofException error
           rows := rows.push (Json.mkObj [
@@ -356,9 +373,9 @@ private def discover (kernel : Kernel) (context : OpenContext)
   finally
     saved.restore
 
-/-- Display only the actual new source bindings and their retained values.
-The native type determines whether a packet has a scalar display convention;
-an arbitrary two-slot record is never interpreted as a rational. -/
+
+
+
 def newBindings (before after : KernelSession) (transaction : CellTransaction) :
     TermElabM (Array Json) := do
   let previous := before.source.observation.context.entries
@@ -368,6 +385,7 @@ def newBindings (before after : KernelSession) (transaction : CellTransaction) :
   frozen.context.withOpen fun bindings => do
     let mut result := #[]
     for entry in frozen.context.entries, index in [:frozen.context.entries.size] do
+      if entry.role == .selectedStructure || entry.role == .result then continue
       if previous.any (·.id == entry.id) then continue
       let some binding := bindings[index]?
         | throwError "the display scope lost its retained declaration"
@@ -390,9 +408,9 @@ def newBindings (before after : KernelSession) (transaction : CellTransaction) :
         ("source", document)])
     return result
 
-/-- Prepare all declarations from the actual candidate source/graph before
-publication. Query code receives only these immutable JSON records; it never
-reopens the source scope or reads a transaction. -/
+
+
+
 def prepare (session : KernelSession) (transaction : CellTransaction) :
     TermElabM (Array BindingObservation) := do
   let frozen := session.source.observation
@@ -400,8 +418,13 @@ def prepare (session : KernelSession) (transaction : CellTransaction) :
   let graph ← transaction.view
   frozen.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
+    let scope : SourceReadScope := {
+      identities := session.kernel.ledger.owners.identities
+      context
+      selections := ← frozen.selections.inContext context }
     let mut result := #[]
     for entry in frozen.context.entries, index in [:frozen.context.entries.size] do
+      if entry.role == .selectedStructure || entry.role == .result then continue
       let some binding := bindings[index]?
         | throwError "the inspection scope lost its retained declaration"
       unless binding.id == entry.id do
@@ -412,7 +435,7 @@ def prepare (session : KernelSession) (transaction : CellTransaction) :
       let runtime ← (session.value? entry.id).mapM fun value =>
         liftM (m := IO) (retainedValue session transaction graph value)
       let category ← session.source.openCategory context binding.expression.fvarId!
-      let (candidates, members) ← discover session.kernel context ⟨binding.expression, category⟩
+      let (candidates, members) ← discover session.kernel scope ⟨binding.expression, category⟩
       let details := Json.mkObj [
         ("binding", ContextSnapshot.bindingJson entry.id), ("index", toJson index),
         ("source", document), ("runtime", toJson runtime),
