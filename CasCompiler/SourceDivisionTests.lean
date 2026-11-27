@@ -1,16 +1,18 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.SourceTestSupport
 import CasCompiler.Parse
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.SourceTestSupport
 meta import CasCompiler.Parse
 meta import LeanCategories.Catalogue
 
-open Lean Meta Elab Term CasCompiler
+open Lean Meta Elab Term CasCompiler CasCompiler.SourceTest
 
-/-- Read `text` after `let Q := ℚ in CommutativeRings`. -/
+
 private def readInRationals (text : String) : TermElabM SourceTerm := do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let file ← SourceFile.parse "source-division.cas" "let Q := ℚ in CommutativeRings\n"
@@ -25,11 +27,11 @@ private def readInRationals (text : String) : TermElabM SourceTerm := do
     | throwError "the quotient did not parse"
   session.read ⟨source⟩
 
-/- `a / b` is the registered division `/ : M × Mˣ → M` (mor.sets.divide) at the monoid `M` of the
-operands' object, with `b` admitted into `Mˣ` by the domain's own evidence
-(tests/acceptance/fractions.cas; RX-LIFT's row `[3/2, -1]`). A commutative ring is a monoid along
-several structural routes that agree by no registered comparison, so without a declared
-preferred route the reading is ambiguous (constitution C6). -/
+
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let environment ← getEnv
   try
@@ -42,16 +44,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | some error => unless CasCatalogue.Exception.isSemanticAmbiguity error do throw error
   finally setEnv environment
 
-/- With a declared preferred route for `/` on commutative rings along the multiplicative monoid,
-`3/2` reads as that division. -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let environment ← getEnv
   try
     setPreferredRoutes #[⟨"/", "cat.commutative_rings",
       #["fun.commutative_rings.ring", "fun.rings.multiplicative_monoid"]⟩]
     let value ← readInRationals "3/2 in Q"
-    value.source.withOpen fun _ value => do
-      unless ((← instantiateMVars value).find?
-          (·.isConstOf ``CasCatalogue.Algebra.Units.divide)).isSome do
-        throwError "`3/2` is not the registered division: {value}"
+    checkSelected value fun expression => do
+      checkOriginal #[expression] fun native => do
+        let value ← instantiateMVars native[0]!
+        unless (value.find? (·.isConstOf ``CasCatalogue.Algebra.Units.divide)).isSome do
+          throwError "`3/2` is not the registered division: {value}"
   finally setEnv environment
