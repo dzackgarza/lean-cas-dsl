@@ -149,3 +149,46 @@ script «feedback-context» do
     ("arguments", Lean.toJson workspace.lakeArgs?),
     ("packages", .arr packages)]).compress
   return 0
+
+
+target «feedback-worker-commands» _pkg : System.FilePath := do
+  let some context ← IO.getEnv "CAS_FEEDBACK_CONTEXT"
+    | error "feedback worker preparation requires its current context"
+  let some run := (System.FilePath.mk context).parent
+    | error "feedback context has no run directory"
+  let selection : Lean.Json ← match Lean.Json.parse (← IO.FS.readFile (run / "selection.json")) with
+    | .ok value => pure value
+    | .error message => error message
+  let complete : Bool ← match selection.getObjValAs? Bool "complete" with
+    | .ok value => pure value
+    | .error message => error message
+  unless complete do error "acceptance selection is incomplete"
+  let workers : Nat ← match selection.getObjValAs? Nat "workers" with
+    | .ok value => pure value
+    | .error message => error message
+  if workers == 0 then error "no acceptance workers"
+  let jobs ← (List.range workers).toArray.mapM fun worker => do
+    let source := run / s!"worker{worker}.lean"
+    let contents ← IO.FS.readFile source
+    let prepared ← Lake.prepareLeanCommand source #["-DstderrAsMessages=false"]
+    prepared.mapM (sync := true) fun command => do
+      match command.stdin, command.stdout, command.stderr with
+      | .inherit, .inherit, .inherit => pure ()
+      | _, _, _ => error "prepared worker requires inherited standard streams"
+      if command.cwd.isSome || !command.inheritEnv || command.setsid then
+        error "prepared worker requires the current directory, environment and process group"
+      return Lean.Json.mkObj [
+        ("worker", Lean.toJson worker),
+        ("source", Lean.toJson source.toString),
+        ("contents", Lean.toJson contents),
+        ("cmd", Lean.toJson command.cmd),
+        ("args", Lean.toJson command.args),
+        ("env", Lean.toJson command.env)]
+  (Lake.Job.collectArray jobs).mapM (sync := true) fun commands => do
+    let output := run / "prepared-workers.json"
+    let temporary := run / "prepared-workers.pending.json"
+    IO.FS.writeFile temporary <| (Lean.Json.mkObj [
+      ("context", Lean.toJson context),
+      ("commands", .arr commands)]).compress ++ "\n"
+    IO.FS.rename temporary output
+    return output

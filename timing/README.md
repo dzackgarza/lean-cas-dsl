@@ -773,3 +773,75 @@ This checkpoint establishes the attribution and applies the scoped remedy.
 The T359 instance remains active until three complete normal five-case checks
 have median at most 300 s; the whole feedback regression suite must also pass.
 The generic T359 checkbox remains unchecked under the contingency rule.
+
+### Normal recheck and native worker preparation
+
+The three complete, unchanged T300 five-case checks at
+4738022fcfeb299c4b80f32f7e5962a027fc2173 all passed their assertions:
+
+| Run | Outer seconds | Unittest seconds | Result |
+| --- | ---: | ---: | --- |
+| 1 | 287.2983792978339 | 284.767 | 5/5 pass |
+| 2 | 374.839264173992 | 371.091 | 5/5 pass |
+| 3 | 522.7041107369587 | 514.903 | 5/5 pass |
+
+The median is 374.839264173992 s, so the active T359 instance is not closed.
+The exact commands, results and output are in
+timing/logs/t359-gates-4738022/. Source, dependency and image identities agree;
+these observations do not establish a stable gain from one unusually fast run.
+
+The following ordered triage uses the complete third normal check. Values are
+rounded to milliseconds. The residual collects the unassigned intervals; it
+is not asserted to be one operation. The named intervals are disjoint: child
+acceptance phases are not counted again inside the parent acceptance envelope.
+
+| Operation or interval | Cost per call | Actual multiplier | Aggregate seconds | Priority and remedy | Remaining measured cost |
+| --- | --- | ---: | ---: | --- | --- |
+| Worker entry to session preparation | 58.159 / 86.452 s | Two workers | 144.611 | First, minutes, area E: remove repeated native Lake workspace and dependency preparation while retaining the full imports and fresh Lean execution. | Pending unchanged normal checks |
+| Remaining wrapper, finalization and unassigned intervals | Not isolated | Residual of the whole check | 94.310 | Keep separated from native startup; no remedy is inferred for this residual. | Unchanged |
+| Empty-selection and missing-input cases | 42.032 / 45.028 s | Two complete cases | 87.060 | Preserve the original public probe and its failure assertions. | Unchanged |
+| Parent, child and preflight preparation | Aggregate / 5 | Five windows | 83.322 | Preserve current source/dependency capture and the native preparation failure controls. | Unchanged |
+| Explicit native builds | Aggregate / 4 | Four commands | 62.284 | Preserve the existing builds; share their native workspace and dependency jobs with worker preparation. | Pending |
+| Original file execution | 47.851 / 3.266 s | Two files | 51.117 | Preserve statements, peer registration, dispatch and outcomes. | Unchanged |
+| **Complete check** | | | **522.704** | | |
+
+A process-only diagnostic of the same check was interrupted by SIGTERM. Its
+outer result remains incomplete, with no known outer exit status; it is not a
+normal timing sample or a completed five-case check. Its first three unittest
+cases passed and both acceptance workers completed before interruption.
+Original evidence is retained in timing/logs/t359-startup-4738022/.
+
+Clone/thread ancestry identifies the actual native Lean process-group exits,
+including the exit_group calls made by worker threads rather than the exec
+thread. The two completed standalone worker Lake preparations take
+62.407449 s and 58.006163 s, totaling 120.413612 s before Lean starts.
+Their post-child Lake cleanup totals 3.880500 s. The native Lean child windows
+are separately 198.686423 s and 122.559144 s; they include import loading and
+actual execution and are not all assigned to startup. Completed native Lake
+windows outside those Lean children total 503.886827 s: 240.860235 s in
+explicit builds, 138.732480 s in resolved-context calls, 120.413612 s in worker
+preparation, and 3.880500 s in worker cleanup. These diagnostic wall-clock
+intervals are not added to the normal check's monotonic phase measurements.
+
+The remedy adds a standard Lake target to the existing acceptance build. It
+calls the pinned Lake.prepareLeanCommand in that build's existing FetchM and
+job store, then atomically publishes all current worker commands. It introduces
+no persistent preparation cache. The original generated sources and imports,
+native executable, module and package options, plugins, environment overlays
+and setup files remain those of lake lean. Required setup serialization still
+runs; the two extra Lake processes, repeated workspace loads and repeated
+dependency-job discovery are removed.
+
+The existing stdlib feedback helper validates the current context, worker,
+source path and exact source bytes, applies the native environment entries in
+order, restores Python's interpreter-installed ignored signals, and execs the
+prepared Lean command in the existing process group. The original shell
+step-start and step-finish boundaries remain, so missing or stale preparation
+also retains a current timed failure. The step records name the actual helper
+entry command; the same-run preparation manifest retains its exact native
+continuation. There is no alternate launch or old-record fallback.
+
+The unchanged native preparation/build and worker interruption controls remain
+required. No tests, original acceptance inputs, protocol-peer command or
+admission records change. The T359 completion condition remains three complete
+normal checks with median at most 300 s followed by the full feedback suite.

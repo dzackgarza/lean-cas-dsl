@@ -14,6 +14,7 @@ import os
 import platform
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -318,6 +319,29 @@ def step_start(argv: list[str]) -> None:
     run = Path(context_file).parent
     atomic_json(run / "steps" / f"{started}.json", record)
     append_record(run / "events.jsonl", record)
+
+
+def execute_prepared(argv: list[str]) -> None:
+    context_file, worker = argv[1:3]
+    run = Path(context_file).parent
+    prepared = read_json(run / "prepared-workers.json")
+    command = prepared["commands"][int(worker)]
+    source = run / f"worker{worker}.lean"
+    if (prepared["context"] != context_file or command["worker"] != int(worker)
+            or command["source"] != str(source)
+            or command["contents"].encode("utf-8") != source.read_bytes()):
+        raise ValueError("prepared worker does not match its current context and source")
+    environment = os.environ.copy()
+    for key, value in command["env"]:
+        if value is None:
+            environment.pop(key, None)
+        else:
+            environment[key] = value
+    for name in ("SIGPIPE", "SIGXFZ", "SIGXFSZ"):
+        signum = getattr(signal, name, None)
+        if signum is not None:
+            signal.signal(signum, signal.SIG_DFL)
+    os.execvpe(command["cmd"], [command["cmd"], *command["args"]], environment)
 
 
 def step_finish(argv: list[str]) -> None:
@@ -989,6 +1013,8 @@ if __name__ == "__main__":
         capture_context(arguments)
     elif command == "step-start":
         step_start(arguments)
+    elif command == "execute-prepared":
+        execute_prepared(arguments)
     elif command == "step-finish":
         step_finish(arguments)
     elif command == "finish":

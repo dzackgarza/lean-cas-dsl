@@ -452,7 +452,8 @@ if [[ $prepare_status -eq 0 ]]; then
   if [[ $build_status -eq 0 ]]; then
     run_build() {
       set -o pipefail
-      native lake --log-level=error build LeanCategories.Catalogue CasCatalogue.TestSuite 2>&1 |
+      native lake --log-level=error build LeanCategories.Catalogue CasCatalogue.TestSuite \
+        feedback-worker-commands 2>&1 |
         tee "$run/build.log"
     }
     export run
@@ -467,13 +468,13 @@ run_worker() {
   local worker=$1 start status
   start=$(python3 -S -c 'import time; print(time.monotonic_ns())')
   python3 -S scripts/feedback_records.py step-start "$context" "acceptance-worker$worker" "" "$start" \
-    "$(( build_finished - started ))" lake --log-level=error lean "$run/worker$worker.lean" \
-    -- -DstderrAsMessages=false || return $?
+    "$(( build_finished - started ))" python3 -S scripts/feedback_records.py \
+    execute-prepared "$context" "$worker" || return $?
   set +e
   set -o pipefail
   native env CAS_FEEDBACK_WORKER="$worker" CAS_FEEDBACK_STEP="acceptance-worker$worker:$start" \
     CAS_FEEDBACK_SOURCE="$run/worker$worker.lean" \
-    lake --log-level=error lean "$run/worker$worker.lean" -- -DstderrAsMessages=false 2>&1 |
+    python3 -S scripts/feedback_records.py execute-prepared "$context" "$worker" 2>&1 |
     tee "$run/worker$worker.log"
   status=$?
   python3 -S scripts/feedback_records.py step-finish "$context" "$start" \
