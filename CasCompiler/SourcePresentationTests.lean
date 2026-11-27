@@ -1,10 +1,12 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.SourceTestSupport
 import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 import LeanCategories.Catalogue.Semantics.Algebra.Automorphisms
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.SourceTestSupport
 meta import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 meta import LeanCategories.Catalogue.Semantics.Algebra.Automorphisms
 
@@ -26,6 +28,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
   let session ← empty.assume `n (← `(Nat))
+  let some n := session.context.entries.back?
+    | throwError "the original dependent presentation parameter was not retained"
   let q ← session.read (← sourceTerm "CyclicQuotient(n) in Groups")
   let session ← session.defineTerm `Q q
   let r ← session.read (← sourceTerm "ZMod(n) in Groups")
@@ -37,36 +41,50 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let result ← session.read (← sourceTerm text)
     unless result.category.any (·.role == .morphism) do
       throwError "the presentation changed its ordinary morphism role"
-    result.source.withOpen fun bindings value => do
-      let iso ← mkAppM ``CasCatalogue.Algebra.CyclicQuotients.residueComparison
-        #[bindings[0]!.expression]
-      let expected ← mkAppM projection #[iso]
-      unless bindings.size == 4 && (← isDefEq value expected) do
-        throwError "the selected presentation changed its full dependent parameters or context"
-      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+    let authored ← SourceTest.authoredEntries result.source.context result.selections
+    unless authored.size == 4 && authored[0]?.map (·.id) == some n.id do
+      throwError "the selected presentation changed its complete authored context"
+    SourceTest.checkSelected result fun value => do
+      let some parameter := (← get).context.bindings.find? (·.id == n.id)
+        | liftM (m := MetaM) <| throwError "the selected presentation lost its original parameter binding"
+      SourceTest.checkOriginal #[value, parameter.expression] fun native => do
+        let iso ← mkAppM ``CasCatalogue.Algebra.CyclicQuotients.residueComparison #[native[1]!]
+        let expected ← mkAppM projection #[iso]
+        unless ← isDefEq native[0]! expected do
+          throwError "the selected presentation changed its full dependent parameters"
+        checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!) (← mkEq native[0]! expected))
   let arrow ← session.read (← sourceTerm "presentation(cyclic_quotient_residue(n))")
   let session ← session.defineTerm `e arrow
+  let some e := session.context.entries.back?
+    | throwError "the original presentation map was not retained"
   let result ← session.read (← sourceTerm "map e along Aut()")
-  result.source.withOpen fun bindings value => do
-    let iso ← mkAppM ``CasCatalogue.Algebra.CyclicQuotients.residueComparison
-      #[bindings[0]!.expression]
-    let type ← whnfR (← inferType iso)
-    let x ← mkAppM ``CategoryTheory.Core.mk #[type.getAppArgs[2]!]
-    let y ← mkAppM ``CategoryTheory.Core.mk #[type.getAppArgs[3]!]
-    let core ← mkAppOptM ``CategoryTheory.CoreHom.mk
-      #[some type.getAppArgs[0]!, some type.getAppArgs[1]!, some x, some y, some iso]
-    let bundle ← mkAppOptM ``CategoryTheory.Cat.of
-      #[some type.getAppArgs[0]!, some type.getAppArgs[1]!]
-    let functor ← mkAppM ``CasCatalogue.Algebra.Automorphisms.automorphismsConstruction #[bundle]
-    let expected ← mkAppM ``CategoryTheory.Functor.map #[functor, core]
-    unless ← isDefEq value expected do
-      throwError "Aut lost the selected presentation's actual inverse data"
-    unless value.containsFVar bindings[4]!.expression.fvarId! do
-      throwError "the presentation action discarded its actual source map reference"
+  SourceTest.checkSelected result fun value => do
+    let scope ← get
+    let some parameter := scope.context.bindings.find? (·.id == n.id)
+      | liftM (m := MetaM) <| throwError "the mapped presentation lost its original parameter"
+    let some originalMap := scope.context.bindings.find? (·.id == e.id)
+      | liftM (m := MetaM) <| throwError "the mapped presentation lost its original source map"
+    SourceTest.checkOriginal #[value, parameter.expression] fun native => do
+      let iso ← mkAppM ``CasCatalogue.Algebra.CyclicQuotients.residueComparison #[native[1]!]
+      let type ← whnfR (← inferType iso)
+      let x ← mkAppM ``CategoryTheory.Core.mk #[type.getAppArgs[2]!]
+      let y ← mkAppM ``CategoryTheory.Core.mk #[type.getAppArgs[3]!]
+      let core ← mkAppOptM ``CategoryTheory.CoreHom.mk
+        #[some type.getAppArgs[0]!, some type.getAppArgs[1]!, some x, some y, some iso]
+      let bundle ← mkAppOptM ``CategoryTheory.Cat.of
+        #[some type.getAppArgs[0]!, some type.getAppArgs[1]!]
+      let functor ← mkAppM ``CasCatalogue.Algebra.Automorphisms.automorphismsConstruction #[bundle]
+      let expected ← mkAppM ``CategoryTheory.Functor.map #[functor, core]
+      unless ← isDefEq native[0]! expected do
+        throwError "Aut lost the selected presentation's actual inverse data"
+    let occurrences ← SourceTest.visitNativeData
+      (fun source => pure (source.equal originalMap.expression)) value false
+    unless occurrences > 0 do
+      liftM (m := MetaM) <| throwError "the presentation action discarded its actual source map reference"
 
--- These four questions are unchanged from the original public B0 consumer. This control
--- checks source formation and the retained named family only; no proof procedure runs and
--- no comparison, generator image or arithmetic answer is supplied by this test.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -86,22 +104,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | .definition next _ => session := next
       | .question term =>
         questions := questions + 1
-        term.source.withOpen fun _ expression => do
-          let some (.mdata data body) := expression.find? fun term =>
-              match term with
-              | .mdata data _ => data.getName `CasCompiler.source.kind == ``PresentationFamily
-              | _ => false
-            | throwError "an original F9 comparison lost its published native boundary"
-          unless data.getString `CasCompiler.source.id == "cmp.f9.translation" &&
-              body.getAppFn.isConstOf
-                ``CasCatalogue.Algebra.PolynomialPresentations.quadraticComparison do
-            throwError "an original F9 comparison changed its named Iso or operation address"
+        SourceTest.checkSelected term fun expression => do
+          let occurrences ← SourceTest.visitNativeData (fun source => do
+            let some selected ← SourceReadM.selection? source | return false
+            let some application := selected.application | return false
+            let .presentation family := application.family | return false
+            let some original := selected.originalApplication
+              | liftM (m := MetaM) <| throwError "the original F9 comparison lost its complete native application"
+            unless family.entry.id.raw == "cmp.f9.translation" &&
+                family.entry.declaration ==
+                  ``CasCatalogue.Algebra.PolynomialPresentations.quadraticComparison &&
+                original.getAppFn.isConstOf family.entry.declaration do
+              liftM (m := MetaM) <| throwError "an original F9 comparison changed its named Iso or operation address"
+            return true) expression
+          unless occurrences > 0 do
+            liftM (m := MetaM) <| throwError "an original F9 comparison lost its published native boundary"
       | _ => throwError "an original F9 assertion was replaced by a settled source result"
     unless questions == 4 do throwError "the original F9 comparison control omitted a question"
   finally setEnv original
 
--- Both directions come from the original Iso under the complete rigid parameter family.
--- A proper prefix or extension of its checked carrier path is not a point action.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let state ← semanticState
   for address in #["cmp.f9.translation", "cmp.polynomial_quotient.translation"] do

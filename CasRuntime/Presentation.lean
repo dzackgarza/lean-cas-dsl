@@ -10,8 +10,8 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- The actual typed inputs of one complete named presentation action. Parameters, endpoint
-captures and the original point remain distinct positions even when their data are equal. -/
+
+
 structure PreparedPresentationInvocation where
   private mk ::
   preparation : RoleScope
@@ -24,12 +24,12 @@ structure PreparedPresentationInvocation where
   forms : Array String
   dependencies : Array ValueBinding
 
-/-- Consume the complete admitted family and point interfaces before selecting or contacting a
-provider. The native carrier path fixes direction; the source endpoint alone supplies endpoint
-forms. The complete request's own form is a peer, with no priority over an endpoint form. -/
+
+
+
 opaque PreparedPresentationInvocation.prepare (request family : PreparedRequest)
     (path : Array FieldLayout) (graph : ValueGraph)
-    (codes : Std.HashMap (RuntimeId .program) ClosureCode) (marks : Array ValueBinding) :
+    (codes : Std.HashMap (RuntimeId .program) ClosureCode) :
     MetaM PreparedPresentationInvocation := do
   request.requireFamily family path graph codes
   let .primitive (.presentation selected) _ := family.action
@@ -54,24 +54,26 @@ opaque PreparedPresentationInvocation.prepare (request family : PreparedRequest)
         let some value := original.arguments[parameter.sourceIndex]?.bind id
           | throwError "a presentation family is missing an explicit computational parameter"
         parameters := parameters.push value
-  let (first, second) ← family.presentationEndpoints graph marks
+  let (first, second) ← family.presentationEndpoints graph
   let (source, target) := if inverse then (second, first) else (first, second)
   let endpointForm ← family.environment.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
-    let some (id, _) ← sourceObjectReference? (← source.role.source.inContext context)
+    let selections ← source.role.selections.inContext context
+    let some (entry, _) ← sourceObjectSelection? context selections
+        (← source.role.source.inContext context)
       | return none
     let state : RegistryState := { toSemanticState := ← semanticState }
-    let some form := state.form? id.raw
+    let some form := state.form? entry.id.raw
       | throwError "the presentation source lost its admitted endpoint form"
     if let some reason := state.rejects (.presentation selected.entry) form then
       throwError "the presentation source form is incompatible: {reason}"
-    return some id.raw
+    return some entry.id.raw
   let forms := #[selected.entry.id.raw] ++ endpointForm.toArray
   return ⟨request.roles.scope, selected.entry.id.raw, parameters, inverse, source, target,
     argument, forms, family.scope ++ request.scope⟩
 
-/-- Exact roots in the published five-field packet. Input references are rooted in the raw
-invocation argument packet, including its args array; no dependentContext paths are reused. -/
+
+
 def PreparedPresentationInvocation.roots (invocation : PreparedPresentationInvocation) :
     Array InputPosition :=
   invocation.parameters.mapIdx (fun index binding =>
@@ -80,8 +82,8 @@ def PreparedPresentationInvocation.roots (invocation : PreparedPresentationInvoc
     { path := #[.field "args", .index 3], binding := invocation.target },
     { path := #[.field "args", .index 4], binding := invocation.argument }]
 
-/-- Encode actual retained data with the released PresentationInvocation envelope. The common
-encoder retains portable values, native owners and every complete scoped input position. -/
+
+
 def PreparedPresentationInvocation.encode (invocation : PreparedPresentationInvocation)
     (graph : ValueGraph) (receiver : ConnectionGeneration) :
     Except String (EncodedInputs × Json) := do
