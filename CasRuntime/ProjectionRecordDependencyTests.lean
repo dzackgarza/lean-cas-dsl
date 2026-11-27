@@ -8,9 +8,9 @@ namespace CasRuntime.ProjectionRecordDependencyTests
 
 open Lean Meta CasCompiler
 
--- The original lazy input contains an ordinary native dependent record. Projecting that
--- record must succeed through its actual retained parent before any later field demand.
--- No provider or mathematical result is supplied, and no payload value is asserted.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -50,14 +50,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           unless (← kernel.dispatches.get).isEmpty do
             throwError "the native record projection dispatched a provider"
         finally discard <| consumer.abort
-      -- Session retains a definition's exact let role on the same original value node.
-      -- Native conversion can still read its definition; reference selection keeps x.
+
+
       withLetDecl `x (← inferType term) term fun x => do
         let binding : LocalBinding := {
           id := { session := "native-record-projection-alias", serial := 0 },
           role := .definition, expression := x }
         let context ← ContextTelescope.capture #[binding]
         let .ok selected := input.withRole (← SourceLayout.ofTerm (← context.close x))
+          #[] (some #[some input])
           | throwError "the native dependent record could not retain its source alias"
         let bound : Std.HashMap BindingId ValueBinding := {}
         let consumer ← CellTransaction.begin kernel.ledger
@@ -74,9 +75,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     finally kernel.close
   finally setEnv original
 
--- Two accesses to a stored nested record retain distinct consuming fields. Publishing
--- the first nested access must not make its new field associations the original stored
--- baseline for the second one. Both still require their exact parent and native path.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -132,53 +133,59 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "a repeated nested projection lost its exact parent access"
         unless access.value == field.value && access.associationIds == field.associationIds do
           throwError "a repeated nested projection reused another parent's access"
-      let environment ← RuntimeEnvironment.capture owners.worker context #[]
       let check (parent : ValueBinding) (path : Name) (field : ValueBinding)
-          (accepted : Bool) : MetaM Unit := do
-        let marks ← IO.mkRef (#[] : Array ValueBinding)
-        let selected ← markValue marks parent (← parent.role.source.inContext context)
-        let specified ← context.close (← mkProjection selected path)
-        let .ok argument := RuntimeArgument.ofValue graph 0 field (← marks.get)
-          | throwError "the repeated projection argument is outside its graph"
-        let failure : Option Exception ← try
-            discard <| environment.checkArgument specified argument
-            pure none
-          catch error => pure (some error)
-        match accepted, failure with
-        | true, none => pure ()
-        | true, some error =>
-          throwError "the exact nested parent access was rejected ({repr parent.associationIds}): {error.toMessageData}"
-        | false, none => throwError "a nested projection accepted a different parent or field path"
-        | false, some error =>
-          unless error.toMessageData.hasTag
-              (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw error
+          (accepted : Bool) : MetaM Unit :=
+        withBindingContext graph context {} parent fun context bound => do
+          let native ← parent.selectedSource context
+          withBoundValue owners.identities context bound native parent fun context bound selected => do
+            let environment ← RuntimeEnvironment.captureBound owners.worker context bound graph
+            let specified ← context.close (← mkProjection selected path)
+            let .ok argument := RuntimeArgument.ofValue graph 0 field
+              | throwError "the repeated projection argument is outside its graph"
+            let failure : Option Exception ← try
+                discard <| environment.checkArgument specified argument
+                pure none
+              catch error => pure (some error)
+            match accepted, failure with
+            | true, none => pure ()
+            | true, some error =>
+              throwError "the exact nested parent access was rejected ({repr parent.associationIds}): {error.toMessageData}"
+            | false, none => throwError "a nested projection accepted a different parent or field path"
+            | false, some error =>
+              unless error.toMessageData.hasTag
+                  (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw error
       check first `fst firstField true
       check second `fst secondField true
       check other `fst otherField true
       check first `fst secondField false
       check first `fst otherField false
       check first `snd firstField false
-      -- A verified inner occurrence cannot bypass a conflicting outer occurrence.
-      let marks ← IO.mkRef (#[] : Array ValueBinding)
-      let wrongOuter ← markValue marks otherParent outer
-      let wrongInner ← mkProjection wrongOuter `fst
-      let relabelled ← markValue marks first wrongInner
-      let specified ← context.close (← mkProjection relabelled `fst)
-      let .ok argument := RuntimeArgument.ofValue graph 0 firstField (← marks.get)
-        | throwError "the relabelled nested projection is outside its graph"
-      let failure : Option Exception ← try
-          discard <| environment.checkArgument specified argument
-          pure none
-        catch error => pure (some error)
-      let some failure := failure
-        | throwError "an inner occurrence mark bypassed its different original outer parent"
-      unless failure.toMessageData.hasTag
-          (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
+
+
+      withBindingContext graph context {} first fun context bound => do
+        let native ← first.selectedSource context
+        withBoundValue owners.identities context bound native first fun context bound inner => do
+          withBoundValue owners.identities context bound outer otherParent fun context bound wrongOuter => do
+            let environment ← RuntimeEnvironment.captureBound owners.worker context bound graph
+            unless ← environment.hasRetainedSource context inner do
+              throwError "the nested projection control lost its verified inner occurrence"
+            let wrongInner ← mkProjection wrongOuter `fst
+            let specified ← context.close (← mkProjection wrongInner `fst)
+            let .ok argument := RuntimeArgument.ofValue graph 0 firstField
+              | throwError "the retained nested projection is outside its graph"
+            let failure : Option Exception ← try
+                discard <| environment.checkArgument specified argument
+                pure none
+              catch error => pure (some error)
+            let some failure := failure
+              | throwError "a verified inner occurrence bypassed its different original outer parent"
+            unless failure.toMessageData.hasTag
+                (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
     finally discard <| transaction.abort
   finally setEnv original
 
--- The public native lowering path must retain these same stored baselines when the
--- inner record has a dependent field. Every access keeps its exact consuming parent.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -197,14 +204,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the repeated native projection lost its original stored record"
         let .ok originalField := graph.project originalInner 0
           | throwError "the repeated native projection lost its original stored prefix"
-        let markedOuter ← markValue kernel.marks outer term
-        let innerSource := mkProj ``Prod 0 term
-        let first ← kernel.run transaction context {} (mkProj ``Prod 0 markedOuter)
-        let markedFirst ← markValue kernel.marks first innerSource
-        let firstField ← kernel.run transaction context {} (mkProj ``Sigma 0 markedFirst)
-        let second ← kernel.run transaction context {} (mkProj ``Prod 0 markedOuter)
-        let markedSecond ← markValue kernel.marks second innerSource
-        let secondField ← kernel.run transaction context {} (mkProj ``Sigma 0 markedSecond)
+        let project (value : ValueBinding) (structureName : Name) (index : Nat) :
+            MetaM ValueBinding := do
+          let graph ← transaction.view
+          withBindingContext graph context {} value fun context bound => do
+            let native ← value.selectedSource context
+            let selections ← value.role.selections.inContext context
+            withBoundValue owners.identities context bound native value fun context bound selected =>
+              kernel.run transaction context bound (mkProj structureName index selected)
+                (selections := selections)
+        let first ← project outer ``Prod 0
+        let firstField ← project first ``Sigma 0
+        let second ← project outer ``Prod 0
+        let secondField ← project second ``Sigma 0
         unless first.value == originalInner.value && second.value == originalInner.value &&
             first.associationIds != second.associationIds do
           throwError "the repeated native projection lost its two distinct consuming views"

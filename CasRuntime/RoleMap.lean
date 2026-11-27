@@ -9,7 +9,7 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler
 
-/-- Input and capture sources name positions, independently of value or expression equality. -/
+
 inductive InputRoleSource
   | argument (position : Nat)
   | capture (position : Nat)
@@ -21,10 +21,10 @@ structure InputRoleBinding where
   source : InputRoleSource
   value : ValueBinding
 
-/-- Checked actual bindings under this request's complete source telescope. Ordinary input
-admission is total; a sealed whole-input result may leave only source-proven unused arguments
-unbound. Wire enumeration still requires every declared computational argument.
-The map contains references and source roles, never completed payload storage. -/
+
+
+
+
 structure InputRoleMap where
   private mk ::
   telescope : RoleTelescope
@@ -70,18 +70,18 @@ private def admitInputRoles (telescope : RoleTelescope) (environment : RuntimeEn
     bindings := bindings.insert declared.role.id ⟨declared.role.id, .capture index, candidate.root⟩
   return ⟨telescope, bindings⟩
 
-/-- Admit every declared wire argument and capture in its source position.
-Reuse: native RuntimeEnvironment checks and immutable graph visibility. Proof positions stay
-in the telescope without a runtime payload. Providers and exports always use this total gate. -/
+
+
+
 opaque InputRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
     (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding)
     (actual : Array RuntimeArgument := #[]) : MetaM InputRoleMap :=
   admitInputRoles telescope environment graph arguments captures actual none
 
-/-- Check all supplied values and every required source slot after complete native coverage
-has been sealed for this exact telescope. This cannot authorize an arbitrary partial map;
-the only omissions are absent from every output value/type and their dependent formal prefix.
-The caller retains this map inside its sealed whole-input result plan/completion. -/
+
+
+
+
 opaque InputRoleMap.admitInputResult (telescope : RoleTelescope)
     (coverage : InputResultSourceCoverage telescope) (environment : RuntimeEnvironment)
     (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding)
@@ -102,13 +102,13 @@ private def InputRoleMap.requireBinding (map : InputRoleMap) (role : RoleId) :
     | throw "the computational role has no input binding"
   return binding
 
-/-- Role identity includes its scope. Recheck all input visibility in the caller's snapshot. -/
+
 opaque InputRoleMap.lookup (map : InputRoleMap) (graph : ValueGraph) (role : RoleId) :
     Except String InputRoleBinding := do
   map.checkVisibility graph
   map.requireBinding role
 
-/-- Source-ordered wire values; aliases keep each of their distinct role positions. -/
+
 opaque InputRoleMap.arguments (map : InputRoleMap) (graph : ValueGraph) :
     Except String (Array ValueBinding) := do
   map.checkVisibility graph
@@ -118,8 +118,8 @@ opaque InputRoleMap.arguments (map : InputRoleMap) (graph : ValueGraph) :
       values := values.push (← map.requireBinding argument.role.id).value
   return values
 
-/-- Actual returned references under the producing request's declared source roles.
-Lazy exported fields stay unbound until their access demand returns an actual value. -/
+
+
 structure ResultRoleMap where
   private mk ::
   telescope : RoleTelescope
@@ -132,54 +132,41 @@ def InputRoleMap.references (map : InputRoleMap) : Array ValueBinding :=
 def ResultRoleMap.references (map : ResultRoleMap) : Array ValueBinding :=
   map.bindings.toArray.map (·.2)
 
-private def storedResultAt (graph : ValueGraph) (root : ValueBinding) (path : Array Nat) :
-    Except String (Option ValueBinding) := do
-  let mut value := root
-  for index in path do
-    let some node := graph.find value.value
-      | throw "a result role is outside the visible graph"
-    match node.payload.data with
-    | .product _ | .container _ =>
-      if node.payload.data.storedFields?.isNone then return none
-      value ← graph.project value index
-    | .closure .. | .ownedToken .. => return none
-    | .portable _ => throw "a result field has no retained record interface"
-  return some value
 
-/-- Check the complete stored interface, then bind each declared materialized result position.
-A projection request supplies its original operand and field for every admission of that result.
-Ordinary results receive no projection authority. The map owns no payloads.
-Reuse: native whole-result admission and the exact prepared projection check. -/
+
+
+
 opaque ResultRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
     (graph : ValueGraph) (value : ValueBinding)
     (projectionContext : Option (ValueBinding × FieldLayout) := none)
     (fieldPrefix : Option NativeFieldPrefix := none) : MetaM ResultRoleMap := do
   unless graph.worker == telescope.scope.program.worker do
     throwError "the result role map belongs to a different worker"
+  let bindings ← IO.mkRef ({} : Std.HashMap RoleId ValueBinding)
+  let sameSource := fun (left right : ClosedTerm) =>
+    left.context.exactlyMatches right.context && left.expression.equal right.expression &&
+      left.type.equal right.type && left.universeParams == right.universeParams &&
+      left.nativeDeclarations.exactlyMatches right.nativeDeclarations
+  let admitted : Array Nat → ValueBinding → MetaM Unit := fun path actual => do
+    for declared in telescope.results do
+      unless declared.wirePath == some path do continue
+      unless actual.role.address == declared.layout.address &&
+          actual.role.kind == declared.layout.kind &&
+          sameSource actual.role.source declared.layout.source &&
+          actual.role.selectionBinding == declared.layout.selectionBinding &&
+          SourceSelectionScope.exactlyMatches sameSource
+            actual.role.selections declared.layout.selections do
+        throwError "an admitted result changed its original declared source position"
+
+
+      bindings.modify (·.insert declared.role.id actual)
   let candidate ← match projectionContext with
     | some (operand, field) =>
-      environment.checkProjectionResult graph telescope.source value operand field
-    | none => environment.checkResult graph telescope.source value fieldPrefix
-  let mut bindings : Std.HashMap RoleId ValueBinding := {}
-  for declared in telescope.results do
-    if let some path := declared.wirePath then
-      let actual ← IO.ofExcept <| (storedResultAt graph candidate.root path).mapError IO.userError
-      if let some actual := actual then
-        let actual ← IO.ofExcept <| (graph.rebind actual declared.layout).mapError IO.userError
-        -- The complete admission above already checked this stored path with its original
-        -- projection authority. Retain that role's selected type suppliers without replacing
-        -- the whole-result check by an independent field check that loses its pending prefix.
-        let marks ← IO.ofExcept <|
-          (mergeSourceMarks environment.sourceMarks actual.sourceMarks).mapError IO.userError
-        let marks ← IO.ofExcept <|
-          (retainedSourceMarks marks declared.layout.source).mapError IO.userError
-        let dependencies ← markedTypeReferences (some graph) declared.layout.source marks
-        let actual ← IO.ofExcept <|
-          (actual.withRole declared.layout marks dependencies).mapError IO.userError
-        bindings := bindings.insert declared.role.id actual
-  return ⟨telescope, candidate.root, bindings⟩
+      environment.checkProjectionResult graph telescope.source value operand field admitted
+    | none => environment.checkResult graph telescope.source value fieldPrefix admitted
+  return ⟨telescope, candidate.root, ← bindings.get⟩
 
-/-- Only this occurrence's declared result roles can select actual visible returned references. -/
+
 opaque ResultRoleMap.lookup (map : ResultRoleMap) (graph : ValueGraph) (role : RoleId) :
     Except String ValueBinding := do
   unless graph.worker == map.telescope.scope.program.worker do

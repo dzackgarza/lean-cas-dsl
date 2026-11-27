@@ -2,7 +2,6 @@ module
 
 public import CasRuntime.Environment
 public import CasCompiler.Surface
-import CasCompiler.SourceTypeOrigin
 
 public section
 
@@ -28,10 +27,10 @@ private partial def containsRetained (environment : RuntimeEnvironment) (context
   | .proj _ _ parent => containsRetained environment context parent
   | _ => return false
 
-/-- Select only an already published access for the exact original native path. Prefer the
-whole source-selected path before following independently published single steps: choosing an
-intermediate access cannot authorize a continuation under a different consuming parent chain.
-Descriptor schemas and raw stored baselines do not manufacture an access witness. -/
+
+
+
+
 private def declaredProjection? (graph : ValueGraph) (parent : ValueBinding)
     (path : Array Name) : MetaM (Option ValueBinding) := do
   if path.isEmpty then return some parent
@@ -39,7 +38,7 @@ private def declaredProjection? (graph : ValueGraph) (parent : ValueBinding)
       (graph.projectedAccess? parent path).mapError IO.userError then return some retained
   let mut selected := parent
   for projection in path do
-    let some field := selected.role.fields.find? (·.projection == projection)
+    let some field := selected.nativeRole.fields.find? (·.projection == projection)
       | throwError "a declared parameter selected a field outside its actual source"
     unless field.wireIndex.isSome do return none
     let some retained ← IO.ofExcept <|
@@ -47,19 +46,14 @@ private def declaredProjection? (graph : ValueGraph) (parent : ValueBinding)
     selected := retained
   return some selected
 
-/-- Read an original producing parameter or its already published native projection.
-Only the producer's exact source table and marks select a reference; no equal value is found
-and no missing native field is forced. This covers non-wire implicit declaration positions. -/
+
+
+
 private partial def producingReference? (graph : ValueGraph) (context : OpenContext)
-    (origin : ValueOrigin) (marks : Array ValueBinding) (source : Expr)
+    (origin : ValueOrigin) (source : Expr)
     (path : Array Name := #[]) : MetaM (Option ValueBinding) := do
-  if let .mdata data body := source then
-    if let some index := markedKey? data then
-      let some value := marks[index]?
-        | throwError "a declared parameter lost its original retained-value mark"
-      discard <| IO.ofExcept <| (graph.requiredOwners #[value]).mapError IO.userError
-      return ← declaredProjection? graph value path
-    return ← producingReference? graph context origin marks body path
+  if let .mdata _ body := source then
+    return ← producingReference? graph context origin body path
   if source.isFVar then
     let some binding := context.bindings.find? (·.expression == source)
       | throwError "a declared parameter is outside its source context"
@@ -68,7 +62,7 @@ private partial def producingReference? (graph : ValueGraph) (context : OpenCont
     let some value := origin.parameters[index]?.bind id | return none
     return ← declaredProjection? graph value path
   if let some selected ← SourceProjection.ofExpr? source then
-    producingReference? graph context origin marks selected.parent (#[selected.declaration] ++ path)
+    producingReference? graph context origin selected.parent (#[selected.declaration] ++ path)
   else return none
 
 private structure DeclaredSlot where
@@ -81,102 +75,74 @@ private structure DescriptorDeclaration where
   path : Array Name
   address : String
 
-/-- Read only the selected native apex spine emitted by SourceLimit. Its source reference
-fixes the original row before any projection is inspected; the descriptor's fields do not
-supply an interface or a mathematical reconstruction. -/
-private partial def selectedLimitDeclaration? (source : Expr) :
-    MetaM (Option DescriptorDeclaration) := do
-  match ← instantiateMVars source with
-  | .mdata data body =>
-    if data.getName `CasCompiler.source.kind == ``LimitEntry then
-      if data.contains `CasCompiler.source.leg then return none
-      let #[row] := (← semanticState).limits.filter
-        (·.id.raw == data.getString `CasCompiler.source.id)
-        | throwError "the selected result lost its original limit declaration"
-      unless row.declaration == data.getName `CasCompiler.source.declaration do
-        throwError "the selected result changed its original limit declaration"
-      discard <| checkedDeclaration row.declaration
-      let path := if row.colimit then
-          #[``CategoryTheory.Limits.ColimitCocone.cocone, ``CategoryTheory.Limits.Cocone.pt]
-        else #[``CategoryTheory.Limits.LimitCone.cone, ``CategoryTheory.Limits.Cone.pt]
-      -- SourceLimit now retains the complete producer application as the
-      -- ignored argument of a typed Function.const witness. Read that exact
-      -- witness before inspecting its value's native projection spine.
-      -- Neither reduction of the wrapper nor equality of result carriers
-      -- can supply another producer.
-      let some producer ← sourceApplication? row.declaration body
-        | throwError "the selected limit result lost its retained producer application"
-      let mut original := body.consumeMData.getAppArgs[2]!
-      -- Formation may retain its complete typed owner beside this same source apex.
-      -- Unwrap only that authored owner before the original producer/path checks below.
-      -- An ordinary formal source reference still has its direct native projection spine.
-      if let some (category, retained) ← sourceObjectOrigin? original then
-        let some selection := category.limit
-          | throwError "the selected limit owner lost its original construction"
-        unless selection.construction == data.getName `CasCompiler.source.limit.construction &&
-            selection.row == row.id.raw && selection.declaration == row.declaration do
-          throwError "the selected limit owner changed its original construction"
-        let .mdata selected nested := retained
-          | throwError "the selected limit owner lost its original source reference"
-        unless selected.getName `CasCompiler.source.kind == ``LimitEntry &&
-            selected.getString `CasCompiler.source.id == row.id.raw &&
-            selected.getName `CasCompiler.source.declaration == row.declaration do
-          throwError "the selected limit owner changed its original source reference"
-        let some originalProducer ← sourceApplication? row.declaration nested
-          | throwError "the selected limit owner lost its retained producer application"
-        unless originalProducer.consumeMData.equal producer.consumeMData do
-          throwError "the selected limit result changed its original producer application"
-        original := nested.consumeMData.getAppArgs[2]!
-      for declaration in path.reverse do
-        let some selected ← SourceProjection.ofExpr? original
-          | throwError "the selected limit result lost its native apex projection"
-        unless selected.declaration == declaration do
-          throwError "the selected limit result changed its native apex projection"
-        original := selected.parent
-      unless original.consumeMData.equal producer.consumeMData do
-        throwError "the selected limit result changed its original producer application"
-      original := producer.consumeMData
-      let arity ← forallTelescopeReducing (← inferType original.getAppFn)
-        fun parameters _ => pure parameters.size
-      unless original.getAppNumArgs == arity do
-        throwError "the selected limit result lost its complete producer telescope"
-      return some ⟨row.declaration, original, path, row.id.raw⟩
-    if (markedKey? data).isSome || data.contains `CasCompiler.source.kind ||
-        data.contains `CasCompiler.selection then return none
-    selectedLimitDeclaration? body
-  | .fvar id =>
-    match (← id.getDecl).value? with
-    | some value => selectedLimitDeclaration? value
-    | none => pure none
-  | .letE _ _ value body _ => selectedLimitDeclaration? (body.instantiate1 value)
-  | _ => pure none
+
+
+
+private def selectedLimitDeclaration? (context : OpenContext)
+    (selected : SourceSelection Expr) : MetaM (Option DescriptorDeclaration) := do
+  let some (.limit row) := selected.reference | return none
+  if selected.leg.isSome || selected.legOrdinal.isSome then return none
+  let some construction := selected.limit
+    | throwError "the selected limit result lost its complete original construction"
+  let original := construction.source
+  unless original.row == row.id.raw && original.declaration == row.declaration &&
+      original.colimit == row.colimit && !original.construction.isAnonymous do
+    throwError "the selected limit result changed its original construction"
+  discard <| checkedDeclaration row.declaration
+  let some producer ← sourceApplication? row.declaration selected
+    | throwError "the selected limit result lost its retained producer application"
+  unless original.presentation.consumeMData.equal producer.consumeMData do
+    throwError "the selected limit result changed its original producer application"
+  let path := if row.colimit then
+      #[``CategoryTheory.Limits.ColimitCocone.cocone, ``CategoryTheory.Limits.Cocone.pt]
+    else #[``CategoryTheory.Limits.LimitCone.cone, ``CategoryTheory.Limits.Cone.pt]
+  let some cone ← SourceProjection.ofExpr? original.cone
+    | throwError "the selected limit result lost its native cone projection"
+  unless cone.declaration == path[0]! &&
+      cone.parent.consumeMData.equal producer.consumeMData do
+    throwError "the selected limit result changed its native cone projection"
+  let apex ← mkAppM path[1]! #[original.cone]
+  context.withOriginalSources #[construction.receiver, selected.value, apex] fun values => do
+    unless ← isDefEq values[0]! values[2]! <&&> isDefEq values[1]! values[2]! do
+      throwError "the selected limit result changed its original native apex"
+  let producer := producer.consumeMData
+  let arity ← forallTelescopeReducing (← inferType producer.getAppFn)
+    fun parameters _ => pure parameters.size
+  unless producer.getAppNumArgs == arity do
+    throwError "the selected limit result lost its complete producer telescope"
+  return some ⟨row.declaration, producer, path, row.id.raw⟩
 
 private def descriptorDeclaration? (context : OpenContext) (origin : ValueOrigin)
     (packet : ValueContainer) : MetaM (Option DescriptorDeclaration) := do
+  if let some selected ← origin.role.selected? context then
+    if let some limit ← selectedLimitDeclaration? context selected then
+      unless packet.fields.isNone && packet.callable.isNone do return none
+      unless (packet.template.getObjValAs? String "ctor").toOption == some limit.address do
+        throwStratum .malformed "a selected result descriptor changed its original source address"
+      return some limit
+    let some (.named (.registered (.inl row) category)) := selected.reference | return none
+    unless row.category == category.id do
+      throwError "the selected object descriptor changed its complete original category"
+    let original := (selected.originalApplication.getD selected.value).consumeMData
+    unless original.getAppFn.isConstOf row.declaration do
+      throwError "the selected object descriptor lost its original declared application"
+    unless (packet.template.getObjValAs? String "ctor").toOption == some row.id.raw do
+      return none
+    return some ⟨row.declaration, original, #[], row.id.raw⟩
   let source ← origin.role.source.inContext context
-  if let some selected ← selectedLimitDeclaration? source then
-    unless packet.fields.isNone && packet.callable.isNone do return none
-    unless (packet.template.getObjValAs? String "ctor").toOption == some selected.address do
-      throwStratum .malformed "a selected result descriptor changed its original source address"
-    return some selected
   let original ← sourceDomain source
-  let some declaration := original.getAppFn.constName? | return none
-  let some address := (packet.template.getObjValAs? String "ctor").toOption | return none
-  -- Native binary object products have a released descriptor with two original
-  -- typed argument slots. The checked producer's exact Prod head, not equality
-  -- to some other object, authorizes this descriptor schema.
-  if declaration == ``Prod then
-    unless address == "objectProduct" && original.getAppNumArgs == 2 &&
-        packet.fields.isNone && packet.callable.isNone do return none
-    return some ⟨declaration, original, #[], address⟩
-  let addresses := ((← semanticState).objects.filter (·.declaration == declaration)).map (·.id.raw)
-  unless addresses.contains address do return none
-  return some ⟨declaration, original, #[], address⟩
 
-/-- Actual explicit descriptor slots are indexed by the declared native argument positions.
-The object's schema supplies no field data: these are the already stored descriptor inputs. -/
+
+  unless original.getAppFn.isConstOf ``Prod &&
+      (packet.template.getObjValAs? String "ctor").toOption == some "objectProduct" &&
+      original.getAppNumArgs == 2 && packet.fields.isNone && packet.callable.isNone do
+    return none
+  return some ⟨``Prod, original, #[], "objectProduct"⟩
+
+
+
 private def descriptorSlots? (graph : ValueGraph) (context : OpenContext)
-    (origin : ValueOrigin) (payload : ValueData) (marks : Array ValueBinding)
+    (origin : ValueOrigin) (payload : ValueData)
     (declaration : Name) (arity : Nat) : MetaM (Option (Array (Option DeclaredSlot))) := do
   let .container packet := payload | return none
   let some selected ← descriptorDeclaration? context origin packet | return none
@@ -196,7 +162,7 @@ private def descriptorSlots? (graph : ValueGraph) (context : OpenContext)
         throwStratum .malformed "a declaration parameter cannot be supplied by a fabricated native field"
       slots := slots.set! index (some ⟨source, slot.binding⟩)
       wire := wire + 1
-    else if let some value ← producingReference? graph context origin marks source then
+    else if let some value ← producingReference? graph context origin source then
       slots := slots.set! index (some ⟨source, value⟩)
   let .ok fields := (packet.template.getObjVal? "args").bind (·.getArr?)
     | throwStratum .malformed "a declared descriptor lost its complete parameter packet"
@@ -204,9 +170,9 @@ private def descriptorSlots? (graph : ValueGraph) (context : OpenContext)
     throwStratum .malformed "a declared descriptor changed its complete parameter arity"
   return some slots
 
-/-- A genuine native application may retain the same declared inputs without a descriptor.
-Only the original producer and exact formal argument positions are used. Native projections
-read already published fields; an unrecorded field never supplies a reconstructed slot. -/
+
+
+
 private def applicationSlots? (graph : ValueGraph) (context : OpenContext) (origin : ValueOrigin)
     (declaration : Name) (arity : Nat) : MetaM (Option (Array (Option DeclaredSlot))) := do
   let some application := origin.application | return none
@@ -237,20 +203,28 @@ private def applicationSlots? (graph : ValueGraph) (context : OpenContext) (orig
       slots := slots.set! index (some ⟨source, retained⟩)
     return some slots
 
-/-- Check complete declared input data against independently retained original source inputs.
-An outer input reference is checked by the ordinary argument boundary. Nested references must
-be witnessed by exact stored descriptor slots or original native application arguments, with
-the same node and association checks recursively. Native equality cannot select these inputs. -/
+
+
+
+
 partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironment)
-    (context : OpenContext) (graph : ValueGraph) (marks : Array ValueBinding)
+    (context : OpenContext) (graph : ValueGraph)
     (expected : Expr) (value : ValueBinding) : MetaM Unit := do
-  let .ok argument := RuntimeArgument.ofValue graph 0 value marks
+  let .ok argument := RuntimeArgument.ofValue graph 0 value
     | throwStratum .malformed "a declared input is outside its visible graph"
-  discard <| environment.checkArgument (← context.close expected) argument
-  if ← environment.hasRetainedSource context expected then return
-  unless ← containsRetained environment context expected do return
-  -- Native instance wrappers can conceal the same original field path. Re-admit that
-  -- source-only path before accepting its retained occurrence; equality is insufficient.
+  let direct ← environment.hasRetainedSource context expected
+  let nested ← containsRetained environment context expected
+  if direct || !nested then
+    discard <| environment.checkArgument (← context.close expected) argument
+    return
+
+
+
+  let layout ← SourceLayout.ofTerm (← context.close expected)
+    (← (← environment.selections.inContext context).close context)
+  discard <| environment.checkResult graph layout value
+
+
   let retainedSource ← (← context.close expected).inputProjectionSource
   if ← environment.hasRetainedSource context (← retainedSource.inContext context) then
     discard <| environment.checkArgument retainedSource argument
@@ -260,7 +234,7 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
     | throwStratum .malformed "a declared input has no exact native family for its retained parameters"
   let some node := graph.find value.value
     | throwError "the declared input lost its original producing node"
-  let slots ← descriptorSlots? graph context node.origin node.payload.data marks declaration
+  let slots ← descriptorSlots? graph context node.origin node.payload.data declaration
     expected.getAppNumArgs
   let slots ← match slots with
     | some slots => pure (some slots)
@@ -275,14 +249,14 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
       if required then
         throwStratum .malformed "the declared input is missing an original retained parameter"
     | some slot =>
-      let .ok argument := RuntimeArgument.ofValue graph index slot.value marks
+      let .ok argument := RuntimeArgument.ofValue graph index slot.value
         | throwStratum .malformed "a declared parameter is outside its visible graph"
       discard <| environment.checkArgument (← context.close slot.source) argument
-      environment.checkDeclaredInput context graph marks source slot.value
+      environment.checkDeclaredInput context graph source slot.value
 
-/-- One original producing declaration argument at its exact native position. The source and
-binding come from the same admitted descriptor/application slot; consumers cannot construct a
-new correspondence from two equal specialized source expressions. -/
+
+
+
 structure DeclaredInputSlot where
   private mk ::
   declaration : Name
@@ -290,33 +264,33 @@ structure DeclaredInputSlot where
   source : ClosedTerm
   value : ValueBinding
 
-/-- Read an original declared argument by a position already established on the full abstract
-source telescope. This reuses the same producer and complete-arity gates as declared-input
-checking. It cannot search for an equal value, force a missing field, or reconstruct a slot. -/
+
+
+
 opaque RuntimeEnvironment.declaredInputAt? (environment : RuntimeEnvironment)
-    (context : OpenContext) (graph : ValueGraph) (marks : Array ValueBinding)
+    (context : OpenContext) (graph : ValueGraph)
     (declaration : Name) (index : Nat) (value : ValueBinding) :
     MetaM (Option DeclaredInputSlot) := do
-  -- This is an actual already selected producer input. Its authenticated native projection
-  -- may carry the original dependent prefix; ordinary candidate result admission is separate.
+
+
   discard <| environment.checkOperand graph value.role value
   let info ← checkedDeclaration declaration
   let arity ← forallTelescopeReducing info.type fun parameters _ => pure parameters.size
   if index >= arity then return none
   let some node := graph.find value.value
     | throwError "the declared input lost its original producing node"
-  let slots ← descriptorSlots? graph context node.origin node.payload.data marks declaration arity
+  let slots ← descriptorSlots? graph context node.origin node.payload.data declaration arity
   let slots ← match slots with
     | some slots => pure (some slots)
     | none => applicationSlots? graph context node.origin declaration arity
   let some slots := slots | return none
   let some slot := slots[index]?.bind id | return none
-  environment.checkDeclaredInput context graph marks slot.source slot.value
+  environment.checkDeclaredInput context graph slot.source slot.value
   return some ⟨declaration, index, ← context.close slot.source, slot.value⟩
 
-/-- A selected descriptor result whose whole native family has one explicit computational
-input. The source, projection path and original argument position are read together from
-the actual producer; consumers cannot construct an unrelated source correspondence. -/
+
+
+
 structure DeclaredResultSource where
   private mk ::
   declaration : Name
@@ -324,9 +298,9 @@ structure DeclaredResultSource where
   path : Array Name
   position : Nat
 
-/-- Recover only an already selected descriptor's exact native projection and input position.
-The following declaredInputAt? lookup must still supply its actual retained input node.
-No category is inferred from the descriptor's result type or its printable packet. -/
+
+
+
 opaque RuntimeEnvironment.declaredResultSource? (environment : RuntimeEnvironment)
     (context : OpenContext) (graph : ValueGraph) (value : ValueBinding) :
     MetaM (Option DeclaredResultSource) := do

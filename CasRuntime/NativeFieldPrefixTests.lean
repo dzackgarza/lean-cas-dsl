@@ -1,8 +1,10 @@
 module
 
+import all CasCompiler.Layout
 import CasRuntime.ResultCodec
 import CasRuntime.NativeMapEndpoints
 public meta import Lean.Elab.Command
+meta import CasCompiler.Layout
 meta import CasRuntime.ResultCodec
 meta import CasRuntime.NativeMapEndpoints
 
@@ -16,8 +18,8 @@ structure NativeMapRecord where
   target : Type
   arrow : domain → target
 
--- The whole W has no runtime binding. Only its actual earlier source-order fields
--- authorize the endpoint roles, including the intervening native proof position.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let owners ← OwnerRegistry.new
   let program ← owners.identities.fresh .program
@@ -29,13 +31,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let source ← SourceLayout.ofTerm (← context.close w)
     let layout ← RecordLayout.ofSource source
     let graph := ValueGraph.empty owners.identities
-    let environment ← RuntimeEnvironment.capture owners.worker context #[] #[] (some graph)
+    let environment ← RuntimeEnvironment.capture owners.worker context #[] (some graph)
     let checkAt := fun (label : String) (action : MetaM Unit) => do
       try action
       catch failure => throwError "native field prefix {label}: {failure.toMessageData}"
     let packet := Json.mkObj [("ctor", toJson "finiteData"),
       ("args", .arr #[toJson "same endpoint bytes", .arr #[toJson (0 : Nat)]])]
-    let record ← RecordPrefix.prepare owners.identities program occurrence layout graph #[]
+    let record ← RecordPrefix.prepare owners.identities program occurrence layout graph environment.bound
     let firstPrefix ← record.currentField
     let firstOrigin ← firstPrefix.origin environment program occurrence graph
     let (graph, first) ← graph.stage owners.identities firstOrigin
@@ -45,7 +47,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     checkAt "domain" do discard <| firstPrefix.checkResult environment graph first
     let originalFirst := first
     let (graph, record, first) ← record.bind graph first
-    let sibling ← RecordPrefix.prepare owners.identities program occurrence layout graph #[]
+    let sibling ← RecordPrefix.prepare owners.identities program occurrence layout graph environment.bound
     let (graph, _, siblingFirst) ← sibling.bind graph originalFirst
     unless first.value == siblingFirst.value &&
         first.associationIds != siblingFirst.associationIds &&
@@ -65,10 +67,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let (graph, record, target) ← record.bind graph target
 
     let arrowPrefix ← record.currentField
-    let globalMarks := #[first, target, other]
     let prepared ← try
         PreparedMapResult.forSource environment arrowPrefix.native graph
-          first target globalMarks (fieldPrefix := some arrowPrefix)
+          first target (fieldPrefix := some arrowPrefix)
       catch failure => throwError "native field prefix codec: {failure.toMessageData}"
     unless prepared.source.value == first.value && prepared.target.value == target.value &&
         prepared.source.associationIds == first.associationIds &&
@@ -77,13 +78,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     for wrong in #[other, siblingFirst, target] do
       let rejected ← try
           discard <| PreparedMapResult.forSource environment arrowPrefix.native graph
-            wrong target globalMarks (fieldPrefix := some arrowPrefix)
+            wrong target (fieldPrefix := some arrowPrefix)
           pure false
         catch _ => pure true
       unless rejected do
         throwError "native map framing accepted another equal-data endpoint occurrence"
 
-    let rawOrigin ← environment.origin program occurrence arrowPrefix.native
+
+
+    let rawOrigin : ValueOrigin := {
+      program, occurrence, role := arrowPrefix.native, parameters := environment.values }
     let wrongOccurrence ← owners.identities.fresh .occurrence
     let wrongOriginRejected ← try
         discard <| arrowPrefix.attachOrigin { rawOrigin with occurrence := wrongOccurrence } graph
@@ -99,6 +103,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       catch _ => pure true
     unless rawRejected do
       throwError "a consuming prefix supplied missing original producer evidence"
+
+    let capturedOrigin ← arrowPrefix.origin environment program occurrence graph
+    let (capturedGraph, capturedArrow) ← graph.stage owners.identities capturedOrigin
+      (.closure program #[first, target])
+    checkAt "typed producer prefix" do
+      discard <| arrowPrefix.checkResult environment capturedGraph capturedArrow
+    let missingPrefixRejected ← try
+        discard <| graph.stage owners.identities { capturedOrigin with fieldPrefix := none }
+          (.closure program #[first, target])
+        pure false
+      catch _ => pure true
+    unless missingPrefixRejected do
+      throwError "a native field producer erased the prefix used for its type capture"
 
     let origin ← arrowPrefix.attachOrigin rawOrigin graph
     let (graph, arrow) ← graph.stage owners.identities origin (.closure program #[first, target])
@@ -126,7 +143,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "whole native record admission replaced its original callable field"
     let rootParameter ← IO.ofExcept <|
       (RuntimeParameter.ofValue graph context.bindings[0]!.id admitted.root).mapError IO.userError
-    let consumer ← RuntimeEnvironment.capture owners.worker context #[rootParameter] #[] (some graph)
+    let consumer ← RuntimeEnvironment.capture owners.worker context #[rootParameter] (some graph)
     let consumed ← try consumer.checkResult graph arrowPrefix.native retained
       catch failure => throwError "native field prefix bound consumer: {failure.toMessageData}"
     unless consumed.root.value == arrow.value &&
@@ -145,7 +162,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let changedParentRejected ← try
           let parameter ← IO.ofExcept <|
             (RuntimeParameter.ofValue badGraph context.bindings[0]!.id bad).mapError IO.userError
-          let changed ← RuntimeEnvironment.capture owners.worker context #[parameter] #[]
+          let changed ← RuntimeEnvironment.capture owners.worker context #[parameter]
             (some badGraph)
           discard <| changed.checkResult badGraph arrowPrefix.native retained
           pure false
@@ -166,19 +183,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (term : Expr) (accepted : Bool) => do
       let source ← SourceLayout.ofTerm (← nativeContext.close term)
       let layout ← RecordLayout.ofSource source
-      let environment ← RuntimeEnvironment.capture owners.worker nativeContext #[] #[] (some graph)
+      let environment ← RuntimeEnvironment.capture owners.worker nativeContext #[] (some graph)
       let mut currentGraph := graph
       let mut fields := #[]
       for prepared in layout.fields do
         unless prepared.field.wireIndex.isSome do continue
-        let origin ← environment.origin program occurrence prepared.layout
+        let origin : ValueOrigin := {
+          program, occurrence, role := prepared.layout, parameters := environment.values }
         let payload : ValuePayload := if prepared.layout.kind == .function then
           .closure program fields else .portable packet.compress.toUTF8
         let (next, field) ← currentGraph.stage owners.identities origin payload
         currentGraph := next
         fields := fields.push field
       let (checkedGraph, whole) ← currentGraph.stage owners.identities
-        (← environment.origin program occurrence source) (.product fields)
+        { program, occurrence, role := source, parameters := environment.values } (.product fields)
       let failure : Option Exception ← try
           discard <| environment.checkResult checkedGraph source whole
           pure none
@@ -212,8 +230,8 @@ structure NativeNestedMapRecord where
   target : Type
   universal : NativeCallableRecord domain target
 
--- A standalone dependent record keeps its actual earlier fields when a later request
--- projects its callable. Another equal-source record cannot supply that continuation.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let owners ← OwnerRegistry.new
   let program ← owners.identities.fresh .program
@@ -225,10 +243,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let source ← SourceLayout.ofTerm (← context.close w)
     let layout ← RecordLayout.ofSource source
     let graph := ValueGraph.empty owners.identities
-    let environment ← RuntimeEnvironment.capture owners.worker context #[] #[] (some graph)
+    let environment ← RuntimeEnvironment.capture owners.worker context #[] (some graph)
     let packet := (toJson "same native field packet").compress.toUTF8
     let makeRecord := fun (graph : ValueGraph) => do
-      let record ← RecordPrefix.prepare owners.identities program occurrence layout graph #[]
+      let record ← RecordPrefix.prepare owners.identities program occurrence layout graph environment.bound
       let domainPrefix ← record.currentField
       let (graph, domain) ← graph.stage owners.identities
         (← domainPrefix.origin environment program occurrence graph) (.portable packet)
@@ -246,10 +264,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let (graph, first) ← makeRecord graph
     let (graph, second) ← makeRecord graph
     let prepareCallable := fun (graph : ValueGraph) (parent : ValueBinding) => do
-      let request ← PreparedRequest.forProjection owners.identities program
-        (← owners.identities.fresh .occurrence) context graph parent 0 #[] (some environment)
-      let (graph, callable) ← graph.stage owners.identities
-        (← request.originFor request.source (some graph)) (.closure program #[parent])
+      let request ← try
+          PreparedRequest.forProjection owners.identities program
+            (← owners.identities.fresh .occurrence) context graph parent 0 #[] (some environment)
+        catch failure => throwError
+          "standalone dependent record preparation: {failure.toMessageData}"
+      let origin ← try request.originFor request.source (some graph)
+        catch failure => throwError
+          "standalone dependent record producing origin: {failure.toMessageData}"
+      let (graph, callable) ← try
+          graph.stage owners.identities origin (.closure program #[parent])
+        catch failure => throwError
+          "standalone dependent record staging: {failure.toMessageData}"
       return (graph, request, callable)
     let (graph, request, callable) ← prepareCallable graph first
     let accepted ← try request.admitResult graph callable
@@ -257,11 +283,71 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless accepted.root.value == callable.value do
       throwError "the native projection replaced its original callable occurrence"
     let (graph, _, other) ← prepareCallable graph second
+    let some producer := graph.find callable.value
+      | throwError "the native projection lost its actual producing node"
+    let some captured := producer.origin.sourceDependencies
+      | throwError "the native projection lost its checked type capture"
+    let some (originalParent, path) := captured.projectedFrom
+      | throwError "the native projection lost its original parent and path"
+    unless originalParent.value == first.value &&
+        originalParent.associationIds == first.associationIds &&
+        path == #[``NativeCallableRecord.apply] do
+      throwError "the native projection changed its exact original prefix anchor"
+    let changedParentRejected ← try
+        discard <| graph.stage owners.identities { producer.origin with access := some second }
+          (.closure program #[second])
+        pure false
+      catch _ => pure true
+    unless changedParentRejected do
+      throwError "a projected type capture accepted another equal-source parent"
     let rejected ← try
         discard <| request.admitResult graph other
         pure false
       catch _ => pure true
     unless rejected do
       throwError "a native projection accepted another equal-source record's callable"
+    let some selectedField := first.role.fields[0]?
+      | throwError "the native callable record lost its original field"
+    let fieldSource ← selectedField.toLayout
+    let projection ← fieldSource.source.inContext context
+    SourceSelectionScope.withBinding owners.identities {} context { value := projection }
+        fun context selections selected => do
+      let some selectedBinding := context.bindings.find? (·.expression.equal selected)
+        | throwError "the native projection lost its explicitly selected source binder"
+      let selectedRequest ← PreparedRequest.forProjection owners.identities program
+        (← owners.identities.fresh .occurrence) context graph first 0 #[] (some environment)
+        selections (some selectedBinding.id)
+      let selectedOrigin ← selectedRequest.originFor selectedRequest.source (some graph)
+      let some selectedPrefix := selectedOrigin.fieldPrefix
+        | throwError "the selected native projection lost its original producing prefix"
+      unless selectedRequest.source.selectionBinding == some selectedBinding.id &&
+          selectedPrefix.native.selectionBinding == some selectedBinding.id &&
+          selectedPrefix.native.selections.contains selectedBinding.id do
+        throwError "a native prefix lost its explicitly prepared source selection"
+      let (graph, selectedCallable) ← graph.stage owners.identities selectedOrigin
+        (.closure program #[first])
+      let selectedAccepted ← selectedRequest.admitResult graph selectedCallable
+      unless selectedAccepted.root.value == selectedCallable.value do
+        throwError "a selected native projection replaced its actual callable occurrence"
+      let erasedSource := { selectedRequest.source with
+        selections := selectedRequest.source.selections.erase selectedBinding.id }
+      let missingPreparedRejected ← try
+          discard <| selectedRequest.environment.checkResult graph erasedSource selectedCallable
+          pure false
+        catch failure =>
+          pure (failure.toMessageData.hasTag (· == `CasCompiler.SourceReadM.missingSelection))
+      unless missingPreparedRejected do
+        throwError "a prepared result recovered its missing selection from the returned value"
+      let erasedRole := { selectedCallable.role with
+        selections := selectedCallable.role.selections.erase selectedBinding.id }
+      let erasedCandidate ← IO.ofExcept <|
+        (selectedCallable.withRole erasedRole #[] selectedCallable.sourceParameters?).mapError IO.userError
+      let missingProducerRejected ← try
+          discard <| selectedRequest.environment.checkResult graph selectedRequest.source erasedCandidate
+          pure false
+        catch failure =>
+          pure (failure.toMessageData.hasTag (· == `CasCompiler.SourceReadM.missingSelection))
+      unless missingProducerRejected do
+        throwError "a returned value recovered its missing selection from the prepared result"
 
 end CasRuntime.NativeFieldPrefixTests

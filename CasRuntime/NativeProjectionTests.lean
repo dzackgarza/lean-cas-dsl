@@ -46,7 +46,8 @@ private def sameContext (left right : ContextTelescope) : Bool :=
     (left.entries.zip right.entries).all (fun (left, right) =>
       left.id == right.id && left.role == right.role && left.userName == right.userName &&
         left.binderInfo == right.binderInfo && left.kind == right.kind &&
-        left.type == right.type && left.value == right.value && left.nondep == right.nondep) &&
+        left.type == right.type && left.value == right.value &&
+        left.originalSource == right.originalSource && left.nondep == right.nondep) &&
     left.instances.size == right.instances.size &&
     (left.instances.zip right.instances).all (fun (left, right) =>
       left.className == right.className && left.binding == right.binding)
@@ -64,8 +65,8 @@ private structure ProjectionFrame where
   operand : BindingKey
   occurrence : RuntimeId .occurrence
 
--- A repeated source computation is detected without equating independently retained values.
--- Fresh operand/occurrence IDs are printed as evidence; they do not hide the repeated code.
+
+
 private def sameProjection (left right : ProjectionFrame) : Bool :=
   left.field == right.field && sameSource left.source right.source &&
     sameSource left.origin right.origin && left.parameters == right.parameters &&
@@ -76,7 +77,7 @@ private def projectionFrame? (kernel : Kernel) (request : PreparedRequest)
   let .project operand field := request.action | return none
   let some node := (← transaction.view).find operand.value | return none
   let .closure program captures := node.payload.data | return none
-  let some (.term source) := (← kernel.codes.get)[program]? | return none
+  let some (.term source _) := (← kernel.codes.get)[program]? | return none
   return some {
     field := field.projection
     source
@@ -86,19 +87,11 @@ private def projectionFrame? (kernel : Kernel) (request : PreparedRequest)
     operand := bindingKey operand
     occurrence := request.occurrence }
 
--- Describe the actual projection spine without expanding implicit mathematical parameters.
--- SourceProjection supplies the same native declaration and parent used by the lowerer.
--- Semantic metadata is printed before descending through it, so the boundary stays visible.
+
+
+
 private partial def describeSpine (expression : Expr) : MetaM (Array String) := do
-  if let .mdata data body := expression then
-    let kind := data.getName `CasCompiler.source.kind
-    let id := data.getString `CasCompiler.source.id
-    let declaration := data.getName `CasCompiler.source.declaration
-    let mark := markedKey? data
-    let rest ← describeSpine body
-    if kind.isAnonymous && id.isEmpty && declaration.isAnonymous && mark.isNone then
-      return rest
-    return #[s!"metadata(kind={kind}, id={id}, declaration={declaration}, mark={repr mark})"] ++ rest
+  if let .mdata _ body := expression then return ← describeSpine body
   if let some projection ← SourceProjection.ofExpr? expression then
     return #[s!"projection {projection.declaration}"] ++ (← describeSpine projection.parent)
   if expression.isApp then
@@ -141,15 +134,15 @@ private structure ProjectionGuard where
 
 mutual
 
--- This is the same public composition used by Kernel.evaluateSource. The injected evaluator
--- is passed into Kernel.execute itself, so recursive source demands cannot escape the guard.
+
+
 private partial def evaluateBounded (kernel : Kernel) (guard : ProjectionGuard) : SourceEvaluation :=
-  fun transaction program context bound expression =>
+  fun transaction program context bound selections expression =>
     lowerTerm {
-      ledger := kernel.ledger, transaction, codes := kernel.codes, marks := kernel.marks
+      ledger := kernel.ledger, transaction, codes := kernel.codes
       run := fun computation => Execute.run (executeBounded kernel guard) computation transaction
         (some (kernel.resolveFixedInput (evaluateBounded kernel guard) transaction program)) }
-      program context bound expression
+      program context bound expression (selections := selections)
 
 private partial def executeBounded (kernel : Kernel) (guard : ProjectionGuard) :
     PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
@@ -164,8 +157,8 @@ private partial def executeBounded (kernel : Kernel) (guard : ProjectionGuard) :
           earlier:\n{← describeProjection prior}\nrepeated:\n{← describeProjection frame}"
       guard.active.set (active.push frame)
     try
-      -- This cap belongs only to the diagnostic harness, never to the kernel. It catches a
-      -- cycle whose generated source changes, instead of allowing an unbounded test process.
+
+
       if count ≥ 256 then
         let detail ← match frame with
           | some frame => describeProjection frame
@@ -176,7 +169,7 @@ private partial def executeBounded (kernel : Kernel) (guard : ProjectionGuard) :
 
 end
 
--- Exactly Session.underBindings: it exposes the proposition read beneath leading source lets.
+
 private partial def underBindings : Expr → Expr
   | .letE _ _ value body _ => underBindings (body.instantiate1 value)
   | .mdata _ body => underBindings body
@@ -195,10 +188,11 @@ private def expectMissing (text operation : String) (action : MetaM ValueBinding
   unless (detail.splitOn operation).length > 1 do
     throwError "`{text}` did not reach {operation}: {detail}"
 
--- These are unchanged statements and missing-operation expectations from the first block of
--- SessionComputationTests. The harness reads their actual left sides; it supplies no answers.
+
+
 private def checkQuestion (source : SourceSession) (kernel : Kernel) (text operation : String)
-    (evaluate : CellTransaction → OpenContext → Expr → MetaM ValueBinding) : TermElabM Unit :=
+    (evaluate : CellTransaction → OpenContext → SourceSelectionScope Expr → Expr →
+      MetaM ValueBinding) : TermElabM Unit :=
   withCurrHeartbeats <|
   withTheReader Core.Context (fun context =>
     { context with maxHeartbeats := statementHeartbeats * 1000 }) do
@@ -209,17 +203,18 @@ private def checkQuestion (source : SourceSession) (kernel : Kernel) (text opera
       | throwError "the original projection question did not read as a question"
     let transaction ← CellTransaction.begin kernel.ledger
     try
-      source.context.withOpen fun bindings => do
+      proposition.source.withOpen fun bindings expression => do
         let context ← ContextTelescope.capture bindings
-        let asked := underBindings (← proposition.source.inContext context)
+        let selections ← proposition.selections.inContext context
+        let asked := underBindings expression
         let some (_, left, _) := asked.eq?
           | throwError "the original projection question did not read as an equality"
-        expectMissing text operation (evaluate transaction context left)
+        expectMissing text operation (evaluate transaction context selections left)
     finally discard <| transaction.abort
 
--- A selected limit apex retains the exact original map slot. Category recovery composes
--- the two whole native declarations; the generic pt accessor and an unmarked equal source
--- are insufficient. This checks source/provenance only, without executing a mathematical leaf.
+
+
+
 private def checkSelectedLimitProducer (source : SourceSession) (kernel : Kernel) :
     TermElabM Unit := do
   let .ok parsedSource := Parser.runParserCategory (← getEnv) `cas_term "cokernel(to_dual(1))"
@@ -229,120 +224,175 @@ private def checkSelectedLimitProducer (source : SourceSession) (kernel : Kernel
   try
     selected.source.withOpen fun bindings expression => do
       let context ← ContextTelescope.capture bindings
-      let value ← kernel.run transaction context {} expression
+      let selections ← selected.selections.inContext context
+      let value ← kernel.run transaction context {} expression (selections := selections)
       let identities := transaction.owners.identities
-      let environment ← RuntimeEnvironment.capture identities.worker context #[]
       let graph ← transaction.view
-      let some produced ← environment.declaredResultSource? context graph value
-        | throwError "the selected limit lost its original declaration projection"
-      let expectedPath := #[``CategoryTheory.Limits.ColimitCocone.cocone,
-        ``CategoryTheory.Limits.Cocone.pt]
-      unless produced.declaration == ``CasCatalogue.Limits.Registration.bilWFormCokernel &&
-          produced.path == expectedPath && produced.position == 4 do
-        throwError "the selected limit changed its complete native producer or actual input position"
-      let some input ← environment.declaredInputAt? context graph (← kernel.marks.get)
-          produced.declaration produced.position value
-        | throwError "the selected limit lost its original retained map slot"
-      let some node := graph.find value.value
-        | throwError "the selected limit descriptor is outside its actual graph"
-      let .container packet := node.payload.data
-        | throwError "the selected limit lost its original descriptor"
-      let #[slot] := packet.slots
-        | throwError "the selected limit changed its sole actual packet input"
-      unless slot.path == #[.field "args", .index 0] && slot.fieldIndex.isNone &&
-          slot.binding.value == input.value.value &&
-          slot.binding.associationIds == input.value.associationIds do
-        throwError "the selected limit reconstructed its original producer input"
-      let some category := selected.category
-        | throwError "the selected limit lost its original category"
-      let families ← RoutedMethodFamily.atSource category.expression "cardinality"
-      let some family := families[0]?
-        | throwError "the selected limit lost its original cardinality method family"
-      let direct ← family.receiverParameterRoutes ``CategoryTheory.Limits.Cocone.pt
-      unless direct.all (fun route => match route with | .unavailable => true | _ => false) do
-        throwError "a generic apex accessor fabricated a concrete category parameter route"
-      let routes ← family.receiverProjectionInputRoutes produced.declaration produced.path
-        produced.position ``LeanCategories.Lattices.Integral.rootAToDual
-      let #[.fixed scalar, .fixed dictionary] := routes
-        | throwError "the whole original producer families did not fix their declared scalar category"
-      unless (← isDefEq scalar (Lean.mkConst ``Int)) &&
-          (← isDefEq (← inferType dictionary) (← mkAppM ``CommRing #[Lean.mkConst ``Int])) do
-        throwError "the whole original producer families changed their fixed scalar category"
-      checkWithKernel dictionary
+      withBindingContext graph context {} value fun context bound => do
+        let selections ← SourceSelectionScope.merge selections
+          (← value.role.selections.inContext context)
+        let environment ← RuntimeEnvironment.captureBound identities.worker context bound graph
+          (selections := selections)
+        let some produced ← environment.declaredResultSource? context graph value
+          | throwError "the selected limit lost its original declaration projection"
+        let expectedPath := #[``CategoryTheory.Limits.ColimitCocone.cocone,
+          ``CategoryTheory.Limits.Cocone.pt]
+        unless produced.declaration == ``CasCatalogue.Limits.Registration.bilWFormCokernel &&
+            produced.path == expectedPath && produced.position == 4 do
+          throwError "the selected limit changed its complete native producer or actual input position"
+        let some input ← environment.declaredInputAt? context graph
+            produced.declaration produced.position value
+          | throwError "the selected limit lost its original retained map slot"
+        let some node := graph.find value.value
+          | throwError "the selected limit descriptor is outside its actual graph"
+        let .container packet := node.payload.data
+          | throwError "the selected limit lost its original descriptor"
+        let #[slot] := packet.slots
+          | throwError "the selected limit changed its sole actual packet input"
+        unless slot.path == #[.field "args", .index 0] && slot.fieldIndex.isNone &&
+            slot.binding.value == input.value.value &&
+            slot.binding.associationIds == input.value.associationIds do
+          throwError "the selected limit reconstructed its original producer input"
+        let some category := selected.category
+          | throwError "the selected limit lost its original category"
+        let families ← RoutedMethodFamily.atSource category.expression "cardinality"
+        let some family := families[0]?
+          | throwError "the selected limit lost its original cardinality method family"
+        let direct ← family.receiverParameterRoutes ``CategoryTheory.Limits.Cocone.pt
+        unless direct.all (fun route => match route with | .unavailable => true | _ => false) do
+          throwError "a generic apex accessor fabricated a concrete category parameter route"
+        let routes ← family.receiverProjectionInputRoutes produced.declaration produced.path
+          produced.position ``LeanCategories.Lattices.Integral.rootAToDual
+        let #[.fixed scalar, .fixed dictionary] := routes
+          | throwError "the whole original producer families did not fix their declared scalar category"
+        unless (← isDefEq scalar (Lean.mkConst ``Int)) &&
+            (← isDefEq (← inferType dictionary) (← mkAppM ``CommRing #[Lean.mkConst ``Int])) do
+          throwError "the whole original producer families changed their fixed scalar category"
+        checkWithKernel dictionary
 
-      let .mdata selectedData unmarked := expression
-        | throwError "the original cokernel source lost its selected reference"
-      unless selectedData.getName `CasCompiler.source.kind == ``LimitEntry do
-        throwError "the original cokernel source changed its selected reference kind"
-      let bareRole ← SourceLayout.ofTerm (← context.close unmarked)
-      let bareOccurrence ← identities.fresh .occurrence
-      let bare ← transaction.stage
-        { node.origin with occurrence := bareOccurrence, role := bareRole }
-        node.payload
-      if (← environment.declaredResultSource? context (← transaction.view) bare).isSome then
-        throwError "an unselected equal apex recovered a declaration from the registry"
+        let some originalSelection ← value.role.selected? context
+          | throwError "the original cokernel source lost its selected reference"
+        let some (.limit originalRow) := originalSelection.reference
+          | throwError "the original cokernel source changed its selected reference kind"
+        unless originalRow.declaration == produced.declaration do
+          throwError "the selected source changed its original complete limit row"
+        let bareRole ← SourceLayout.ofTerm (← context.close originalSelection.value)
+        let bareOrigin ← environment.origin node.origin.program (← identities.fresh .occurrence)
+          bareRole
+        let bare ← transaction.stage bareOrigin node.payload
+        if (← environment.declaredResultSource? context (← transaction.view) bare).isSome then
+          throwError "an unselected equal apex recovered a declaration from the registry"
 
-      -- An equal source expression at a different actual node cannot replace a marked
-      -- original map inside the selected producer's descriptor input slot.
-      let some inputNode := graph.find input.value.value
-        | throwError "the original producer input is outside its actual graph"
-      let otherOccurrence ← identities.fresh .occurrence
-      let other ← transaction.stage
-        { inputNode.origin with occurrence := otherOccurrence } inputNode.payload
-      if other.value == input.value.value then
-        throwError "the distinct producer-input control reused its original occurrence"
-      let original ← produced.source.inContext context
-      let marked ← markValue kernel.marks input.value (← input.source.inContext context)
-      let markedProducer := mkAppN original.getAppFn
-        (original.getAppArgs.set! produced.position marked)
-      let mut markedApex := markedProducer
-      for projection in produced.path do markedApex ← mkAppM projection #[markedApex]
-      -- A source application witness is required by the current reader. The
-      -- projection spine must refer to that very producer, including its marks.
-      let witnessed ← retainSourceApplication produced.declaration markedProducer markedApex
-      let markedRole ← SourceLayout.ofTerm (← context.close (.mdata selectedData witnessed))
-      let payload ← IO.ofExcept <| (ValuePayload.descriptor packet.template
-        #[{ slot with binding := other }]).mapError IO.userError
-      let changedOccurrence ← identities.fresh .occurrence
-      let changed ← transaction.stage
-        { node.origin with occurrence := changedOccurrence, role := markedRole } payload
-      let failure : Option Exception ← try
-          discard <| environment.declaredInputAt? context (← transaction.view) (← kernel.marks.get)
-            produced.declaration produced.position changed
-          pure none
-        catch error => pure (some error)
-      let some failure := failure
-        | throwError "the selected producer accepted a different equal original input"
-      unless failure.toMessageData.hasTag
-          (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
 
-      -- Changing only the ignored witness is not authority for the marked
-      -- producer: both the native apex and the retained application must
-      -- name the same exact occurrence before input-slot recovery.
-      let forged ← retainSourceApplication produced.declaration original markedApex
-      let forgedRole ← SourceLayout.ofTerm (← context.close (.mdata selectedData forged))
-      let forgedOccurrence ← identities.fresh .occurrence
-      let forgedValue ← transaction.stage
-        { node.origin with occurrence := forgedOccurrence, role := forgedRole } node.payload
-      let failure : Option Exception ← try
-          discard <| environment.declaredResultSource? context (← transaction.view) forgedValue
-          pure none
-        catch error => pure (some error)
-      let some failure := failure
-        | throwError "a definitionally equal but different producer witness was accepted"
-      unless ((← failure.toMessageData.toString).splitOn
-          "changed its original producer application").length > 1 do throw failure
+
+        let some inputNode := graph.find input.value.value
+          | throwError "the original producer input is outside its actual graph"
+        let otherOccurrence ← identities.fresh .occurrence
+        let other ← transaction.stage
+          { inputNode.origin with occurrence := otherOccurrence } inputNode.payload
+        if other.value == input.value.value then
+          throwError "the distinct producer-input control reused its original occurrence"
+        let original ← produced.source.inContext context
+        let inputSource ← input.source.inContext context
+        let allocated ← identities.fresh .sourceBinding
+        let retainedId : BindingId := ⟨allocated.worker, allocated.serial⟩
+        context.withLocalBinding retainedId .result `originalMap (← inferType inputSource)
+            (fun context binding => do
+          let bound := bound.insert binding.id input.value
+          let retainedProducer := mkAppN original.getAppFn
+            (original.getAppArgs.set! produced.position binding.expression)
+          let some construction := originalSelection.limit
+            | throwError "the original selected producer lost its complete construction"
+          let some ownerSource := construction.source.ownerFamily
+            | throwError "the selected construction lost its original owner template"
+          let owner ← SelectedLimitOwner.ofBinding context selections ownerSource
+          let some family := originalSelection.limitFamily
+            | throwError "the original selected producer lost its complete limit family"
+          let some rebound ← LimitFamily.formalAt family context construction owner
+              retainedProducer.getAppArgs
+            | throwError "the original selected construction could not retain its exact input binder"
+          unless rebound.source.presentation.equal retainedProducer do
+            throwError "the selected producer changed its exact retained application"
+          let retainedSelection := { originalSelection with
+            value := rebound.receiver, limit := some rebound,
+            originalApplication := some retainedProducer,
+            category := originalSelection.category.map
+              (fun category => { category with limit := some rebound.source }) }
+          selections.withBinding identities context retainedSelection
+              fun context selections retainedApex => do
+            let some selectedBinding := context.bindings.find?
+                (·.expression == retainedApex)
+              | throwError "the selected producer lost its original typed source binder"
+            let environment ← RuntimeEnvironment.captureBound identities.worker context bound
+              (← transaction.view) (selections := selections)
+            let retainedRole ← SourceLayout.ofTerm (← context.close retainedApex)
+              (← selections.close context) (some selectedBinding.id)
+            let correctOrigin ← environment.origin node.origin.program
+              (← identities.fresh .occurrence) retainedRole
+            let correct ← transaction.stage correctOrigin node.payload
+            let some correctInput ← environment.declaredInputAt? context (← transaction.view)
+                produced.declaration produced.position correct
+              | throwError "the correctly retained producer lost its original input"
+            unless correctInput.value.value == input.value.value &&
+                correctInput.value.associationIds == input.value.associationIds do
+              throwError "the correctly retained producer changed its actual original input"
+
+            let payload ← IO.ofExcept <| (ValuePayload.descriptor packet.template
+              #[{ slot with binding := other }]).mapError IO.userError
+            let changedOrigin ← environment.origin node.origin.program
+              (← identities.fresh .occurrence) retainedRole
+            let changed ← transaction.stage changedOrigin payload
+            let failure : Option Exception ← try
+                discard <| environment.declaredInputAt? context (← transaction.view)
+                  produced.declaration produced.position changed
+                pure none
+              catch error => pure (some error)
+            let some failure := failure
+              | throwError "the selected producer accepted a different equal original input"
+            unless failure.toMessageData.hasTag
+                (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
+
+
+
+            unless !original.equal retainedProducer &&
+                (← context.withOriginalSources #[original, retainedProducer]
+                  fun sources => isDefEq sources[0]! sources[1]!) do
+              throwError "the mismatched producer control lost its equal distinct native sources"
+            let forgedSelection := { retainedSelection with originalApplication := some original }
+            selections.withBinding identities context forgedSelection
+                fun context selections forgedSource => do
+              let some forgedBinding := context.bindings.find?
+                  (·.expression == forgedSource)
+                | throwError "the mismatched producer lost its typed source binder"
+              let environment ← RuntimeEnvironment.captureBound identities.worker context bound
+                (← transaction.view) (selections := selections)
+              let forgedRole ← SourceLayout.ofTerm (← context.close forgedSource)
+                (← selections.close context) (some forgedBinding.id)
+              let forgedOrigin ← environment.origin node.origin.program
+                (← identities.fresh .occurrence) forgedRole
+              let forgedValue ← transaction.stage forgedOrigin node.payload
+              let failure : Option Exception ← try
+                  discard <| environment.declaredResultSource? context
+                    (← transaction.view) forgedValue
+                  pure none
+                catch error => pure (some error)
+              let some failure := failure
+                | throwError "a definitionally equal but different producer witness was accepted"
+              unless ((← failure.toMessageData.toString).splitOn
+                  "changed its original producer application").length > 1 do throw failure)
+          (originalSource := some inputSource)
   finally discard <| transaction.abort
 
-/-- Lower one native source lambda once, then use it at distinct actual input occurrences.
-The producer's static source selection is shared, while its completed selections are not. -/
+
+
 private def checkRepeatedLimitSource (source : SourceSession) (kernel : Kernel) :
     TermElabM Unit := do
-  let function ← source.elaborate Syntax.missing fun _ => do
-    withLocalDeclD `X (mkSort (Level.succ Level.zero)) fun input => do
-      let object ← sourceSetJudgement .object input
-      let product ← sourceBinaryLimit object object false
-      mkLambdaFVars #[input] product.value
+  let function ← source.elaborateScoped Syntax.missing <|
+    SourceReadM.withBinder `X (mkSort (Level.succ Level.zero)) none .default
+      (fun binding body => mkLambdaFVars #[binding.expression] body) fun input => do
+        let object ← sourceSetJudgement .object input
+        let product ← sourceBinaryLimit object object false
+        return product.value
   let readObject := fun text => do
     let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
       | throwError "the repeated construction's original object source did not parse"
@@ -353,45 +403,60 @@ private def checkRepeatedLimitSource (source : SourceSession) (kernel : Kernel) 
   try
     function.source.withOpen fun bindings expression => do
       let context ← ContextTelescope.capture bindings
+      let selections ← function.selections.inContext context
       let selection ← lambdaTelescope expression fun _ body => do
-        let some original ← NativeLimitSelection.ofExpr? body
+        let some selectedConstruction := selections.findAt? context body.getAppFn
+          | throwError "the compiled construction lost its original source anchor"
+        let some original := (← selectedConstruction.specialize body.getAppArgs).limit
           | throwError "the compiled construction lost its original source anchor"
         return original.source.construction
       let before := (← kernel.dispatches.get).size
-      let callable ← kernel.run transaction context {} expression
-      let marked ← markValue kernel.marks callable expression
-      let mut receivers := #[]
-      for input in #[first, first, second] do
-        let argument ← input.source.inContext context
-        let receiver ← kernel.run transaction context {} (mkApp marked argument)
-        let some node := (← transaction.view).find receiver.value
-          | throwError "the repeated construction lost its actual receiver node"
-        node.origin.role.source.withOpen fun _ original => do
-          let some retained ← NativeLimitSelection.ofExpr? original
-            | throwError "the construction execution lost its original source selection"
-          unless retained.source.construction == selection do
-            throwError "the one compiled source lambda acquired another producer identity"
-        receivers := receivers.push receiver
-      let #[firstReceiver, equalReceiver, otherReceiver] := receivers
-        | throwError "the repeated construction lost an actual source application"
-      unless firstReceiver.value != equalReceiver.value &&
-          firstReceiver.value != otherReceiver.value &&
-          equalReceiver.value != otherReceiver.value do
-        throwError "the compiled construction merged distinct actual applications"
-      let field := `occurrenceProbe
-      let .ok () ← transaction.bindSelectedAt selection field firstReceiver firstReceiver
-        | throwError "the first actual source receiver could not retain its selection"
-      for unrelated in #[equalReceiver, otherReceiver] do
-        let .ok none ← transaction.selectedAt selection field unrelated
-          | throwError "a compiled source selection crossed an actual receiver boundary"
-        let .ok () ← transaction.bindSelectedAt selection field unrelated unrelated
-          | throwError "another source application could not retain its own occurrence"
-      let .ok (some selected) ← transaction.selectedAt selection field firstReceiver
-        | throwError "the first actual source occurrence lost its original selection"
-      unless bindingKey selected == bindingKey firstReceiver do
-        throwError "a later application replaced the first exact receiver selection"
-      unless (← kernel.dispatches.get).size == before do
-        throwError "forming the original symbolic constructions demanded an implementation"
+      let callable ← kernel.run transaction context {} expression (selections := selections)
+      withBindingContext (← transaction.view) context {} callable fun context bound => do
+        let selections ← SourceSelectionScope.merge selections
+          (← callable.role.selections.inContext context)
+        let callableSource ← callable.selectedSource context
+        withBoundValue kernel.ledger.owners.identities context bound callableSource callable
+            fun context bound retainedCallable => do
+          let mut receivers := #[]
+          for input in #[first, first, second] do
+            let receiver ← input.source.context.withInContext context fun context => do
+              let selections ← SourceSelectionScope.merge selections
+                (← input.selections.inContext context)
+              let argument ← input.source.inContext context
+              let receiver ← kernel.run transaction context bound
+                (mkApp retainedCallable argument) (selections := selections)
+              let some _ := (← transaction.view).find receiver.value
+                | throwError "the repeated construction lost its actual receiver node"
+              withBindingContext (← transaction.view) context bound receiver fun context _ => do
+                let some retained ← receiver.role.selected? context
+                  | throwError "the construction execution lost its original source selection"
+                let some retained := retained.limit
+                  | throwError "the construction execution lost its original source selection"
+                unless retained.source.construction == selection do
+                  throwError "the one compiled source lambda acquired another producer identity"
+              return receiver
+            receivers := receivers.push receiver
+          let #[firstReceiver, equalReceiver, otherReceiver] := receivers
+            | throwError "the repeated construction lost an actual source application"
+          unless firstReceiver.value != equalReceiver.value &&
+              firstReceiver.value != otherReceiver.value &&
+              equalReceiver.value != otherReceiver.value do
+            throwError "the compiled construction merged distinct actual applications"
+          let field := `occurrenceProbe
+          let .ok () ← transaction.bindSelectedAt selection field firstReceiver firstReceiver
+            | throwError "the first actual source receiver could not retain its selection"
+          for unrelated in #[equalReceiver, otherReceiver] do
+            let .ok none ← transaction.selectedAt selection field unrelated
+              | throwError "a compiled source selection crossed an actual receiver boundary"
+            let .ok () ← transaction.bindSelectedAt selection field unrelated unrelated
+              | throwError "another source application could not retain its own occurrence"
+          let .ok (some selected) ← transaction.selectedAt selection field firstReceiver
+            | throwError "the first actual source occurrence lost its original selection"
+          unless bindingKey selected == bindingKey firstReceiver do
+            throwError "a later application replaced the first exact receiver selection"
+          unless (← kernel.dispatches.get).size == before do
+            throwError "forming the original symbolic constructions demanded an implementation"
   finally discard <| transaction.abort
 
 run_cmd liftTermElabM do
@@ -407,8 +472,8 @@ run_cmd liftTermElabM do
     try
       checkSelectedLimitProducer source kernel
       checkRepeatedLimitSource source kernel
-      -- The outer carrier projection must cross the existing native definition of the
-      -- unretained classifier total. Reprojecting its field closure is the same computation.
+
+
       let context ← ContextTelescope.capture #[]
       let info ← getConstInfo ``LeanCategories.Algebra.associative
       let classifier := Lean.mkConst info.name (info.levelParams.map (fun _ => Level.zero))
@@ -421,7 +486,7 @@ run_cmd liftTermElabM do
           let value ← if bounded then do
               let guard : ProjectionGuard := ⟨← IO.mkRef #[], ← IO.mkRef 0⟩
               let program ← owners.identities.fresh .program
-              evaluateBounded kernel guard transaction program context {} carrier
+              evaluateBounded kernel guard transaction program context {} {} carrier
             else kernel.run transaction context {} carrier
           let some node := (← transaction.view).find value.value
             | throwError "the native classifier carrier is outside its actual graph"
@@ -434,13 +499,13 @@ run_cmd liftTermElabM do
         finally discard <| transaction.abort
       for (text, operation) in cases do
         let guard : ProjectionGuard := ⟨← IO.mkRef #[], ← IO.mkRef 0⟩
-        checkQuestion source kernel text operation fun transaction context expression => do
+        checkQuestion source kernel text operation fun transaction context selections expression => do
           let program ← owners.identities.fresh .program
-          evaluateBounded kernel guard transaction program context {} expression
-      -- The actual public executor must reach the same boundary after the bounded controls.
+          evaluateBounded kernel guard transaction program context {} selections expression
+
       for (text, operation) in cases do
-        checkQuestion source kernel text operation fun transaction context expression =>
-          kernel.run transaction context {} expression
+        checkQuestion source kernel text operation fun transaction context selections expression =>
+          kernel.run transaction context {} expression (selections := selections)
     finally kernel.close
   finally setEnv environment
 
