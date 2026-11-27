@@ -68,9 +68,14 @@ whole, which runs 17 controls of kernel loops => the task's own named cases on f
 that import only Lean core. A test aggregate, or an existing module that also holds cases of
 other mechanisms, is never a task check either.
 
-**SPEC005 — a task stops when its check passes.** A worker who does M0 work (the optimization of
-the serializer behind a 504 s statement) under the name of T112, and then repairs lifting, lambda
-and heartbeat defects of later tasks => the task is done when its named check passes. A defect
+**SPEC005 — verify the named check and the source conditions before closing a task.**
+Run the named check and verify each source condition on the same revision. For example,
+if a task transfers a public operation, trace its production callers to the new path.
+When the check passes and the source conditions hold, mark the task complete and proceed
+to the next unchecked task in document order.
+
+T112 records timing. If its run exposes a serializer, lifting, lambda or heartbeat defect,
+assign the finding to the task that owns the affected mechanism. A defect
 outside the check is a row for its owning task in the checklist of #92, and a review finding
 outside the check goes to its owning task; neither is repaired in this task. On an overrun, verify the command against SPEC004 and SPEC006
 before pricing its cost. Slowness that takes
