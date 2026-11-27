@@ -54,6 +54,22 @@ and its trace. An obligation with no check goes into the task whose check covers
 item is open" => derive the acceptance condition from the governing passage, write the failing
 test, then repair.
 
+**SPEC004 — a check uses only mechanisms that exist before it.** A timing task whose check runs
+the first statement of `sets.cas`, whose route takes about 504 s and needs later reader, lowering
+and lifting tasks, so that every run fails on a defect that another task owns => the check uses
+only the mechanism that the task changes and mechanisms that work at the tip or that earlier tasks
+deliver: a small test module, a fixture module with a protocol peer, or a statement whose whole
+route needs nothing from a later task. When the check needs a later mechanism, move the task after
+the task that delivers it, or choose another statement.
+
+**SPEC005 — a task stops when its check passes.** A task whose record shows a 154 s phase, and
+whose worker then optimizes the serializer and repairs lifting, lambda and heartbeat defects of
+later tasks => the task is done when its named check passes. A slow phase or a defect outside the
+check is a row for its owning task (a slow phase in the timing triage table of `timing/README.md`,
+a defect in the checklist of #92) and is not repaired in this task. Slowness that stops a required
+check from finishing is its own task, placed before that check. A review finding outside the check
+goes to its owning task.
+
 ## Feedback loops
 
 Use the selected toolchain and dependency tuple of the kernel implementation worktree (locate it
