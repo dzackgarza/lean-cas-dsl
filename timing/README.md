@@ -1224,3 +1224,29 @@ the 848191 compressed bytes have SHA256
 `dbdf8b9e38bd170be825b5f46f46d23c76b97cc6ee4014d4abbb031d7cce765d`.
 Byte-exact verification and durable archive/manifest writes preceded
 truncation of the live append file. Earlier archives remain unchanged.
+
+### T300 current bounded closure
+
+The unchanged public command was repeated at `b7dc929` after the contention
+check. Both cases passed in 241.65640844823793 s, including startup
+(237.560 s in unittest). The latest three comparable complete runs, in
+chronological order, are 161.5567361372523 s at `5b332c4`,
+513.6037690402009 s at `a8a0fa3`, and 241.65640844823793 s at `b7dc929`.
+Their median is 241.65640844823793 s; the current command also meets 300 s.
+The overrun remains part of this series. No timing improvement is attributed
+to a source change: the exercised implementation and selected controls did
+not change.
+
+The current native report is complete with complete timing. The admitted
+cardinality assertion holds with the exact peer dispatch. The original
+`let q := map 1 to ℚ` reports `gap`, `unsupportedSource`, `fails=true`,
+`attempted=false`, `published=false`, and no dispatch. The changed extension
+is rejected before build, execution or acceptance. All sixteen relevant
+production/runner/peer/toolchain files and the selected method/helper ASTs
+match the comparable source. The post-run native and peer censuses are empty.
+
+The complete result is
+`timing/logs/t300-focused-b7dc929/gate-1-result.json`; its transcript SHA256 is
+`3aaf8254f5a08369eaee022dcc4275743c579b70b7fbc75c3cf908a35c9714a8`.
+This closes T300's named check and source conditions. T362 and the remaining
+revised KM0 regressions still require completion.
