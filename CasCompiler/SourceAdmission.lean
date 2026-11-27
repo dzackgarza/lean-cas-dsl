@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.SourceRing
 public import CasCompiler.SourceTypeOrigin
+public import CasCompiler.SourceProof
 public import CasCatalogue.Evaluation
 public import CasContract.Failure
 
@@ -11,69 +12,68 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- The explicit arguments of an application, in order. -/
+
 def sourceExplicitArguments (expression : Expr) : MetaM (Array Expr) := do
   let arguments := expression.getAppArgs
   let info ← getFunInfoNArgs expression.getAppFn arguments.size
   return (arguments.zip (info.paramInfo.map (·.isExplicit))).filterMap fun (argument, explicit) =>
     if explicit then some argument else none
 
-/-- The unique registered object family application that is the native type `type` by reducible
-unification (`polynomials ℤ` for `Polynomial ℤ`), or `type` itself when there is none or several. -/
-def sourceRegisteredForm (type : Expr) : MetaM Expr := do
-  let mut found := #[]
+
+
+def sourceRegisteredForm (type : Expr) : SourceReadM Expr := do
+  if (← SourceReadM.selection? type).isSome then return type
+  let mut found : Array (ObjectEntry × Expr) := #[]
   for entry in (← semanticState).objects do
     discard <| checkedDeclaration entry.declaration
     let family ← mkConstWithFreshMVarLevels entry.declaration
     let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
     let object := mkAppN family parameters
-    let applicable ← withoutModifyingState do
+    let applicable ← liftM (m := MetaM) <| withoutModifyingState do
       unless ← withReducible (isDefEq object type) do return false
       return !(← instantiateMVars object).hasMVar
     if applicable then
-      discard <| withReducible (isDefEq object type)
-      let object ← instantiateMVars object
-      unless found.contains object do found := found.push object
+      discard <| liftM (m := MetaM) <| withReducible (isDefEq object type)
+      let object ← liftM (m := MetaM) <| instantiateMVars object
+      found := found.push (entry, object)
   match found with
-  | #[object] => return object
+  | #[(entry, object)] =>
+    let #[category] := (← semanticState).categories.filter (·.id == entry.category)
+      | liftM (m := TermElabM) <| throwError "the source domain lost its original registered category"
+    SourceReadM.select (← sourceReferenceAt (.named (.registered (.inl entry) category)) object object)
   | _ => return type
 
-/-- An explicitly retained object selects its own admission. Unmarked native types retain the
-existing reducible-family lookup (`ℙ` for `Nat.Primes`). An abbreviation's carrier need not
-determine the original structured object parameters, so it cannot replace a supplied row. -/
-def sourceAdmissionDomain? (type : Expr) : MetaM (Option ObjectEntry) := do
+
+
+
+def sourceAdmissionDomain? (type : Expr) : SourceReadM (Option ObjectEntry) := do
   let state ← semanticState
-  if let some (id, declaration) ← sourceObjectReference? type then
-    let some entry := state.objects.find? (·.id == id)
-      | throwError "the admission domain lost its original registered object"
-    unless entry.declaration == declaration do
-      throwError "the admission domain changed its original object declaration"
-    return if entry.admission.isSome then some entry else none
-  -- An authored native application selects the same exact object row without a
-  -- surface marker. Its original target remains untouched; sourceAdmission checks
-  -- the complete argument alignment before reading data or establishing evidence.
-  let (_, declared) ← registeredDomain type
+  let (_, declared) ← registeredSourceDomain type
   if !declared.isEmpty then
     let #[entry] := declared
-      | throwSemanticAmbiguity "several registered objects declare this admission domain"
+      | liftM (m := TermElabM) <| throwSemanticAmbiguity
+          "several registered objects declare this admission domain"
     return if entry.admission.isSome then some entry else none
+  if (← SourceReadM.selection? type).isSome then return none
   let mut found := #[]
   for entry in state.objects do
     unless entry.admission.isSome do continue
     discard <| checkedDeclaration entry.declaration
     let family ← mkConstWithFreshMVarLevels entry.declaration
     let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
-    let applicable ← withoutModifyingState <| withReducible <|
+    let applicable ← liftM (m := MetaM) <| withoutModifyingState <| withReducible <|
       isDefEq (mkAppN family parameters) type
     if applicable then found := found.push entry
   match found with
   | #[] => return none
   | #[entry] => return some entry
-  | _ => throwSemanticAmbiguity "several admitted subobjects have this carrier"
+  | _ =>
+    liftM (m := TermElabM) <|
+      throwSemanticAmbiguity "several admitted subobjects have this carrier"
 
-/-- Establish the hypothesis `obligation` of an admission by the domain's registered evidence and
-nothing else, at the closed value it is about. The result is the term the procedure built.
-Source: ObjectEntry.evidence (LC-18) and `Evaluation.runProcedure`, the one procedure runner. -/
+
+
+
 private def establish (entry : ObjectEntry) (obligation : Expr) : TermElabM Expr := do
   let some evidence := entry.evidence
     | throwStratum .invalid m!"{entry.name} registers no evidence for its admission"
@@ -81,7 +81,7 @@ private def establish (entry : ObjectEntry) (obligation : Expr) : TermElabM Expr
   if closed.hasFVar || closed.hasMVar then
     throwStratum .invalid
       m!"the hypothesis {closed} of {entry.name} is about a value that is not closed"
-  -- The procedure is stated of the value's mathematics, not the reader's categorical plumbing.
+
   let presented ← Evaluation.evidencePresentation (← semanticState) closed
   let goal ← mkFreshExprMVar presented .syntheticOpaque
   match ← Evaluation.runProcedure evidence goal.mvarId! with
@@ -93,205 +93,222 @@ private def establish (entry : ObjectEntry) (obligation : Expr) : TermElabM Expr
     let term ← instantiateMVars goal
     if term.hasMVar || term.hasSorry then
       throwStratum .invalid m!"the evidence of {entry.name} built no closed term for {closed}"
-    return term
 
-/-- The element `v` of the subobject `D` (the object whose carrier is `target`), by its registered
-admission `∀ params (x : B) (h : P x), 1 ⟶ D params`: `x` is read in `B` by `read`, each
-hypothesis is established by the domain's evidence, and the admitted point is read at its point.
-The element is the first explicit binder that the admission's target does not depend on; the
-explicit binders after it are its hypotheses. Source: ObjectEntry.admission and the original
-reader's `admit`. A value that is not established to lie in `D` is not an element of it. -/
+
+    return ← mkExpectedTypeHint term obligation
+
+
+
+
+
+
+
 def sourceAdmissionApplicable (entry : ObjectEntry) (target : Expr)
-    (read : Expr → TermElabM (Except MessageData Expr)) :
-    TermElabM (Except MessageData Expr) := do
+    (read : Expr → SourceReadM (Except MessageData Expr)) :
+    SourceReadM (Except MessageData Expr) := do
   let some admission := entry.admission
-    | throwStratum .invalid m!"{entry.name} registers no admission"
+    | liftM (m := TermElabM) <| throwStratum .invalid m!"{entry.name} registers no admission"
   discard <| checkedDeclaration admission
+  let previous ← liftM (m := MetaM) getMCtx
   let constant ← mkConstWithFreshMVarLevels admission
   let (arguments, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
   let type ← whnfR type
   unless type.isAppOfArity ``Quiver.Hom 4 do
-    throwError "the admission of {entry.name} is not a point map"
+    liftM (m := TermElabM) <| throwError "the admission of {entry.name} is not a point map"
   let explicit := (List.range arguments.size).toArray.filter (infos[·]!.isExplicit)
   let some element := explicit.find? fun index =>
       (type.findMVar? (· == arguments[index]!.mvarId!)).isNone
-    | throwError "the admission of {entry.name} takes no value"
+    | liftM (m := TermElabM) <| throwError "the admission of {entry.name} takes no value"
   let mut retainedArguments : Array (Option Expr) := Array.replicate arguments.size none
-  let reference ← sourceObjectReference? target
-  if let some (id, declaration) := reference then
-    unless id == entry.id && declaration == entry.declaration do
-      throwStratum .invalid m!"the admission of {entry.name} has another selected object"
-  let original ← sourceDomain target
-  if reference.isSome || original.getAppFn.isConstOf entry.declaration then
-    -- The actual native factor of a registered map can state this same admitted family
-    -- without surface metadata. Its complete authored argument spine is equally retained.
-    -- Registry.Semantic.validateObject checks this exact target head before conversion.
+  let (original, references) ← registeredSourceDomain target
+  if !references.isEmpty then
+    let #[selected] := references
+      | liftM (m := TermElabM) <| throwStratum .invalid m!"the admission of {entry.name} has ambiguous selected objects"
+    unless reprStr selected == reprStr entry do
+      liftM (m := TermElabM) <| throwStratum .invalid m!"the admission of {entry.name} has another selected object"
+  if !references.isEmpty || original.getAppFn.isConstOf entry.declaration then
+
+
+
     let some retained ← alignSourceArguments? entry.declaration arguments type.getAppArgs[3]!
         original
-      | throwStratum .invalid m!"the admission of {entry.name} has different original target parameters"
+      | liftM (m := TermElabM) <| throwStratum .invalid m!"the admission of {entry.name} has different original target parameters"
     retainedArguments := retained
-  unless ← withReducible (isDefEq type.getAppArgs[3]! target) do
-    throwStratum .invalid m!"the admission of {entry.name} does not land in the selected domain"
-  -- Infer the datum binder at the actual declared prefix, including implicit arguments.
-  -- Native unification may erase identity wrappers, so restore only parameters supplied by
-  -- the original target alignment before their selected category is needed by the reader.
-  let parameterPrefix ← ((arguments.take element).mapIdx fun index argument =>
+  unless ← liftM (m := MetaM) <| withReducible (isDefEq type.getAppArgs[3]! original) do
+    liftM (m := TermElabM) <| throwStratum .invalid m!"the admission of {entry.name} does not land in the selected domain"
+
+
+
+  let parameterPrefix ← liftM (m := MetaM) <| ((arguments.take element).mapIdx fun index argument =>
     retainedArguments[index]!.getD argument).mapM instantiateMVars
   let .forallE _ dataType _ _ ← whnfR (← inferType (mkAppN constant parameterPrefix))
-    | throwError "the admission of {entry.name} lost its declared datum binder"
-  let dataType ← instantiateMVars dataType
-  -- Finish typed elaboration before evidence inspects the complete actual data.
-  -- Native dependent constructors can leave pending synthetic coercion terms.
-  let datum ← withSynthesizeApplicable <| read dataType
+    | liftM (m := TermElabM) <| throwError "the admission of {entry.name} lost its declared datum binder"
+  let dataType ← liftM (m := MetaM) <| instantiateMVars dataType
+
+
+  let current ← liftM (m := MetaM) getMCtx
+  let owned := current.decls.foldl (fun result identity _ =>
+    if previous.decls.contains identity then result else result.push identity) #[]
+  let datum ← withSynthesizeApplicableScoped <| read dataType
   let read ← match datum with
-    | .ok value => instantiateMVars value
+    | .ok value => liftM (m := MetaM) <| instantiateMVars value
     | .error message => return .error message
-  -- The evidence is stated of a closed value's plumbing-free normal form, which is
-  -- definitionally it; the admitted element remains the value as read, so that its registered
-  -- operations reach the kernel (constitution C22).
-  let value ← if (← zetaReduce read).hasFVar then pure read
-    else Evaluation.normalizedValue (← zetaReduce (← instantiateMVars read))
-  unless ← isDefEq arguments[element]! value do
-    throwStratum .invalid m!"the value is not in the set that {entry.name} is included in"
+
+
+
+  extendSourceApplicationScope owned
+  unless ← isDefEq arguments[element]! read do
+    liftM (m := TermElabM) <| throwStratum .invalid m!"the value is not in the set that {entry.name} is included in"
   for argument in arguments, info in infos do
-    if info.isInstImplicit && (← instantiateMVars argument).isMVar then
+    if info.isInstImplicit && (← liftM (m := MetaM) <| instantiateMVars argument).isMVar then
       let some instanceValue ← synthInstance? (← inferType argument)
-        | throwError "the admission of {entry.name} lacks its declared instance"
+        | liftM (m := TermElabM) <| throwError "the admission of {entry.name} lacks its declared instance"
       discard <| isDefEq argument instanceValue
   for index in explicit.filter (element < ·) do
-    let proof ← establish entry (← inferType arguments[index]!)
+    let obligation ← liftM (m := MetaM) <| instantiateMVars (← inferType arguments[index]!)
+    let proof ← SourceReadM.prove obligation fun original _ => establish entry original
+    extendSourceApplicationScope owned
     unless ← isDefEq arguments[index]! proof do
-      throwStratum .invalid m!"the evidence of {entry.name} does not apply"
-  let constant ← instantiateMVars constant
-  let mut arguments ← (arguments.set! element read).mapM instantiateMVars
-  -- Native unification checks the parameter, while the actual source application retains
-  -- its original expression, including source binding and retained-value metadata.
+      liftM (m := TermElabM) <| throwStratum .invalid m!"the evidence of {entry.name} does not apply"
+  let constant ← liftM (m := MetaM) <| instantiateMVars constant
+  let mut arguments ← liftM (m := MetaM) <| (arguments.set! element read).mapM instantiateMVars
+
+
   for original in retainedArguments, index in [:retainedArguments.size] do
     if let some original := original then
-      arguments := arguments.set! index (← instantiateMVars original)
+      arguments := arguments.set! index (← liftM (m := MetaM) <| instantiateMVars original)
   let admitted := mkAppN constant arguments
   if admitted.hasMVar || admitted.hasLevelMVar then
-    throwStratum .invalid m!"the parameters or evidence of {entry.name} are not determined"
-  -- Keep the complete admission telescope before specializing the point value. Native input
-  -- routing can then select the original element and data-bearing evidence independently;
-  -- inspecting those routes never substitutes or evaluates the actual evidence.
-  let family ← forallTelescope (← inferType constant) fun parameters _ => do
-    let value ← sourcePointValue (mkAppN constant parameters) none
-    mkLambdaFVars parameters value (usedOnly := false) (usedLetOnly := false)
-  let value := mkAppN family arguments
-  unless ← isDefEq (← inferType value) target do
-    throwStratum .invalid m!"the admitted point is not in the selected domain of {entry.name}"
-  let .mdata data body := sourceReference ``ObjectEntry.admission entry.id.raw admission value
-    | throwError "internal: the admission reference lost its metadata"
-  return .ok (.mdata (data.setNat `CasCompiler.source.element element
-    |>.setNat `CasCompiler.source.admissionArguments arguments.size) body)
+    liftM (m := TermElabM) <| throwStratum .invalid m!"the parameters or evidence of {entry.name} are not determined"
 
-/-- Required admission keeps its original public callback and diagnostics. Only a datum
-reader's explicit applicability result can reject a candidate; selected target, admission,
-instance and evidence failures in the owner above remain exceptions. -/
-def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermElabM Expr) :
-    TermElabM Expr := do
+
+
+  let family ← liftM (m := TermElabM) <| forallTelescope (← inferType constant) fun parameters _ => do
+    let value ← sourcePointValueSelection (mkAppN constant parameters) none
+    mkLambdaFVars parameters value.value (usedOnly := false) (usedLetOnly := false)
+  let value := mkAppN family arguments
+  let scope ← get
+  let agrees ← scope.context.withOriginalSources #[← inferType value, target] fun original =>
+    isDefEq original[0]! original[1]!
+  unless agrees do
+    liftM (m := TermElabM) <| throwStratum .invalid m!"the admitted point is not in the selected domain of {entry.name}"
+  let selected ← retainSourcePoint admitted {
+    value
+    admission := some ⟨entry, family, arguments, element⟩ }
+  return .ok (← SourceReadM.select selected (some target))
+
+
+
+
+def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → SourceReadM Expr) :
+    SourceReadM Expr := do
   let admitted ← sourceAdmissionApplicable entry target fun type => do
     return .ok (← read type)
   match admitted with
   | .ok value => pure value
-  | .error message => throwStratum .invalid message
+  | .error message => liftM (m := TermElabM) <| throwStratum .invalid message
 
-/-- A binding operator `token` (`∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`) through its
-registered rows (Registry.Entry.BinderEntry). The notation's arguments are the operation's last
-explicit parameters, each a point `1 ⟶ X` (read as an element of `X`) or an object; the bound
-variable ranges over the row's domain at the same parameters; the map `t ↦ e` is admitted into
-the operation's source object with that object's evidence; the operation is applied to it.
-`readArgument` reads an argument at a type, `readBody` the body with the bound variable. Every
-parameter must be fixed by the arguments and the body; one row must read the statement. -/
+
+
+
+
+
+
+
 def sourceBinder (token : String)
-    (arguments : Array (Expr → TermElabM (Except MessageData Expr)))
-    (bound : Name) (readBody : Expr → TermElabM Expr) : TermElabM Expr := do
+    (arguments : Array (Expr → SourceReadM (Except MessageData Expr)))
+    (bound : Name) (readBody : Expr → SourceReadM Expr) : SourceReadM Expr := do
   let state ← semanticState
   let rows := state.binders.filter (·.token == token)
-  let attempt : BinderEntry → TermElabM (Except MessageData Expr) := fun row => do
+  let attempt : BinderEntry → SourceReadM (Except MessageData Expr) := fun row => do
     discard <| checkedDeclaration row.operation
     discard <| checkedDeclaration row.domain
+    let previous ← liftM (m := MetaM) getMCtx
     let operation ← mkConstWithFreshMVarLevels row.operation
     let (parameters, infos, arrow) ← forallMetaTelescopeReducing (← inferType operation)
     let explicit := (parameters.zip infos).filter (·.2.isExplicit) |>.map (·.1)
+    let current ← liftM (m := MetaM) getMCtx
+    let owned := current.decls.foldl (fun result identity _ =>
+      if previous.decls.contains identity then result else result.push identity) #[]
     unless arguments.size ≤ explicit.size do
       return .error m!"the binder takes fewer arguments"
-    for parameter in explicit.extract (explicit.size - arguments.size) explicit.size,
-        read in arguments do
-      let type ← whnfR (← instantiateMVars (← inferType parameter))
-      let value : Except MessageData Expr ← if type.isAppOfArity ``Quiver.Hom 4 then do
-          let expected ← instantiateMVars type.getAppArgs[3]!
-          let datum ← read expected
-          let element ← match datum with
-            | .ok value => pure value
-            | .error message => return .error message
-          unless ← isDefEq (← inferType element) expected do
-            return .error m!"the binder argument has another type"
-          let constant ← withLocalDeclD `point type.getAppArgs[2]! fun point =>
-            mkLambdaFVars #[point] element
-          pure (.ok (← elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom)
-            #[] #[Arg.expr constant] (some type) false false))
-        else read type
-      let value ← match value with
-        | .ok value => pure value
-        | .error message => return .error message
-      unless ← isDefEq (← inferType value) type do
-        return .error m!"the binder argument has another type"
-      unless ← isDefEq parameter value do
-        return .error m!"the binder argument has another type"
+    let rec visitArguments (remaining : List Expr) (index : Nat) :
+        SourceReadM (Except MessageData Unit) := do
+      match remaining with
+      | [] => return .ok ()
+      | parameter :: remaining => do
+        let some read := arguments[index]?
+          | liftM (m := TermElabM) <| throwError "the binder lost its original argument position"
+        let type ← whnfR (← liftM (m := MetaM) <| instantiateMVars (← inferType parameter))
+        let value : Except MessageData Expr ← if type.isAppOfArity ``Quiver.Hom 4 then do
+            let expected ← liftM (m := MetaM) <| instantiateMVars type.getAppArgs[3]!
+            let datum ← read expected
+            let element ← match datum with
+              | .ok value => pure value
+              | .error message => return .error message
+            unless ← isDefEq (← inferType element) expected do
+              return .error m!"the binder argument has another type"
+            let constant ← liftM (m := MetaM) <| withLocalDeclD `point type.getAppArgs[2]! fun point =>
+              mkLambdaFVars #[point] element
+            pure (.ok (← elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom)
+              #[] #[Arg.expr constant] (some type) false false))
+          else read type
+        let value ← match value with
+          | .ok value => pure value
+          | .error message => return .error message
+        unless ← isDefEq (← inferType value) type do
+          return .error m!"the binder argument has another type"
+        extendSourceApplicationScope owned
+        unless ← isDefEq parameter value do
+          return .error m!"the binder argument has another type"
+        visitArguments remaining (index + 1)
+    match ← visitArguments
+        (explicit.extract (explicit.size - arguments.size) explicit.size).toList 0 with
+    | .ok () => pure ()
+    | .error message => return .error message
     let domainConstant ← mkConstWithFreshMVarLevels row.domain
-    -- The bound variable lies in the registered form of the domain (`ℝ` for `∫_{a}^{b}`).
-    let domain ← sourceRegisteredForm (← instantiateMVars (mkAppN domainConstant parameters))
+
+    let domain ← sourceRegisteredForm (← liftM (m := MetaM) <| instantiateMVars (mkAppN domainConstant parameters))
     let arrow ← whnfR arrow
-    unless arrow.isAppOfArity ``Quiver.Hom 4 do throwError "the binder operation is not a map"
-    let some entry ← sourceAdmissionDomain? (← instantiateMVars arrow.getAppArgs[2]!)
-      | throwError "the binder operation does not act on an admitted object of maps"
-    let admitted ← sourceAdmissionApplicable entry (← instantiateMVars arrow.getAppArgs[2]!) fun base => do
-      withLocalDeclD bound domain fun parameter => do
-        let body ← readBody parameter
-        let function ← mkLambdaFVars #[parameter] body
-        unless ← isDefEq (← inferType function) base do
-          return .error m!"the binder body is not a map of the operation's source"
-        return .ok function
+    unless arrow.isAppOfArity ``Quiver.Hom 4 do liftM (m := TermElabM) <| throwError "the binder operation is not a map"
+    let some entry ← sourceAdmissionDomain? (← liftM (m := MetaM) <| instantiateMVars arrow.getAppArgs[2]!)
+      | liftM (m := TermElabM) <| throwError "the binder operation does not act on an admitted object of maps"
+    let admitted ← sourceAdmissionApplicable entry (← liftM (m := MetaM) <| instantiateMVars arrow.getAppArgs[2]!) fun base => do
+      let function ← SourceReadM.withLambda bound domain .default readBody
+      let scope ← get
+      let agrees ← scope.context.withOriginalSources #[← inferType function, base] fun original =>
+        isDefEq original[0]! original[1]!
+      unless agrees do
+        return .error m!"the binder body is not a map of the operation's source"
+      return .ok (← SourceReadM.select { value := function } (some base))
     let point ← match admitted with
       | .ok value => pure value
       | .error message => return .error message
-    let applied ← instantiateMVars (mkAppN operation parameters)
+    let applied ← liftM (m := MetaM) <| instantiateMVars (mkAppN operation parameters)
     if applied.hasMVar || applied.hasLevelMVar then
-      throwUnsupportedSource m!"the binder {token} has parameters its arguments do not determine"
-    let function ← sourceSetFunction (sourceReference ``BinderEntry row.id.raw row.operation applied)
+      liftM (m := TermElabM) <| throwUnsupportedSource m!"the binder {token} has parameters its arguments do not determine"
+    let selected ← SourceReadM.select (← sourceReferenceAt (.binder row) applied applied)
+    let function ← sourceSetFunction selected
     return .ok (← elabAppArgs function #[] #[Arg.expr point] none false false)
-  let require : BinderEntry → TermElabM Expr := fun row => do
+  let require : BinderEntry → SourceReadM Expr := fun row => do
     match ← attempt row with
     | .ok value => pure value
-    | .error message => throwStratum .invalid message
+    | .error message => liftM (m := TermElabM) <| throwStratum .invalid message
   if let #[row] := rows then return ← require row
-  -- Keep the checked bound body and its native state. Re-reading the selected row
-  -- would create another occurrence of its local declarations and dependent choices.
-  let original ← saveState
-  let mut readings : Array (Expr × Lean.Elab.Term.SavedState) := #[]
-  for row in rows do
-    original.restore
-    let result ← try attempt row
-      catch error =>
-        original.restore
-        throw error
-    match result with
-    | .ok value => readings := readings.push (value, ← saveState)
-    | .error _ => pure ()
-  original.restore
-  match readings with
-  | #[(value, selected)] =>
-    selected.restore
-    return value
-  | #[] => throwStratum .invalid m!"no registered binder {token} reads these arguments and body"
-  | _ => throwSemanticAmbiguity m!"several registered binders {token} read this statement"
+  match ← SourceReadM.chooseApplicable (rows.map attempt)
+      m!"no registered binder {token} reads these arguments and body"
+      m!"several registered binders {token} read this statement" with
+  | .ok value => return value
+  | .error message => liftM (m := TermElabM) <| throwStratum .invalid message
 
 
-/-- The registered object whose family, at parameters that reducible unification determines, is
-the native type `type`, with that application. -/
-private def registeredObjectAt? (type : Expr) : MetaM (Option (ObjectEntry × Expr)) := do
+
+private def registeredObjectAt? (type : Expr) : SourceReadM (Option (ObjectEntry × Expr)) := do
+  let (original, entries) ← registeredSourceDomain type
+  if (← SourceReadM.selection? type).isSome then
+    match entries with
+    | #[entry] => return if entry.refines.isNone then some (entry, original) else none
+    | _ => return none
   let mut found := #[]
   for entry in (← semanticState).objects do
     if entry.refines.isSome then continue
@@ -299,18 +316,18 @@ private def registeredObjectAt? (type : Expr) : MetaM (Option (ObjectEntry × Ex
     let family ← mkConstWithFreshMVarLevels entry.declaration
     let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
     let object := mkAppN family parameters
-    let applicable ← withoutModifyingState do
+    let applicable ← liftM (m := MetaM) <| withoutModifyingState do
       unless ← withReducible (isDefEq object type) do return false
       return !(← instantiateMVars object).hasMVar
     if applicable then
-      discard <| withReducible (isDefEq object type)
-      found := found.push (entry, ← instantiateMVars object)
+      discard <| liftM (m := MetaM) <| withReducible (isDefEq object type)
+      found := found.push (entry, ← liftM (m := MetaM) <| instantiateMVars object)
   match found with
   | #[unique] => return some unique
   | _ => return none
 
-/-- A registered map out of the set `source`: a declaration whose arrow, at parameters that
-reducible unification with `source` determines, leaves `source`. -/
+
+
 private def mapFrom? (declaration : Name) (source : Expr) : MetaM (Option (Expr × Expr)) := do
   discard <| checkedDeclaration declaration
   let constant ← mkConstWithFreshMVarLevels declaration
@@ -325,8 +342,8 @@ private def mapFrom? (declaration : Name) (source : Expr) : MetaM (Option (Expr 
   return some (← instantiateMVars (mkAppN constant parameters),
     ← instantiateMVars arrow.getAppArgs[3]!)
 
-/-- A registered map into the set `target`, at the parameters that reducible unification of its
-target with `target` determines, with its source set. -/
+
+
 private def mapInto? (declaration : Name) (target : Expr) : MetaM (Option (Expr × Expr)) := do
   discard <| checkedDeclaration declaration
   let constant ← mkConstWithFreshMVarLevels declaration
@@ -341,90 +358,99 @@ private def mapInto? (declaration : Name) (target : Expr) : MetaM (Option (Expr 
   return some (← instantiateMVars (mkAppN constant parameters),
     ← instantiateMVars arrow.getAppArgs[2]!)
 
-/-- Every chain of registered inclusions out of the set `current`, as the maps along it with the
-set it ends in. A visited object is not entered again, so each chain is a simple path. -/
+
+
 private partial def inclusionChains (state : SemanticState) (current : Expr)
-    (visited : List String) : TermElabM (Array (Array Expr × Expr)) := do
+    (visited : List String) : SourceReadM (Array (Array Expr × Expr)) := do
   let mut found := #[(#[], current)]
-  let some (entry, _) ← registeredObjectAt? (← sourceRegisteredForm current) | return found
+  let some (entry, original) ← registeredObjectAt? (← sourceRegisteredForm current) | return found
   if visited.contains entry.id.raw then return found
   for inclusion in state.inclusions do
     unless inclusion.sub == entry.id do continue
-    let some (arrow, next) ← mapFrom? inclusion.declaration current | continue
+    let some (arrow, next) ← mapFrom? inclusion.declaration original | continue
     for (maps, last) in ← inclusionChains state next (entry.id.raw :: visited) do
       found := found.push (#[arrow] ++ maps, last)
   return found
 
-/-- The element `value` of a named set read in the named set `target`, through the registered
-inclusions (`ℕ ⊆ ℤ`) and the target's registered constants (`R ↪ R[x]`): `none` when no chain
-of these maps leads there. Several chains are a competing reading. Source: InclusionEntry,
-ObjectEntry.constants and the original reader's rule for elements of related sets. -/
-def sourceCoercion? (value target : Expr) : TermElabM (Option Expr) := do
+
+
+
+
+def sourceCoercion? (value target : Expr) : SourceReadM (Option Expr) := do
   let state ← semanticState
-  let source ← instantiateMVars (← inferType value)
+  let source ← liftM (m := MetaM) <| instantiateMVars (← inferType value)
   let some _ ← registeredObjectAt? (← sourceRegisteredForm source) | return none
-  let some (goal, _) ← registeredObjectAt? (← sourceRegisteredForm target) | return none
+  let some (goal, originalTarget) ← registeredObjectAt? (← sourceRegisteredForm target) | return none
   let chains ← inclusionChains state source []
   let mut readings := #[]
   for (maps, last) in chains do
     if maps.isEmpty then continue
-    if ← withoutModifyingState (isDefEq last target) then readings := readings.push maps
+    if ← liftM (m := MetaM) <| withoutModifyingState (isDefEq last originalTarget) then readings := readings.push maps
   if let some constants := goal.constants then
-    if let some (arrow, coefficients) ← mapInto? constants (← sourceRegisteredForm target) then
+    if let some (arrow, coefficients) ← mapInto? constants originalTarget then
       for (maps, last) in chains do
-        if ← withoutModifyingState (isDefEq last coefficients) then
+        if ← liftM (m := MetaM) <| withoutModifyingState (isDefEq last coefficients) then
           readings := readings.push (maps.push arrow)
   match readings with
   | #[] => return none
   | #[maps] =>
     let mut result := value
     for arrow in maps do
+      let type ← whnfR (← inferType arrow)
+      unless type.isAppOfArity ``Quiver.Hom 4 do
+        liftM (m := TermElabM) <| throwError "the selected inclusion lost its original native map"
+      let selected := (← SourceReadM.selection? result).getD { value := result }
+      result ← SourceReadM.select { selected with value := result } (some type.getAppArgs[2]!)
       let function ← sourceSetFunction arrow
       result ← elabAppArgs function #[] #[Arg.expr result] none false false
-    return some (← mkExpectedTypeHint result target)
-  | _ => throwSemanticAmbiguity "several registered maps read this element in the expected set"
+    return some (← SourceReadM.select { value := result } (some target))
+  | _ => liftM (m := TermElabM) <| throwSemanticAmbiguity "several registered maps read this element in the expected set"
 
-/-- The set in which operands of the given sets meet: the one into which every other operand's
-set maps through registered maps (`sourceCoercion?`), so that `n² · tⁿ` is read in ℤ[[t]];
-otherwise the first set. -/
-def sourceCommonDomain (types : Array Expr) : TermElabM (Option Expr) := do
+
+
+
+def sourceCommonDomain (types : Array Expr) : SourceReadM (Option Expr) := do
   let mut distinct : Array Expr := #[]
   for type in types do
-    unless ← distinct.anyM fun other => withoutModifyingState (isDefEq other type) do
+    unless ← liftM (m := MetaM) <| distinct.anyM fun other =>
+        withoutModifyingState (isDefEq other type) do
       distinct := distinct.push type
   if distinct.size ≤ 1 then return distinct[0]?
   let mut common := #[]
   for candidate in distinct do
     let reaches ← distinct.allM fun other => do
-      if ← withoutModifyingState (isDefEq other candidate) then return true
-      withLocalDeclD `operand other fun operand => do
-        return (← withoutModifyingState (sourceCoercion? operand candidate)).isSome
+      if ← liftM (m := MetaM) <| withoutModifyingState (isDefEq other candidate) then return true
+      SourceReadM.inspect <| SourceReadM.withBinder `operand other none .default
+        (fun _ result => pure result) fun operand => do
+          return (← sourceCoercion? operand candidate).isSome
     if reaches then common := common.push candidate
   match common with
   | #[candidate] => return some candidate
   | _ => return distinct[0]?
 
-/-- A numeral in a set with no numeral of its own (`2` in `ℕ ∪ {-∞}`): the image, under the
-unique registered inclusion into that set whose source reads the numeral, of the numeral there.
-`readAt` returns `none` only for explicit absence of a numeral at that type. Errors in a
-chosen reading remain errors. Source: InclusionEntry and the original reader's numerals
-of related sets. -/
-def sourceIncludedNumeral (target : Expr) (readAt : Expr → TermElabM (Option Expr)) :
-    TermElabM (Option Expr) := do
+
+
+
+
+
+def sourceIncludedNumeral (target : Expr) (readAt : Expr → SourceReadM (Option Expr)) :
+    SourceReadM (Option Expr) := do
+  let originalTarget := target
   let target ← sourceRegisteredForm target
+  let (nativeTarget, _) ← registeredSourceDomain target
   let mut readings := #[]
   for inclusion in (← semanticState).inclusions do
-    let some (arrow, source) ← mapInto? inclusion.declaration target | continue
-    let numeral ← withoutModifyingState <| readAt source
-    if numeral.isSome then readings := readings.push (arrow, source)
+    let some (arrow, source) ← mapInto? inclusion.declaration nativeTarget | continue
+    let applicable ← SourceReadM.inspect do return (← readAt source).isSome
+    if applicable then readings := readings.push (arrow, source)
   match readings with
   | #[] => return none
   | #[(arrow, source)] =>
     let function ← sourceSetFunction arrow
     let some numeral ← readAt source
-      | throwError "the selected inclusion lost its admitted source numeral"
+      | liftM (m := TermElabM) <| throwError "the selected inclusion lost its admitted source numeral"
     let value ← elabAppArgs function #[] #[Arg.expr numeral] none false false
-    return some (← mkExpectedTypeHint value target)
-  | _ => throwSemanticAmbiguity "several registered inclusions read this numeral"
+    return some (← SourceReadM.select { value } (some originalTarget))
+  | _ => liftM (m := TermElabM) <| throwSemanticAmbiguity "several registered inclusions read this numeral"
 
 end CasCompiler

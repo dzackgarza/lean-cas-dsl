@@ -3,6 +3,7 @@ module
 public import CasCompiler.Elaborate
 public import CasCompiler.SourceCarrier
 public import CasCompiler.SourceTypeOrigin
+public import CasCompiler.SourceProof
 
 public section
 
@@ -15,9 +16,9 @@ private structure ConstrainedPointSchema where
   dataIndex : Nat
   proofCount : Nat
 
-/-- Inspect the actual selected native constructor, without inventing an admission row.
-Source: casInProof and the constrained-point schema in CasContract.Port. Parameters stay
-fixed by the complete target; only the declared fields are available for construction. -/
+
+
+
 private def constrainedPointSchema (target : Expr) : MetaM ConstrainedPointSchema := do
   let target ← instantiateMVars target
   if target.hasMVar || target.hasLevelMVar || (← isProp target) then
@@ -49,88 +50,111 @@ private def constrainedPointSchema (target : Expr) : MetaM ConstrainedPointSchem
     return ⟨constructor, dataIndex, fields.size - 1⟩
 
 private def constructConstrainedPoint (schema : ConstrainedPointSchema) (target : Expr)
-    (proofs : Array Term) (readData : Expr → TermElabM Expr)
-    (readProof : Term → Expr → TermElabM Expr) : TermElabM Expr := do
+    (proofs : Array Term) (readData : Expr → SourceReadM Expr)
+    (readProof : Term → Expr → SourceReadM Expr) : SourceReadM Expr := do
+  let previous ← liftM (m := MetaM) getMCtx
   let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType schema.constructor)
   let some original := arguments[schema.dataIndex]?
-    | throwError "the constrained constructor lost its original data field"
-  let actual ← withSynthesize <| readData (← instantiateMVars (← inferType original))
+    | liftM (m := TermElabM) <| throwError "the constrained constructor lost its original data field"
+  let current ← liftM (m := MetaM) getMCtx
+  let owned := current.decls.foldl (fun result identity _ =>
+    if previous.decls.contains identity then result else result.push identity) #[]
+  let result ← withSynthesizeApplicableScoped do
+    return .ok (← readData (← liftM (m := MetaM) <| instantiateMVars (← inferType original)))
+  let actual ← match result with
+    | .ok actual => pure actual
+    | .error message => liftM (m := TermElabM) <| throwError message
+  extendSourceApplicationScope owned
   unless ← isDefEq original actual do
-    throwError "the original data do not have the constrained constructor's declared field type"
+    liftM (m := TermElabM) <| throwError "the original data do not have the constrained constructor's declared field type"
   let mut proofIndex := 0
   for argument in arguments, index in [:arguments.size] do
     if index == schema.dataIndex then continue
-    let obligation ← instantiateMVars (← inferType argument)
+    let obligation ← liftM (m := MetaM) <| instantiateMVars (← inferType argument)
     unless ← isProp obligation do
-      throwError "the constrained constructor acquired an additional data field"
+      liftM (m := TermElabM) <| throwError "the constrained constructor acquired an additional data field"
     let some evidence := proofs[proofIndex]?
-      | throwError "the constrained point is missing an explicit source proof"
+      | liftM (m := TermElabM) <| throwError "the constrained point is missing an explicit source proof"
     let proof ← readProof evidence obligation
+    extendSourceApplicationScope owned
     unless ← isDefEq argument proof do
-      throwError "the supplied source proof has a different constructor obligation"
+      liftM (m := TermElabM) <| throwError "the supplied source proof has a different constructor obligation"
     proofIndex := proofIndex + 1
-  let value ← instantiateMVars (mkAppN schema.constructor arguments)
+  let value ← liftM (m := MetaM) <| instantiateMVars (mkAppN schema.constructor arguments)
   if value.hasMVar || value.hasLevelMVar then
-    throwError "the constrained point has undetermined native parameters or proofs"
-  unless ← isDefEq (← inferType value) target do
-    throwError "the constrained point has a different complete selected target"
-  mkExpectedTypeHint value target
+    liftM (m := TermElabM) <| throwError "the constrained point has undetermined native parameters or proofs"
+  SourceReadM.select { value } (some target)
 
-/-- Build the existing native constrained constructor at the supplied original data.
-For a generalized point, each proof is checked over the whole original domain before it
-is applied pointwise. No membership procedure, representative, or backend reply is used. -/
+
+
+
 def sourceConstrainedPointApplicable (target : Expr) (proofs : Array Term)
-    (readData : Expr → TermElabM (Except MessageData Expr))
-    (readMap : TermElabM NativeSourceJudgement) :
-    TermElabM NativeSourceJudgement := do
-  let schema ← constrainedPointSchema target
+    (readData : Expr → SourceReadM (Except MessageData Expr))
+    (readMap : SourceReadM NativeSourceJudgement) :
+    SourceReadM NativeSourceJudgement := do
+  let nativeTarget ← match (← SourceReadM.selection? target).bind (·.typeOrigin) with
+    | some original => pure original.type
+    | none => pure (← registeredSourceDomain target).1
+  let schema ← constrainedPointSchema nativeTarget
   unless proofs.size == schema.proofCount do
-    throwError (MessageData.tagged `CasCompiler.sourceConstrainedPoint.proofCount
+    liftM (m := TermElabM) <| throwError (MessageData.tagged `CasCompiler.sourceConstrainedPoint.proofCount
       m!"the constrained point requires exactly {schema.proofCount} explicit source proofs")
-  -- Test only the data's declared type here. A wrong proof must never choose another reading.
-  let direct ← withoutModifyingState do
+
+  let direct ← SourceReadM.inspect do
     let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType schema.constructor)
     let some original := arguments[schema.dataIndex]?
-      | throwError "the constrained constructor lost its original data field"
-    let actual ← withSynthesizeApplicable <| readData (← inferType original)
+      | liftM (m := TermElabM) <| throwError "the constrained constructor lost its original data field"
+    let actual ← withSynthesizeApplicableScoped <| readData (← inferType original)
     match actual with
     | .error _ => return false
     | .ok actual => isDefEq (← inferType actual) (← inferType original)
   if direct then
-    let requiredData : Expr → TermElabM Expr := fun expected => do
+    let requiredData : Expr → SourceReadM Expr := fun expected => do
       match ← readData expected with
       | .ok value => pure value
-      | .error message => throwError message
-    return ⟨← constructConstrainedPoint schema target proofs requiredData sourceFormalProof, none⟩
-  let original ← withSynthesize readMap
+      | .error message => liftM (m := TermElabM) <| throwError message
+    let value ← constructConstrainedPoint schema target proofs requiredData fun evidence obligation =>
+      SourceReadM.prove obligation (fun expected _ => sourceFormalProof evidence expected)
+    return ⟨value, none⟩
+  let result ← withSynthesizeApplicableScoped do return .ok (← readMap)
+  let original ← match result with
+    | .ok original => pure original
+    | .error message => liftM (m := TermElabM) <| throwError message
   let function ← sourceFunction original
   let .forallE _ domain _ binderInfo ← whnfR (← inferType function)
-    | throwError "constrained data require a value or a map into the actual data-field type"
-  let outerContext ← getLCtx
-  let outerInstances ← getLocalInstances
-  let mapped ← withLocalDecl (← mkFreshUserName `point) binderInfo domain fun point => do
+    | liftM (m := TermElabM) <| throwError "constrained data require a value or a map into the actual data-field type"
+  let mapped ← SourceReadM.withLambda (← mkFreshUserName `point) domain binderInfo fun point => do
     let readData := fun expected => do
       let value := mkApp function point
       unless ← isDefEq (← inferType value) expected do
-        throwError "the original map has a different constrained data-field target"
+        liftM (m := TermElabM) <| throwError "the original map has a different constrained data-field target"
       pure value
     let readProof := fun evidence obligation => do
       let proposition ← mkForallFVars #[point] obligation
-      -- The supplied proof is elaborated in the original scope, outside the fresh point.
-      let proof ← withLCtx outerContext outerInstances <|
-        sourceFormalProof evidence proposition
+      let scope ← get
+      let some pointIndex := scope.context.bindings.findIdx? (·.expression == point)
+        | liftM (m := TermElabM) <| throwError "the constrained proof lost its original point binder"
+
+
+      let proof ← SourceReadM.prove proposition fun expected _ => do
+        let context ← getLCtx
+        let locals := context.foldl (fun result declaration => result.push declaration) #[]
+        let some selected := locals[pointIndex]?
+          | liftM (m := TermElabM) <| throwError "the constrained proof changed its original native telescope"
+        withLCtx (context.erase selected.fvarId)
+            ((← getLocalInstances).filter (·.fvar != mkFVar selected.fvarId)) <|
+          sourceFormalProof evidence expected
       pure (mkApp proof point)
-    let value ← constructConstrainedPoint schema target proofs readData readProof
-    mkLambdaFVars #[point] value (usedOnly := false) (usedLetOnly := false)
+    constructConstrainedPoint schema target proofs readData readProof
   let mappedArrow ← elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom)
     #[] #[Arg.expr mapped] none false false
   sourceSetJudgement .morphism mappedArrow
 
-/-- Required data readers preserve their ordinary API. The public source adapter uses the
-explicit applicability callback above; exceptions in either form never select a map reading. -/
+
+
 def sourceConstrainedPoint (target : Expr) (proofs : Array Term)
-    (readData : Expr → TermElabM Expr) (readMap : TermElabM NativeSourceJudgement) :
-    TermElabM NativeSourceJudgement :=
+    (readData : Expr → SourceReadM Expr) (readMap : SourceReadM NativeSourceJudgement) :
+    SourceReadM NativeSourceJudgement :=
   sourceConstrainedPointApplicable target proofs
     (fun expected => do return .ok (← readData expected)) readMap
 
