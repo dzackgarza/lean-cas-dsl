@@ -77,6 +77,14 @@ the loop over its bound is the contingency task of its cost area (LOOP006). Slow
 loop within the bound is a row for the final performance work in the timing triage table of
 `timing/README.md`.
 
+**SPEC006 — a check has an expected time within the bound.** A check that runs a whole suite, or
+several modules and acceptance files whose medians add up to more than 300 s => before the check
+is written, sum the medians of the passing runs in `timing/runs.jsonl` of each test module and
+acceptance file that it runs, as [`specs/feedback-loop-performance.md`](specs/feedback-loop-performance.md)
+states, and write "expected about N s from M records" into the check. A check over 300 s is cut to
+the cases that the task owns. A target with no passing record is named in the check, and the check
+keeps to one small module or one statement.
+
 ## Feedback loops
 
 Use the selected toolchain and dependency tuple of the kernel implementation worktree (locate it
