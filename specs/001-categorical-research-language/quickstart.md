@@ -89,7 +89,7 @@ These checks neither preselect the later independent contributor's specimen nor 
 
 A kernel checkpoint (SC-014; [plan](plan.md#m1-checkpoints)) is observed through the public session with a protocol peer or an empty manifest. Use the commands of the [feedback loops](../../CONTRIBUTING.md#feedback-loops): `just loop "<session test module>"` for an observation with a protocol peer, and `scripts/accept_files.sh FILE …` with no `--manifest` for the empty-manifest observation of whole acceptance files. A gap with `NoImplementation` at a registered address is the expected outcome of a computational statement there. An internal error or a reader gap is a failed observation.
 
-A computed attainment (SC-015; [plan](plan.md#computational-milestones)) is observed with the manifest of the category implementations of its milestone: the statement holds as a computed result. An observation with a protocol peer does not establish it.
+For SC-015, use the released implementations through Rings V1. T327 supplies `rings-v1.cas.proposed`. T350 provides the explicit computation-only mode. Run `just loop "+CasCatalogue.TestSuite:leanArts" --computation-only --manifest <released manifest> --proposed rings-v1`. Check that `rings.integer_product` holds and that its numeral maps, selected monoid multiplication and equality produced the result. [Computational milestones](plan.md#computational-milestones)
 
 ## Delivery, proofs, trials and last-phase resources
 
