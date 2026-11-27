@@ -19,9 +19,9 @@ open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
 mutual
 
-/-- Send one prepared invocation on its reserved connection, then admit and stage the whole
-reply with its completion. A deferred group runs first, with the provider permit released.
-Reuse: FramedConnection.invokeControlBefore and stageCompletion. -/
+
+
+
 partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (wire : FramedConnection) (reservation : DispatchReservation)
     (encoded : EncodedInputs) (arguments : Json)
@@ -33,6 +33,21 @@ partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) 
   let codec := some codec
   let graph ← transaction.view
   let issued ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs #[]
+  let selected := match reservation.selected with
+    | .primitive identity => Json.mkObj [
+      ("kind", toJson "registration"), ("operation", toJson identity.registration.operation),
+      ("input", toJson identity.registration.input), ("backend", toJson identity.registration.backend),
+      ("manifestDigest", toJson identity.manifestDigest), ("profileDigest", toJson identity.profileDigest)]
+    | .native value _ => Json.mkObj [
+      ("kind", toJson "native"), ("value", Observation.identityJson value)]
+  CasTools.Diagnostics.emit "dispatch" <| Json.mkObj [
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("transaction", Observation.identityJson transaction.id),
+    ("scope", Observation.identityJson issued.id),
+    ("connection", Json.mkObj [("worker", toJson reservation.connection.worker),
+      ("serial", toJson reservation.connection.serial)]),
+    ("selected", selected), ("operands", arguments),
+    ("request", request.observation.toJson)]
   let control ← match ← wire.invokeControlBefore kernel.ledger transaction reservation issued
       arguments kernel.timeoutMs with
     | .ok control => pure control
@@ -42,14 +57,29 @@ partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) 
       RequestScope.issue kernel.ledger reservation (← transaction.view) encoded.slots
         encoded.inputs results)
     control
-  match ← reply.stageCompletion request transaction scope wire.connection
-      (some (kernel.resolveFixedInput evaluateSource transaction request.program)) codec with
-  | .error failure => transactionFailure failure
-  | .ok association => request.admitResult (← transaction.view) association.response.root
+  CasTools.Diagnostics.emit "reply.admission.started" <| Json.mkObj [
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("scope", Observation.identityJson reply.scopeId), ("requestId", toJson reply.requestId),
+    ("reply", reply.value)]
+  try
+    match ← reply.stageCompletion request transaction scope wire.connection
+        (some (kernel.resolveFixedInput evaluateSource transaction request.program)) codec with
+    | .error failure => transactionFailure failure
+    | .ok association =>
+      let admitted ← request.admitResult (← transaction.view) association.response.root
+      CasTools.Diagnostics.emit "reply.admitted" <| Json.mkObj [
+        ("occurrence", Observation.identityJson request.occurrence),
+        ("value", Observation.valueIdentityJson admitted.root)]
+      return admitted
+  catch error =>
+    CasTools.Diagnostics.emit "reply.rejected" <| Json.mkObj [
+      ("occurrence", Observation.identityJson request.occurrence),
+      ("detail", toJson (← error.toMessageData.toString))]
+    throw error
 
-/-- Dispatch a published operation on its selected registration.
-`parameters` are the retained family parameters and `bindings` the earlier outputs the selected
-field depends on; the request supplies the action arguments. -/
+
+
+
 partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (registration : Registration) (role : String)
     (parameters : Array ValueBinding) (bindings : Array (Nat × ValueBinding)) :
@@ -81,8 +111,8 @@ partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : Source
         (encoded.values.extract parameters.size leading))
       (encoded.values.extract leading encoded.values.size) (argumentLayouts request) request.source
 
-/-- Invoke one original raw construction through the ordinary scoped reply lifecycle. Its
-accepted constructor codec admits every data port before exposing any native cone field. -/
+
+
 partial def Kernel.invokeLimit (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
     (invocation : PreparedLimitInvocation) : MetaM (PreparedResponse request) := do
@@ -105,9 +135,9 @@ partial def Kernel.invokeLimit (kernel : Kernel) (evaluateSource : SourceEvaluat
   kernel.dispatches.modify (·.push registration)
   kernel.invoke evaluateSource request transaction wire reservation encoded packet (some codec)
 
-/-- Invoke the complete fixed creation family once. Its exact original context and
-both target data inputs are encoded by preparation; the ordinary native record codec admits
-all LiftsToLimit fields together before a later projection or application can use them. -/
+
+
+
 partial def Kernel.invokeCreation (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
     (invocation : PreparedCreationInvocation) : MetaM (PreparedResponse request) := do
@@ -130,9 +160,9 @@ partial def Kernel.invokeCreation (kernel : Kernel) (evaluateSource : SourceEval
   kernel.invoke evaluateSource request transaction wire reservation encoded
     (dependentContext "" parameters #[] #[] #[] request.source)
 
-/-- Invoke a complete named presentation through the ordinary reservation, scope, deferred
-control, reply admission and atomic completion lifecycle. Only its published packet differs
-from a dependentContext invocation. -/
+
+
+
 partial def Kernel.invokePresentation (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
     (invocation : PreparedPresentationInvocation) : MetaM (PreparedResponse request) := do
@@ -154,8 +184,8 @@ partial def Kernel.invokePresentation (kernel : Kernel) (evaluateSource : Source
   kernel.dispatches.modify (·.push registration)
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
-/-- Dispatch the unique selected routed-method boundary through the existing reservation,
-scoped input, suspension and reply-admission machinery, using its published method packet. -/
+
+
 partial def Kernel.invokeMethod (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction)
     (invocation : PreparedMethodInvocation) : MetaM (PreparedResponse request) := do
@@ -177,8 +207,8 @@ partial def Kernel.invokeMethod (kernel : Kernel) (evaluateSource : SourceEvalua
   kernel.dispatches.modify (·.push registration)
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
-/-- Properties use their released raw receiver packet and the ordinary scoped reply lifecycle.
-The prepared property's Option Bool result check runs before any reusable completion. -/
+
+
 partial def Kernel.invokeProperty (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction)
     (invocation : PreparedPropertyInvocation) : MetaM (PreparedResponse request) := do
@@ -200,9 +230,9 @@ partial def Kernel.invokeProperty (kernel : Kernel) (evaluateSource : SourceEval
   kernel.dispatches.modify (·.push registration)
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
-/-- Send the released named-point packet through the same reservation, scope, deferred-reply
-and complete typed result admission lifecycle. The original arrow and all declared parameter
-owners remain reservation dependencies although the arrow has a named descriptor view. -/
+
+
+
 partial def Kernel.invokePoint (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
     (invocation : PreparedPointInvocation) : MetaM (PreparedResponse request) := do
@@ -225,7 +255,7 @@ partial def Kernel.invokePoint (kernel : Kernel) (evaluateSource : SourceEvaluat
   kernel.dispatches.modify (·.push registration)
   kernel.invoke evaluateSource request transaction wire reservation encoded packet codec
 
-/-- Dispatch the original complete native object action through its released receiver packet. -/
+
 partial def Kernel.invokeObjectAction (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
     (invocation : PreparedObjectAction) : MetaM (PreparedResponse request) := do
@@ -247,8 +277,8 @@ partial def Kernel.invokeObjectAction (kernel : Kernel) (evaluateSource : Source
   kernel.dispatches.modify (·.push registration)
   kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
-/-- Invoke a retained native export on its original supplying connection.
-Source: execution contract v2 §4.1. No registration is searched for a selected callable. -/
+
+
 partial def Kernel.invokeExport (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (callable : ValueBinding) (role : String) :
     MetaM (PreparedResponse request) := do
@@ -272,12 +302,12 @@ partial def Kernel.invokeExport (kernel : Kernel) (evaluateSource : SourceEvalua
   kernel.invoke evaluateSource request transaction wire reservation encoded <|
     dependentContext role #[] #[] encoded.values (argumentLayouts request) request.source
 
-/-- Follow one invocation's control to its immediate reply. A deferred group is executed. A
-suspension's calls run through the production lowerer and executor in the suspending scope,
-then the same occurrence is resumed on its supplying connection with the declared captures
-and the child results; the resumed control is followed in turn. `issue` forms a scope over the
-positions of the scope that issued `control`, with a completed prefix of child results.
-Source: execution contract v2 §6; python-sdk.md "Generator suspension". -/
+
+
+
+
+
+
 partial def Kernel.settle (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (wire : FramedConnection) (reservation : DispatchReservation)
     (scope : RequestScope) (issue : Array ValueBinding → IO RequestScope)
@@ -316,10 +346,10 @@ partial def Kernel.settle (kernel : Kernel) (evaluateSource : SourceEvaluation) 
         RequestScope.issueResume kernel.ledger reservation (← transaction.view) slots prior)
       next
 
-/-- Execute an ordered deferred group and form its final immediate control.
-Source: execution contract v2 §6. Each child has a fresh scope over the original inputs and
-the completed prefix of results. The final template is read in a scope over all results and
-is then admitted at the parent's prepared role, like an immediate reply. -/
+
+
+
+
 partial def Kernel.deferred (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (reservation : DispatchReservation)
     (issue : Array ValueBinding → IO RequestScope)

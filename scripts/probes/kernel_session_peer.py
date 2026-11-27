@@ -19,8 +19,12 @@ from cas_session import ComputationError, JsonValue, UnsupportedOperation, expor
 
 FIRST_ADD_FAILURE: str | None = None
 LOG: str | None = None
+REFERENCE_INPUTS = False
 FIXED_ENDPOINT: int | None = None
-if len(sys.argv) == 4 and sys.argv[1] == "--fixed-group-kernel" and \
+if len(sys.argv) == 3 and sys.argv[1] == "--reference-add":
+    REFERENCE_INPUTS = True
+    LOG = sys.argv[2]
+elif len(sys.argv) == 4 and sys.argv[1] == "--fixed-group-kernel" and \
         sys.argv[2] in ("left", "right"):
     FIXED_ENDPOINT = 0 if sys.argv[2] == "left" else 1
     LOG = sys.argv[3]
@@ -29,7 +33,7 @@ elif sys.argv[1:] not in ([], ["--corrupt-add"]):
             sys.argv[2] not in ("unsupported", "unavailable"):
         raise SystemExit("usage: kernel_session_peer.py "
                          "[--corrupt-add | --fail-first-add unsupported|unavailable LOG | "
-                         "--fixed-group-kernel left|right LOG]")
+                         "--reference-add LOG | --fixed-group-kernel left|right LOG]")
     FIRST_ADD_FAILURE, LOG = sys.argv[2:]
 
 
@@ -69,13 +73,20 @@ def add(context: JsonValue) -> JsonValue:
 
 
 def multiply(context: JsonValue) -> JsonValue:
+    if REFERENCE_INPUTS:
+        assert LOG is not None
+        with open(LOG, "a", encoding="utf-8") as log:
+            log.write(json.dumps({"op": "op.rings.mul", "context": context}) + "\n")
     left, right = _operands(context)
     if right != 2:
         return left * right
     assert isinstance(context, dict)
     call = dict(context)
     call["parameters"] = [input_ref(["parameters", 0])]
-    call["arguments"] = [[left, left]]
+
+
+    call["arguments"] = [[input_ref(["arguments", 0, 0]),
+                          input_ref(["arguments", 0, 0])]] if REFERENCE_INPUTS else [[left, left]]
     return deferred_data(
         [deferred_call("op.rings.add", "op.rings.add#input", call)], result_ref(0)
     )

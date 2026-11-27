@@ -83,5 +83,6 @@ import CasCompiler.ValueRequestTests
 import CasCompiler.WhiskeringTests
 import CasTools.InterfaceExportTests
 import CasTools.NativeExpressionTests
+import CasTools.JsonGraphTests
 import CasTools.QuestionExportTests
 import CasTools.SourceSnapshotTests

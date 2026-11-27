@@ -1,6 +1,7 @@
 module
 
 import CasRuntime.AdmissionInputTests
+import CasRuntime.ApplicationLogTests
 import CasRuntime.ApplicationOriginTests
 import CasRuntime.BindingIdentityTests
 import CasRuntime.CallablePacketTests
@@ -63,6 +64,7 @@ import CasRuntime.SelectedEndpointTests
 import CasRuntime.SessionEndpointTests
 import CasRuntime.SessionLiftTests
 import CasRuntime.SessionLimitObservationTests
+import CasRuntime.SessionLogTests
 import CasRuntime.SessionOccurrenceTests
 import CasRuntime.SessionPredicateTests
 import CasRuntime.SessionPreferenceTests

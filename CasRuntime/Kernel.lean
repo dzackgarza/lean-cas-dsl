@@ -55,9 +55,14 @@ private partial def Kernel.evaluateSource (kernel : Kernel) (sourceSnapshot : Op
 partial def Kernel.executor (kernel : Kernel) :
     PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
   fun request transaction => do
-    return (← kernel.execute
-      (kernel.evaluateSource request.observation.sourceSnapshot (some request.environment))
-      request transaction, transaction)
+    let parents := match ← CasTools.Diagnostics.current? with
+      | some active => if active.log.session == kernel.log.session then active.parents else #[]
+      | none => #[]
+    let entry ← kernel.log.write parents "request.execute" request.observation.toJson
+    CasTools.Diagnostics.withScope { log := kernel.log, parents := parents.push entry } do
+      return (← kernel.execute
+        (kernel.evaluateSource request.observation.sourceSnapshot (some request.environment))
+        request transaction, transaction)
 
 end
 
@@ -66,7 +71,27 @@ opaque Kernel.run (kernel : Kernel) (transaction : CellTransaction) (context : O
     (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
     (sourceSnapshot : Option Json := none) (selections : SourceSelectionScope Expr := {}) :
     MetaM ValueBinding := do
-  let program ← kernel.ledger.owners.identities.fresh .program
-  kernel.evaluateSource sourceSnapshot none transaction program context bound selections expression
+  let parents := match ← CasTools.Diagnostics.current? with
+    | some active => if active.log.session == kernel.log.session then active.parents else #[]
+    | none => #[]
+  CasTools.Diagnostics.withScope { log := kernel.log, parents } do
+    let program ← kernel.ledger.owners.identities.fresh .program
+    CasTools.Diagnostics.emit "lower.started" <| Json.mkObj [
+      ("program", Observation.identityJson program),
+      ("transaction", Observation.identityJson transaction.id),
+      ("bindings", Observation.boundJson context.telescope bound),
+      ("source", sourceSnapshot.getD .null)]
+    try
+      let value ← kernel.evaluateSource sourceSnapshot none transaction program context bound
+        selections expression
+      CasTools.Diagnostics.emit "lower.completed" <| Json.mkObj [
+        ("program", Observation.identityJson program),
+        ("value", Observation.valueIdentityJson value)]
+      return value
+    catch error =>
+      CasTools.Diagnostics.emit "lower.failed" <| Json.mkObj [
+        ("program", Observation.identityJson program),
+        ("detail", toJson (← error.toMessageData.toString))]
+      throw error
 
 end CasRuntime

@@ -5,6 +5,7 @@ public import CasCompiler.Program
 public import CasContract.Registration
 public import CasContract.Failure
 public import CasRuntime.GroundedRealizations
+public import CasTools.Diagnostics
 import CasRuntime.ManifestAdmission
 import CasContract.Port
 
@@ -22,9 +23,9 @@ private def Selection.contains [DecidableEq α] : Selection α → α → Bool
   | .all, _ => true
   | .only entries, entry => entries.contains entry
 
-/-- The source-owned family whose computational availability a runtime profile filters.
-The additional families keep their existing registry identities and primitive ports; they do
-not extend ComputationRef or publish mathematical derivations. -/
+
+
+
 inductive ProfileTarget
   | computation (reference : ComputationRef)
   | lift (id : LiftId)
@@ -43,9 +44,9 @@ private structure ProfileRule where
   primitives : Selection Registration
   derivations : Selection ComputationDerivationId
 
-/-- Kernel-owned immutable availability sets, fixed before any invocation.
-Source: execution contract v2 §5.3, issue 69 comment 6664277464.
-The source registry fixes meanings; these sets only filter computational alternatives. -/
+
+
+
 structure RealizationProfile where
   private mk ::
   id : String
@@ -97,8 +98,8 @@ private def parseTarget (json : Json) : Except String ProfileTarget := do
   | "edge" => return .edge id
   | _ => throw "realization profile: unknown availability target kind"
 
-/-- A registration's record: its triple, and its declared preferred routes when it has any
-(contract api/manifest.md). -/
+
+
 private def registrationJson (registration : Registration) : Json :=
   let triple := [("operation", toJson registration.operation),
     ("input", toJson registration.input), ("backend", toJson registration.backend)]
@@ -171,9 +172,9 @@ private def normalizedProfile (id : String) (rules : Array ProfileRule) : Json :
       ("primitive_registrations", selectionJson "entries" registrationJson rule.primitives),
       ("derivations", selectionJson "ids" (toJson ∘ ComputationDerivationId.raw) rule.derivations)]))]
 
-/-- SHA-256 of immutable configuration text.
-Reuse: GNU Coreutils sha256sum through Lean's IO.Process.output stdin API;
-https://www.gnu.org/software/coreutils/manual/html_node/sha2-utilities.html. -/
+
+
+
 def sha256Hex (text : String) : IO String := do
   let hashed ← IO.Process.output { cmd := "sha256sum", args := #["-"] } (some text)
   unless hashed.exitCode == 0 do throw <| IO.userError s!"SHA-256 failed: {hashed.stderr}"
@@ -183,8 +184,8 @@ def sha256Hex (text : String) : IO String := do
     throw <| IO.userError "SHA-256 returned an invalid digest"
   return digest
 
-/-- Check the original published address through the same grammar as manifest and child-call
-admission. In particular, lift ports retain their exact published field component. -/
+
+
 opaque ProfileTarget.containsAddress (target : ProfileTarget) (state : SemanticState)
     (address : String) : MetaM Bool := do
   match target with
@@ -209,10 +210,10 @@ opaque ProfileTarget.containsAddress (target : ProfileTarget) (state : SemanticS
     let .ok (some (selected, false)) := PublishedPorts.edge? state original | return false
     return ((PublishedPorts.edge? state address).toOption.bind id).any (·.1 == selected)
 
-/-- Validate exact published targets, installed triples and checked target-specific derivations.
-Normalize set order once and retain the SHA-256 of that immutable configuration.
-Reuse: ComputationRef.declaration, checkedComputationDerivations, the released registration
-schema, the strict field checker and sha256Hex. -/
+
+
+
+
 opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option Json) :
     MetaM RealizationProfile := do
   let (id, rules) ← match configuration with
@@ -278,19 +279,19 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
   let normalized := normalizedProfile id rules
   return ⟨id, normalized, ← sha256Hex normalized.compress, rules⟩
 
-/-- Apply the frozen primitive set for this exact source target; unlisted targets allow all. -/
+
 opaque RealizationProfile.allowsRegistration (profile : RealizationProfile)
     (target : ProfileTarget) (registration : Registration) : Bool :=
   match profile.rules.find? (·.target == target) with
   | none => true
   | some rule => rule.primitives.contains registration
 
-/-- Existing computation families retain the same profile selection interface. -/
+
 opaque RealizationProfile.allowsPrimitive (profile : RealizationProfile)
     (target : ComputationRef) (registration : Registration) : Bool :=
   profile.allowsRegistration (.computation target) registration
 
-/-- Apply the frozen derivation set without changing the checked mathematical plan. -/
+
 opaque RealizationProfile.allowsDerivation (profile : RealizationProfile)
     (entry : ComputationDerivationEntry) : Bool :=
   match profile.rules.find? (·.target == .computation entry.target) with
@@ -304,8 +305,8 @@ def referenceId : ComputationRef → String
   | .construction id => id.raw
   | .morphism id => id.raw
 
-/-- Select only among exact registrations at all source boundaries of an interface with no
-published derivation family. Repeated occurrences at different boundaries remain distinct. -/
+
+
 def selectRegistrationBoundary (profile : RealizationProfile) (manifest : Manifest)
     (target : ProfileTarget) (address : String) (boundaries : Array (Array String)) :
     MetaM (Nat × Registration) := do
@@ -317,11 +318,23 @@ def selectRegistrationBoundary (profile : RealizationProfile) (manifest : Manife
         profile.allowsRegistration target registration).map (index, ·)).flatten
   let forms := boundaries.flatten
   match eligible with
-  | #[registration] => return registration
-  | #[] => throwStratum .noImplementation m!"{address} on {forms}"
-  | _ => throwStratum .ambiguousRealization m!"{address} on {forms}"
+  | #[registration] =>
+    CasTools.Diagnostics.emit "realization.selected" <| Json.mkObj [
+      ("operation", toJson address), ("boundary", toJson registration.1),
+      ("input", toJson registration.2.input), ("backend", toJson registration.2.backend)]
+    return registration
+  | #[] =>
+    CasTools.Diagnostics.emit "realization.missing" <| Json.mkObj [
+      ("operation", toJson address), ("forms", toJson forms),
+      ("kind", toJson "no_implementation")]
+    throwStratum .noImplementation m!"{address} on {forms}"
+  | _ =>
+    CasTools.Diagnostics.emit "realization.ambiguous" <| Json.mkObj [
+      ("operation", toJson address), ("forms", toJson forms),
+      ("candidates", toJson eligible.size)]
+    throwStratum .ambiguousRealization m!"{address} on {forms}"
 
-/-- A lift-port or presentation has one complete input boundary and no derivation family. -/
+
 def selectLift (profile : RealizationProfile) (manifest : Manifest)
     (target : ProfileTarget) (address : String) (forms : Array String) : MetaM Registration := do
   return (← selectRegistrationBoundary profile manifest target address #[forms]).2
@@ -330,12 +343,12 @@ inductive Realization
   | registration (selected : Registration)
   | derivation (checked : SourceProgram)
 
-/-- Select the realization of one exact demand by the saturated grounded count.
-Source: execution contract v2 §5.1 and §5.2. The root alternatives are the eligible
-registrations and the profile's checked derivations. A prerequisite is a delayed demand: an
-installed registration or a grounded derivation makes it present, and its own realization is
-selected when its actual arguments exist. Zero and many dispatch nothing.
-Reuse: RealizationGraph.grounded and GroundedRealizations.uniqueAlternative. -/
+
+
+
+
+
+
 private def selectBoundaries (profile : RealizationProfile) (manifest : Manifest)
     (reference : ComputationRef) (address : String) (boundaries : Array (Array String)) :
     MetaM (Nat × Realization) := do
@@ -380,26 +393,36 @@ private def selectBoundaries (profile : RealizationProfile) (manifest : Manifest
     match ← IO.ofExcept <| (grounded.uniqueAlternative ⟨0, root⟩).mapError IO.userError with
     | some alternative =>
       if let some (boundary, registration) := eligible[alternative]? then
+        CasTools.Diagnostics.emit "realization.selected" <| Json.mkObj [
+          ("operation", toJson address), ("boundary", toJson boundary),
+          ("input", toJson registration.input), ("backend", toJson registration.backend)]
         return (boundary, .registration registration)
       let some derivation := (derivations[0]?.getD #[])[alternative - eligible.size]?
         | throwError "internal: the selected realization is outside its alternatives"
+      CasTools.Diagnostics.emit "realization.derivation" <| Json.mkObj [
+        ("operation", toJson address), ("derivation", toJson derivation.source.entry.id.raw)]
       return (boundaries.size - 1, .derivation derivation)
     | none =>
       if grounded.counts[(⟨0, root⟩ : Fin size)] == .zero then
+        CasTools.Diagnostics.emit "realization.missing" <| Json.mkObj [
+          ("operation", toJson address), ("forms", toJson forms),
+          ("kind", toJson "no_implementation")]
         throwStratum .noImplementation m!"{address} on {forms}"
+      CasTools.Diagnostics.emit "realization.ambiguous" <| Json.mkObj [
+        ("operation", toJson address), ("forms", toJson forms)]
       throwStratum .ambiguousRealization m!"{address} on {forms}"
   else throwError "internal: the realization graph has no root demand"
 
 
-/-- One exact native demand uses the same saturated grounded selection as routed methods. -/
+
 opaque RealizationProfile.select (profile : RealizationProfile) (manifest : Manifest)
     (reference : ComputationRef) (address : String) (forms : Array String) : MetaM Realization := do
   return (← selectBoundaries profile manifest reference address #[forms]).2
 
-/-- Count every admitted registration at every exact route boundary before executing a prefix.
-Two occurrences of one registration at different boundaries are distinct alternatives; a source
-or category-wide row has no priority. A checked derivation belongs to the owner boundary.
-Reuse: the same grounded realization graph and frozen profile as ordinary source demands. -/
+
+
+
+
 opaque RealizationProfile.selectMethod (profile : RealizationProfile) (manifest : Manifest)
     (method : MethodId) (boundaries : Array (Array String)) : MetaM (Nat × Realization) :=
   selectBoundaries profile manifest (.method method) method.raw boundaries

@@ -58,6 +58,7 @@ import all CasCompiler.SourceViewTests
 import all CasTools.QuestionExport
 import all CasTools.QuestionExportTests
 import all CasTools.NativeExpressionTests
+import all CasTools.JsonGraphTests
 import all CasTools.SourceSnapshotTests
 import all LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 import all LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds
