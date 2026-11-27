@@ -37,12 +37,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "a public cell component lost its actual target category"
     unless selected.role == .morphism && selected.expression.syntacticEq Foundation.Sets do
       throwError "a public cell component changed its declared morphism role or target"
-    component.source.withOpen fun bindings value => do
-      let .mdata data _ := value
+    discard <| session.elaborateScoped Syntax.missing do
+      let value ← session.readTerm component
+      let scope ← get
+      let bindings := scope.context.bindings
+      let some selected ← SourceReadM.selection? value
         | throwError "a public cell component lost its retained source selection"
-      unless data.getString `CasCompiler.source.id == id.raw &&
-          data.getBool `CasCompiler.source.cell.inverse == inverse &&
-          data.getString `CasCompiler.source.cell.constructors == "[]" do
+      let some retained := selected.cell
+        | throwError "a public cell component lost its complete original interface"
+      unless retained.cell.entry.id == id &&
+          retained.cell.inverse == inverse && retained.cell.constructors.isEmpty do
         throwError "a public cell component lost its exact row, direction or constructor path"
       let #[entry] := (← semanticState).cells.filter (·.id == id)
         | throwError "the independent list cell was not retained"
@@ -51,18 +55,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[declaration]
         else pure declaration
       let expected ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, bindings[0]!.expression]
-      unless (← isDefEq value expected) && value.containsFVar bindings[0]!.expression.fvarId! do
+      let agrees ← scope.context.withOriginalSources #[value, expected] fun values =>
+        isDefEq values[0]! values[1]!
+      unless agrees && retained.value.containsFVar bindings[0]!.expression.fvarId! do
         throwError "a public cell component replaced its actual declared action or receiver"
-      let some retained ← sourceCellComponent? value
-        | throwError "a public cell component lost its complete original interface"
       unless retained.cell.entry.id == entry.id && retained.cell.inverse == inverse &&
           retained.receiver == bindings[0]!.expression && retained.cell.constructors.isEmpty do
         throwError "a public cell component changed its actual retained source inputs"
-      let some original ← sourceApplication? entry.declaration value
+      let some original ← sourceApplication? entry.declaration selected
         | throwError "a public cell component lost the actual declaration application"
       unless original.consumeMData.getAppFn.isConstOf entry.declaration do
         throwError "a public cell component substituted another declaration"
       checkWithKernel value
+      return value
   let failed ← try
     discard <| readCellSource session "inverse_component(«cell.sets.list.unit»(), X, [])"
     pure false
@@ -91,20 +96,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless category.expression.syntacticEq
         (.construct ConstructorId.arrow #[.category Foundation.Sets]) do
       throwError "a constructed component changed its original target constructor"
-    component.source.withOpen fun bindings value => do
-      unless value.containsFVar bindings[0]!.expression.fvarId! do
-        throwError "a constructed component replaced its original arrow receiver"
-      let .mdata data _ := value
+    discard <| session.elaborateScoped Syntax.missing do
+      let value ← session.readTerm component
+      let scope ← get
+      let bindings := scope.context.bindings
+      let some selected ← SourceReadM.selection? value
         | throwError "a constructed component lost its exact original constructor path"
-      unless data.getString `CasCompiler.source.cell.constructors == "[\"ctor.arrow\"]" &&
-          data.getBool `CasCompiler.source.cell.inverse == inverse do
-        throwError "a constructed component changed its path or orientation"
-      let some retained ← sourceCellComponent? value
+      let some retained := selected.cell
         | throwError "a constructed component lost its complete original interface"
+      unless retained.value.containsFVar bindings[0]!.expression.fvarId! do
+        throwError "a constructed component replaced its original arrow receiver"
+      unless retained.cell.constructors == #[ConstructorId.arrow] &&
+          retained.cell.inverse == inverse do
+        throwError "a constructed component changed its path or orientation"
       unless retained.cell.constructors == #[ConstructorId.arrow] &&
           retained.receiver == bindings[0]!.expression && retained.cell.isomorphism.isSome do
         throwError "a constructed component replaced its actual constructor, receiver or comparison"
       checkWithKernel value
+      return value
   let failed ← try
     discard <| readCellSource session "component(«cell.sets.list.join»(), f, [«ctor.arrow»])"
     pure false
@@ -113,9 +122,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure true
   unless failed do throwError "an isomorphism-only constructor acquired a noninvertible action"
 
--- The registered ring diamond has nonempty composite routes of different lengths.
--- Mapping it must retain both complete route-expansion comparisons, including all
--- declared constructor composition actions, without identifying the source routes.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let #[entry] := (← semanticState).cells.filter (·.id.raw == "cmp.rings.carrier")
     | throwError "the original independent ring comparison is absent"
