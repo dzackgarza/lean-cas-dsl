@@ -1,18 +1,20 @@
 module
 
 import CasCompiler.PublishedSource
+import CasCompiler.CategoricalPointSource
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.PublishedSource
+meta import CasCompiler.CategoricalPointSource
 meta import LeanCategories.Catalogue
 
 namespace CasCompiler.PublishedCategoricalRequestTests
 
 open Lean Meta Elab Term CasCatalogue CasCatalogue.Backend
 
--- The public seven-field entrance consumes the complete original native parameter table.
--- No provider is available in this source-only context; every read reference is its exact
--- original local slot, and the returned source retains the arbitrary generalized point.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let state ← semanticState
   let #[component] := state.cells.filter (·.id == NaturalTransformationId.listReverse)
@@ -82,9 +84,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         ({ id := ⟨"published-original-native-request", index⟩, role := .parameter, expression } : LocalBinding)
       let unavailable : {α : Type} → MetaM α := fun {_} =>
         throwError "source formation attempted to execute or recover a provider result"
-      let context : PublishedSourceContext := {
-        scope := ← ContextTelescope.capture bindings
-        retained := fun packet => do
+      let scope ← ContextTelescope.capture bindings
+      let identities ← CasRuntime.IdentitySupply.new
+      let selectSource : SourceSelection Expr → Option Expr →
+          StateCpsT (OpenContext × SourceSelectionScope Expr) TermElabM Expr :=
+        fun selection declaredType _ current continuation =>
+          controlAt MetaM fun run =>
+            current.2.withBinding identities current.1 selection
+              (fun context selections supplied => run (continuation supplied (context, selections)))
+              (declaredType := declaredType)
+      let context : PublishedSourceContext (OpenContext × SourceSelectionScope Expr) := {
+        scope := (·.1)
+        identities := fun _ => identities
+        selections := (·.2)
+        select := selectSource
+        actionSource := fun _ => liftM (m := MetaM) unavailable
+        retained := fun _ packet => do
           unless (packet.getObjValAs? String "ctor").toOption == some "scopeRef" do
             return none
           let #[position] ← ofExcept <| (packet.getObjVal? "args").bind Json.getArr?
@@ -97,36 +112,50 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           pure (some value)
         literal := fun _ _ => pure none
         bind := pure
+        bindAt := fun source declaredType => do
+          let current ← get
+          let selected := current.2.findAt? current.1 source |>.getD { value := source }
+          selectSource { selected with value := source } (some declaredType)
         rebind := fun _ value => pure value
-        methodParameters := fun _ _ _ => unavailable
-        checkInput := fun expected actual => do
+        methodParameters := fun _ _ _ => liftM (m := MetaM) unavailable
+        checkInput := fun _ expected actual => do
           checkRegisteredDomains expected actual
           unless ← isDefEq expected actual do
             throwError "the public input changed its complete native endpoint"
-        admitMethod := fun _ _ _ => unavailable
-        admitProperty := fun _ _ _ => unavailable
-        admitPoint := fun _ _ => unavailable
-        admitCategorical := fun _ _ _ => unavailable
-        projection := fun _ _ => unavailable }
+        admitMethod := fun _ _ _ _ => unavailable
+        admitProperty := fun _ _ _ _ => unavailable
+        admitPoint := fun _ _ _ => unavailable
+        admitCategorical := fun _ _ _ _ => unavailable
+        projection := fun _ _ => liftM (m := MetaM) unavailable }
       let call := fun (packet : PointInvocation) => Json.mkObj [("op", toJson family.operation),
         ("input", toJson family.operation), ("args", packet.encode)]
-      let result ← PublishedSource.prepare context (call packet)
-      let .mdata data body := result
-        | throwError "the public categorical request lost its native source boundary"
-      let restored ← CategoricalPointFamily.fromMark data
-      let (actualLevels, actual) ← restored.application body
-      unless actualLevels == levels && restored.operation == family.operation &&
-          actual.extract 0 family.parameterCount == parameters do
-        throwError "the public request changed an original declaration parameter position"
-      let some retained ← restored.request? actual[family.parameterCount + 1]!
-        | throwError "the public request lost its complete generalized request envelope"
-      unless retained.domain.equal domain && retained.point.equal point &&
-          retained.source.equal source && retained.target.equal target do
-        throwError "the public request replaced one of its actual generalized-point fields"
-      checkWithKernel (← mkLambdaFVars inputs result (usedOnly := false) (usedLetOnly := false))
+      (PublishedSource.prepare context (call packet)).runK (scope, {}) fun result current => do
+        let some selected := current.2.findAt? current.1 result
+          | throwError "the public categorical request lost its native source boundary"
+        let some (restored, actualLevels, actualParameters) ←
+            CategoricalPointFamily.ofSelection? selected
+          | throwError "the public categorical request lost its original family"
+        let some application := selected.application
+          | throwError "the public categorical request lost its original native argument table"
+        let actual := actualParameters ++ application.arguments
+        unless actualLevels == levels && restored.operation == family.operation &&
+            actual.extract 0 family.parameterCount == parameters do
+          throwError "the public request changed an original declaration parameter position"
+        let some (.categorical retainedFamily retained) := selected.pointRequest
+          | throwError "the public request lost its complete generalized request envelope"
+        unless (SelectedApplicationFamily.point restored).exactlyMatches (.point retainedFamily) &&
+            retained.domain.equal domain && retained.point.equal point &&
+            retained.source.equal source && retained.target.equal target do
+          throwError "the public request replaced one of its actual generalized-point fields"
+        current.1.withOriginalSources #[result] fun checked => do
+          let locals := (← getLCtx).foldl
+            (fun result declaration => result.push (mkFVar declaration.fvarId)) #[]
+          checkWithKernel (← mkLambdaFVars locals checked[0]!
+            (usedOnly := false) (usedLetOnly := false))
       let rejected ← try
-          discard <| PublishedSource.prepare context
-            (call { packet with target := reference family.parameterCount })
+          (PublishedSource.prepare context
+            (call { packet with target := reference family.parameterCount })).runK (scope, {})
+              fun _ _ => pure ()
           pure false
         catch _ => pure true
       unless rejected do throwError "the public request accepted a changed native target"

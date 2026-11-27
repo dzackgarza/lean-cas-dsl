@@ -26,47 +26,85 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue CasCatalogue.Backend
 
-/-- External operands supply data or an original retained native expression. These hooks
-carry no operation lookup, dependent application, route selection or mathematical proof.
-Runtime ownership and scoped references stay outside the compiler. -/
-structure PublishedSourceContext where
-  scope : OpenContext
-  retained : Json → MetaM (Option Expr)
+
+
+
+structure PublishedSourceContext (σ : Type) where
+  scope : σ → OpenContext
+  identities : σ → CasRuntime.IdentitySupply
+  selections : σ → SourceSelectionScope Expr
+  select : SourceSelection Expr → Option Expr → StateCpsT σ TermElabM Expr
+  retained : σ → Json → MetaM (Option Expr)
+  actionSource : Json → StateCpsT σ TermElabM (Option Expr)
   literal : Expr → Json → MetaM (Option Expr)
-  bind : Expr → MetaM Expr
-  rebind : Expr → Expr → MetaM Expr
-  methodParameters : RoutedMethodFamily → Array Expr → Expr → MetaM (Array Expr)
-  checkInput : Expr → Expr → MetaM Unit
-  admitMethod : RoutedMethodFamily → Expr → String → MetaM Unit
-  admitProperty : PropertyFamily → Expr → String → MetaM Unit
-  admitPoint : PointFamily → Expr → MetaM Unit
-  admitCategorical : CategoricalPointFamily → Array Expr → Expr → MetaM Unit :=
-    fun _ _ _ => throwError "a retained categorical arrow requires its original runtime owner"
-  constructionCone : Json → MetaM (Option (Expr × NativeLimitSelection × Expr)) :=
+  bind : Expr → StateCpsT σ TermElabM Expr
+  bindAt : Expr → Expr → StateCpsT σ TermElabM Expr
+  rebind : Expr → Expr → StateCpsT σ TermElabM Expr
+  methodParameters : RoutedMethodFamily → Array Expr → Expr → StateCpsT σ TermElabM (Array Expr)
+  checkInput : σ → Expr → Expr → MetaM Unit
+  admitMethod : σ → RoutedMethodFamily → Expr → String → MetaM Unit
+  admitProperty : σ → PropertyFamily → Expr → String → MetaM Unit
+  admitPoint : σ → PointFamily → Expr → MetaM Unit
+  admitCategorical : σ → CategoricalPointFamily → Array Expr → Expr → MetaM Unit :=
+    fun _ _ _ _ => throwError "a retained categorical arrow requires its original runtime owner"
+  constructionCone : Json → StateCpsT σ TermElabM (Option (Expr × NativeLimitSelection × Expr)) :=
     fun _ => pure none
-  creationOwner : Json → MetaM (Option (NativeLimitSelection × Expr)) :=
+  creationOwner : Json → StateCpsT σ TermElabM (Option (NativeLimitSelection × Expr)) :=
     fun _ => pure none
-  constructionEndpoint : NativeConstructionLeg → Bool → Expr → MetaM Bool :=
-    fun _ _ _ => pure false
-  projection : Json → Nat → MetaM (Expr × Name)
+  constructionEndpoint : σ → NativeConstructionLeg → Bool → Expr → MetaM Bool :=
+    fun _ _ _ _ => pure false
+  projection : Json → Nat → StateCpsT σ TermElabM (Expr × Name)
+  withLocal : Name → Expr → StateCpsT σ TermElabM Expr :=
+    fun _ _ => liftM (m := TermElabM) <|
+      throwError "this source context cannot introduce a symbolic native parameter"
 
 namespace PublishedSource
 
-private def malformed {α : Type} (reason : MessageData) : TermElabM α :=
-  throwStratum .malformed m!"published source request: {reason}"
+
+private def checkInput (context : PublishedSourceContext σ) (expected actual : Expr) :
+    StateCpsT σ TermElabM Unit := do
+  context.checkInput (← get) expected actual
+
+private def malformed {m : Type → Type _} [Monad m] [MonadLiftT MetaM m]
+    {α : Type} (reason : MessageData) : m α :=
+  liftM (m := MetaM) <| throwStratum .malformed m!"published source request: {reason}"
+
+
+private def selection? (context : PublishedSourceContext σ) (value : Expr) :
+    StateCpsT σ TermElabM (Option (SourceSelection Expr)) := do
+  let state ← get
+  let some selected := (context.selections state).findAt? (context.scope state) value.getAppFn
+    | return none
+  unless selected.formalBindings.size == value.getAppNumArgs do return none
+  return some (← liftM (m := MetaM) <| selected.specialize value.getAppArgs)
+
+
+private def sourceLayout (context : PublishedSourceContext σ) (value : Expr) :
+    StateCpsT σ TermElabM SourceLayout := do
+  let state ← get
+  let scope := context.scope state
+  let selections := context.selections state
+  let selectionBinding := match value with
+    | .fvar localId => do
+      let binding ← scope.bindings.find? (·.expression.fvarId! == localId)
+      if selections.contains binding.id then some binding.id else none
+    | _ => none
+  liftM (m := MetaM) <| SourceLayout.ofTerm (← scope.close value)
+    (← SourceSelectionScope.close selections scope) selectionBinding
 
 private def arrayField (packet : Json) (key : String) : TermElabM (Array Json) := do
   match (packet.getObjVal? key).bind (·.getArr?) with
   | .ok values => pure values
   | .error reason => malformed reason
 
-/-- An external name selects an exact source row; equal native declarations or categories
-are not alternative suppliers. Ordinary named syntax calls this same selected-row producer
-once its public spelling and qualification have selected the row. -/
+
+
+
 def namedApplicable (entry : ObjectEntry ⊕ MorphismEntry) (category : NamedCategoryEntry)
-    (apply : Expr → Option Expr → TermElabM (Except MessageData Expr)) :
-    TermElabM (Except MessageData (Expr × Expr)) :=
-  registeredExpressionsApplicable entry category apply
+    (select : SourceSelection Expr → Option Expr → StateCpsT σ TermElabM Expr)
+    (apply : Expr → Option Expr → StateCpsT σ TermElabM (Except MessageData Expr)) :
+    StateCpsT σ TermElabM (Except MessageData (Expr × Expr)) :=
+  registeredExpressionsApplicableScoped entry category select apply
 
 private def namedSelection? (address : String) :
     MetaM (Option ((ObjectEntry ⊕ MorphismEntry) × NamedCategoryEntry)) := do
@@ -83,16 +121,24 @@ private def namedSelection? (address : String) :
 
 mutual
 
-/-- Read data only at the complete declared source type. Named objects and maps use the
-ordinary selected-row producer; native records use their actual constructor telescope.
-The shared application elaborator preserves each actual retained operand at its original
-position, including repeated equal-valued but independently owned operands. -/
-private partial def readOperand (context : PublishedSourceContext) (domain : Expr) (packet : Json) :
-    TermElabM Expr := do
-  if let some source ← context.retained packet then
-    checkRegisteredDomains (← inferType source) domain
+
+
+
+
+private partial def readOperand (context : PublishedSourceContext σ) (domain : Expr) (packet : Json) :
+    StateCpsT σ TermElabM Expr := do
+  if let some source ← context.retained (← get) packet then
+    let type ← inferType source
+    checkRegisteredDomains type domain
+    if ← isDefEq type domain then return source
+    let compatible ← (context.scope (← get)).withOriginalSources #[type, domain] fun original => do
+      checkRegisteredDomains original[0]! original[1]!
+      isDefEq original[0]! original[1]!
+    unless compatible do malformed "a retained operand has a different declared type"
+    let source ← context.bindAt source domain
     unless ← isDefEq (← inferType source) domain do
-      malformed "a retained operand has a different declared type"
+      liftM (m := TermElabM) <|
+        throwError "the retained operand binding changed its original dependent native type"
     return source
   if let .ok address := packet.getObjValAs? String "ctor" then
     if let some (entry, category) ← namedSelection? address then
@@ -100,7 +146,7 @@ private partial def readOperand (context : PublishedSourceContext) (domain : Exp
       | .error reason => malformed reason
       | .ok () => pure ()
       let fields ← arrayField packet "args"
-      let formed ← namedApplicable entry category fun head expected => do
+      let formed ← namedApplicable entry category context.select fun head expected => do
         let value ← explicit context head fields expected
         unless ← isDefEq (← inferType value) domain do
           return .error m!"the named input has a different complete declared type"
@@ -118,12 +164,12 @@ private partial def readOperand (context : PublishedSourceContext) (domain : Exp
       unless fields.size == 3 do malformed "an Arrow operand requires both endpoints and its hom"
       pure (.arr fields)
     else pure packet
-  let domain ← whnfR (← instantiateMVars domain)
+  let domain ← whnfR (← liftM (m := MetaM) <| instantiateMVars domain)
   if let (.arr components, .const owner levels) := (packet, domain.getAppFn) then
-    if (getStructureInfo? (← getEnv) owner).isSome then
-      let constructor := getStructureCtor (← getEnv) owner
+    if (getStructureInfo? (← liftM (m := MetaM) getEnv) owner).isSome then
+      let constructor := getStructureCtor (← liftM (m := MetaM) getEnv) owner
       let head := mkAppN (.const constructor.name levels) domain.getAppArgs
-      let computational ← forallTelescopeReducing (← inferType head) fun fields _ => do
+      let computational ← liftM (m := MetaM) <| forallTelescopeReducing (← inferType head) fun fields _ => do
         return (← fields.filterM fun field => return !(← isProof field)).size
       unless components.size == computational do
         malformed "the structure operand has a different number of computational fields"
@@ -140,32 +186,32 @@ private partial def readOperand (context : PublishedSourceContext) (domain : Exp
     | malformed "an inline operand has no scalar reading at its declared type"
   return value
 
-/-- Ordinary explicit source arguments and external named parameters share one native
-application producer, including the registered source-instance inference view. -/
-private partial def explicit (context : PublishedSourceContext) (head : Expr) (packets : Array Json)
-    (expected : Option Expr := none) (resolved : Bool := true) : TermElabM Expr := do
-  let value ← applySourceDataArguments head packets.size expected fun index domain => do
+
+
+private partial def explicit (context : PublishedSourceContext σ) (head : Expr) (packets : Array Json)
+    (expected : Option Expr := none) (resolved : Bool := true) : StateCpsT σ TermElabM Expr := do
+  let value ← applySourceDataArgumentsScoped head packets.size expected fun index domain => do
       let some packet := packets[index]? | malformed "the source input lost an original parameter"
       readOperand context domain packet
-  let value ← instantiateMVars value
+  let value ← liftM (m := MetaM) <| instantiateMVars value
   if resolved && (value.hasMVar || value.hasLevelMVar) then
     malformed "the source input leaves a complete native parameter undetermined"
   return value
 
-/-- A complete-interface request exposes all computational positions, while formal proof
-positions remain source hypotheses. It uses the same native producer as ordinary syntax. -/
-private partial def complete (context : PublishedSourceContext) (head : Expr) (packets : Array Json) :
-    TermElabM Expr :=
-  applySourceArguments head (Array.replicate packets.size Syntax.missing) fun index domain => do
+
+
+private partial def complete (context : PublishedSourceContext σ) (head : Expr) (packets : Array Json) :
+    StateCpsT σ TermElabM Expr :=
+  applySourceArgumentsScoped head (Array.replicate packets.size Syntax.missing) fun index domain => do
     let some packet := packets[index]? | malformed "the source input lost an original parameter"
     readOperand context domain packet
 
 end
 
-/-- Read one external operand at its complete original native type. The recursive reader
-and application machinery remain compiler implementation details. -/
-opaque operand (context : PublishedSourceContext) (domain : Expr) (packet : Json) :
-    TermElabM Expr := readOperand context domain packet
+
+
+opaque operand (context : PublishedSourceContext σ) (domain : Expr) (packet : Json) :
+    StateCpsT σ TermElabM Expr := readOperand context domain packet
 
 private partial def actionParameters (edge : EdgeRef) (descriptor : Json) :
     TermElabM (Array Json) := do
@@ -184,11 +230,11 @@ private partial def actionParameters (edge : EdgeRef) (descriptor : Json) :
     malformed "the action descriptor differs from its exact selected edge"
   return parameters
 
-/-- Select and apply a method through the same whole-family producer and C6 agreement
-as native source. The released action descriptors retain their explicit route; provider
-availability never selects it. Runtime callbacks only bind already typed original inputs. -/
-private def method (context : PublishedSourceContext) (entry : MethodEntry)
-    (input : String) (arguments : Json) : TermElabM Expr := do
+
+
+
+private def method (context : PublishedSourceContext σ) (entry : MethodEntry)
+    (input : String) (arguments : Json) : StateCpsT σ TermElabM Expr := do
   let state ← semanticState
   let registry : RegistryState := { toSemanticState := state }
   let some form := registry.form? input | malformed "the explicit input form is not published"
@@ -209,7 +255,7 @@ private def method (context : PublishedSourceContext) (entry : MethodEntry)
       (family.route.refs.push (.functor family.functor.id)).map edgeImageDescriptor == identities)
     | malformed "the residual actions are not one complete first-hit method route"
   let mut evidence := #[]
-  for declaration in ← getLCtx do
+  for declaration in ← liftM (m := MetaM) getLCtx do
     if ← isProp declaration.type then evidence := evidence.push (mkFVar declaration.fvarId)
   let agreements ← family.agreements evidence
   let (_, levels) ← family.instantiate
@@ -230,13 +276,13 @@ private def method (context : PublishedSourceContext) (entry : MethodEntry)
       pure (Json.arr fields)
     else pure packet.receiver
   let receiver ← operand context domain receiverPacket
-  let receiver ← instantiateMVars receiver
-  let parameters ← parameters.mapM instantiateMVars
-  let levels ← levels.mapM instantiateLevelMVars
+  let receiver ← liftM (m := MetaM) <| instantiateMVars receiver
+  let parameters ← liftM (m := MetaM) <| parameters.mapM instantiateMVars
+  let levels ← liftM (m := MetaM) <| levels.mapM instantiateLevelMVars
   if receiver.hasMVar || receiver.hasLevelMVar ||
       parameters.any (fun parameter => parameter.hasMVar || parameter.hasLevelMVar) then
     malformed "the receiver leaves the complete method category undetermined"
-  context.admitMethod family receiver input
+  context.admitMethod (← get) family receiver input
   let receiver ← context.bind receiver
   let edges := family.route.refs.push (.functor family.functor.id)
   let actions ← family.specializeActions levels parameters
@@ -244,15 +290,18 @@ private def method (context : PublishedSourceContext) (entry : MethodEntry)
   let mut selected := parameters
   let mut supplied : Array (Array Expr) := #[]
   let mut selectedSlots : Std.HashSet Nat := {}
-  for edge in edges, action in actions, descriptor in packet.parameters, inputs in routes do
-    let expected ← routedActionParameters edge action
+  unless family.actionFamilies.size == edges.size do
+    malformed "the selected method lost its complete original action-family table"
+  for edge in edges, actionFamily in family.actionFamilies, action in actions,
+      descriptor in packet.parameters, inputs in routes do
+    let expected ← routedActionParameters actionFamily action
     let packets ← actionParameters edge descriptor
     unless packets.size == expected.size && inputs.size == expected.size do
       malformed "an action changed its complete native parameter arity"
     let mut values := #[]
     for (_, source) in expected, packet in packets, route in inputs do
       let term ← operand context (← inferType source) packet
-      let term ← instantiateMVars term
+      let term ← liftM (m := MetaM) <| instantiateMVars term
       if term.hasMVar || term.hasLevelMVar then
         malformed "an action parameter leaves its native type undetermined"
       let value ← context.bind term
@@ -267,26 +316,27 @@ private def method (context : PublishedSourceContext) (entry : MethodEntry)
   selected ← context.methodParameters family selected receiver
   let checkedActions ← family.specializeActions levels selected
   let mut retainedInputs := #[]
-  for edge in edges, action in checkedActions, values in supplied do
-    let expected ← routedActionParameters edge action
+  for actionFamily in family.actionFamilies, action in checkedActions, values in supplied do
+    let expected ← routedActionParameters actionFamily action
     let mut inputs := #[]
     for (_, source) in expected, value in values do
-      context.checkInput source value
+      checkInput context source value
       inputs := inputs.push value
     retainedInputs := retainedInputs.push inputs
-  let (result, _) ← family.applyAt levels selected receiver retainedInputs
+  let (result, _) ← family.applyAt levels selected receiver context.select retainedInputs
   let mut term := result
   for proof in agreements.reverse do
     let mut proof := proof.instantiateLevelParams family.universeParams levels
     for parameter in selected do proof ← mkAppM ``congrFun #[proof, parameter]
     checkWithKernel proof
-    term ← withLetDecl (← mkFreshUserName `methodFamilyAgreement) (← inferType proof) proof
-      fun binding => mkLetFVars #[binding] term
-        (usedLetOnly := false) (generalizeNondepLet := false)
+    term ← liftM (m := MetaM) <|
+      withLetDecl (← mkFreshUserName `methodFamilyAgreement) (← inferType proof) proof
+        fun binding => mkLetFVars #[binding] term
+          (usedLetOnly := false) (generalizeNondepLet := false)
   return term
 
-private def property (context : PublishedSourceContext) (entry : PropertyEntry)
-    (input : String) (arguments : Json) : TermElabM Expr := do
+private def property (context : PublishedSourceContext σ) (entry : PropertyEntry)
+    (input : String) (arguments : Json) : StateCpsT σ TermElabM Expr := do
   let state ← semanticState
   let registry : RegistryState := { toSemanticState := state }
   let some form := registry.form? input | malformed "the explicit input form is not published"
@@ -298,17 +348,17 @@ private def property (context : PublishedSourceContext) (entry : PropertyEntry)
   let bundle := mkAppN categoryFamily parameters
   let domain ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
   let receiver ← operand context domain arguments
-  let receiver ← instantiateMVars receiver
-  let bundle ← instantiateMVars bundle
+  let receiver ← liftM (m := MetaM) <| instantiateMVars receiver
+  let bundle ← liftM (m := MetaM) <| instantiateMVars bundle
   if receiver.hasMVar || receiver.hasLevelMVar || bundle.hasMVar || bundle.hasLevelMVar then
     malformed "the receiver leaves the complete property category undetermined"
   let (family, source) ← PropertyFamily.forReceiver
     ⟨.object, category.expression, bundle, none, none⟩ entry.id receiver
-  context.admitProperty family receiver input
-  return source
+  context.admitProperty (← get) family receiver input
+  context.select source none
 
-private def namedPoint (context : PublishedSourceContext) (operation : String)
-    (arguments : Json) : TermElabM Expr := do
+private def namedPoint (context : PublishedSourceContext σ) (operation : String)
+    (arguments : Json) : StateCpsT σ TermElabM Expr := do
   let state ← semanticState
   let morphisms := state.morphisms.filter (·.id.raw == operation)
   let applications := state.objects.filter fun entry =>
@@ -332,13 +382,15 @@ private def namedPoint (context : PublishedSourceContext) (operation : String)
   let .forallE _ pointType _ _ ← whnfR (← inferType expectedFunction)
     | malformed "the named morphism has no complete point-function interface"
   let point ← operand context pointType packet.argument
-  let some original ← sourcePointOrigin? point
+  let some selectedPoint ← selection? context point
+    | malformed "the operand has no retained original generalized-point domain"
+  let some original := selectedPoint.pointOrigin
     | malformed "the operand has no retained original generalized-point domain"
   let domain ← operand context (← inferType original.domain) packet.domain
   let source ← operand context (← inferType expectedSource) packet.source
   let target ← operand context (← inferType expectedTarget) packet.target
-  let arrow ← if let some arrow ← context.retained packet.arrow then do
-      context.admitPoint family arrow
+  let arrow ← if let some arrow ← context.retained (← get) packet.arrow then do
+      context.admitPoint (← get) family arrow
       pure arrow
     else do
       match checkServiceFields #["ctor", "args"] packet.arrow with
@@ -347,16 +399,25 @@ private def namedPoint (context : PublishedSourceContext) (operation : String)
       unless (packet.arrow.getObjValAs? String "ctor").toOption == some operation do
         malformed "the arrow descriptor belongs to a different released family"
       let value ← explicit context head (← arrayField packet.arrow "args")
-      pure (family.mark value)
-  let point ← try family.withRequest expectedArrow domain source target point
-    catch error => malformed m!"the complete named point inputs disagree: {error.toMessageData}"
+      let .const declaration levels := value.getAppFn
+        | malformed "the named arrow lost its original declaration spine"
+      unless declaration == family.declaration do
+        malformed "the named arrow changed its original declaration"
+      context.select (← family.selected levels value.getAppArgs value) none
+  let scope := context.scope (← get)
+  let selectedPoint ← liftM (m := TermElabM) <| do
+    try
+      family.withRequest arrow domain source target
+        { selectedPoint with value := point } (some scope)
+    catch error =>
+      malformed m!"the complete named point inputs disagree: {error.toMessageData}"
   let function ← family.function arrow
-  let (result, _) ← elabSourceApplication function #[Syntax.missing] none
-    fun _ _ => pure point
+  let (result, _) ← elabSourceApplicationScoped function #[Syntax.missing] none
+    fun _ domain => context.select selectedPoint (some domain)
   return result
 
-private def presentation (context : PublishedSourceContext) (row : PresentationComparisonEntry)
-    (arguments : Json) : TermElabM Expr := do
+private def presentation (context : PublishedSourceContext σ) (row : PresentationComparisonEntry)
+    (arguments : Json) : StateCpsT σ TermElabM Expr := do
   match checkServiceFields #["ctor", "args"] arguments with
   | .error reason => malformed reason
   | .ok () => pure ()
@@ -368,20 +429,23 @@ private def presentation (context : PublishedSourceContext) (row : PresentationC
   let iso ← explicit context head packet.parameters
   let (first, second) ← family.endpoints iso
   let (source, target) := if packet.inverse then (second, first) else (first, second)
-  let source ← operand context (← inferType source) packet.source
-  let target ← operand context (← inferType target) packet.target
+  let source ← operand context (← inferType source.value) packet.source
+  let target ← operand context (← inferType target.value) packet.target
   let (first, second) := if packet.inverse then (target, source) else (source, target)
-  let iso ← try family.withEndpoints iso first second
+  let scope := context.scope (← get)
+  let selected ← liftM (m := TermElabM) <| do
+    try family.withEndpoints iso first second (some scope)
     catch error => malformed m!"the comparison endpoints do not match the selected family: {error.toMessageData}"
+  let iso ← context.select selected none
   let function ← family.function iso packet.inverse
-  let (result, _) ← elabSourceApplication function #[Syntax.missing] none fun _ domain =>
+  let (result, _) ← elabSourceApplicationScoped function #[Syntax.missing] none fun _ domain =>
     operand context domain packet.argument
   return result
 
-/-- Decode the released complete component packet, then invoke the same native cell producer
-as ordinary source syntax. The ordered constructor path acts on the entire selected cell. -/
-private def component (context : PublishedSourceContext) (operation : String)
-    (entry : CellEntry) (constructors : Array ConstructorId) (arguments : Json) : TermElabM Expr := do
+
+
+private def component (context : PublishedSourceContext σ) (operation : String)
+    (entry : CellEntry) (constructors : Array ConstructorId) (arguments : Json) : StateCpsT σ TermElabM Expr := do
   match checkServiceFields #["ctor", "args"] arguments with
   | .error reason => malformed reason
   | .ok () => pure ()
@@ -399,23 +463,23 @@ private def component (context : PublishedSourceContext) (operation : String)
   for constructor in constructors.reverse do cell ← cell.construct constructor
   let domain ← mkAppM ``CategoryTheory.Bundled.α #[cell.sourceBundle]
   let receiver ← operand context domain packet.component.receiver
-  return (← cell.component ⟨receiver, none⟩).value
+  context.select (← cell.selectedComponent ⟨receiver, none⟩) none
 
-/-- Form an explicitly selected action from the actual native declaration inputs. The
-recursive constructor interface is the same one used by sourceEdgeFunctor and native cells. -/
-private partial def action (context : PublishedSourceContext) (edge : EdgeRef)
-    (descriptor : Json) : TermElabM (Expr × CategoryExpr) := do
+
+
+private partial def action (context : PublishedSourceContext σ) (edge : EdgeRef)
+    (descriptor : Json) : StateCpsT σ TermElabM (Expr × CategoryExpr) := do
   let state ← semanticState
   let parameters ← actionParameters edge descriptor
   match edge with
   | .functor id =>
     let some entry := state.functor? id | malformed "the selected action functor is absent"
-    let view ← viewExpressions (.inl entry) none fun head =>
+    let view ← viewExpressionsScoped (.inl entry) none context.select fun head =>
       explicit context head parameters (resolved := false)
     return (view.functor, view.target)
   | .classifierForget id =>
     let some entry := state.classifier? id | malformed "the selected action classifier is absent"
-    let view ← viewExpressions (.inr entry) none fun head =>
+    let view ← viewExpressionsScoped (.inr entry) none context.select fun head =>
       explicit context head parameters (resolved := false)
     return (view.functor, view.target)
   | .constructMap id inner =>
@@ -428,8 +492,8 @@ private partial def action (context : PublishedSourceContext) (edge : EdgeRef)
     let (sourceBundle, targetBundle) ← functorCategoryBundles inner
     discard <| checkedDeclaration declaration
     let value ← applyConstructorInterface declaration #[sourceBundle, targetBundle] #[inner]
-    return (sourceReference ``ConstructorEntry.functorialAction id.raw declaration value,
-      .construct id #[.category target])
+    let selected ← sourceReferenceAt (.constructorInterface entry .functorialAction) value value
+    return (← context.select selected none, .construct id #[.category target])
 
 private def selectedAction (descriptor : Json) : TermElabM EdgeRef := do
   let identity ← match descriptorActionIdentity descriptor with
@@ -447,9 +511,9 @@ private def selectedAction (descriptor : Json) : TermElabM EdgeRef := do
     | malformed "the action descriptor has no complete published native edge"
   return edge
 
-/-- Form the supplied native action on its actual typed operand without selecting a provider. -/
-opaque actionOperand (context : PublishedSourceContext) (descriptor : Json) (arrow : Expr) :
-    TermElabM Expr := do
+
+opaque actionOperand (context : PublishedSourceContext σ) (descriptor : Json) (arrow : Expr) :
+    StateCpsT σ TermElabM Expr := do
   let edge ← selectedAction descriptor
   let (functor, _) ← action context edge descriptor
   let value ← mkAppM ``CategoryTheory.Functor.map #[functor, arrow]
@@ -463,7 +527,7 @@ private def nativeHomType (value : Expr) : TermElabM Expr := do
     malformed "the symbolic map has no complete original native Hom interface"
   return type
 
-/-- Read the actual parent of this Hom's Quiver projection, without category search. -/
+
 private def nativeHomStructure (type : Expr) : TermElabM Expr := do
   let quiver := type.getAppArgs[1]!.consumeMData
   if quiver.isAppOfArity ``CategoryTheory.CategoryStruct.toQuiver 2 then
@@ -472,18 +536,18 @@ private def nativeHomStructure (type : Expr) : TermElabM Expr := do
     if owner == ``CategoryTheory.CategoryStruct then return value
   malformed "the symbolic map lost its original complete category structure"
 
-/-- A retained native object, or one explicitly shared inline endpoint position. -/
+
 inductive NativeSymbolicEndpoint
   | value (expression : Expr)
   | inline (position : Nat)
 
-/-- Existing native values and the explicit endpoint interfaces of inert inline map data. -/
+
 inductive NativeSymbolicOperand
   | value (expression : Expr)
   | objectData (endpoint : NativeSymbolicEndpoint)
   | mapData (source target : NativeSymbolicEndpoint)
 
-/-- One supplied symbolic node in a single complete packet's endpoint namespace. -/
+
 structure NativeSymbolicNode where
   expected : Expr
   tag : String
@@ -492,7 +556,7 @@ structure NativeSymbolicNode where
   framed : Option (NativeSymbolicEndpoint × NativeSymbolicEndpoint) := none
   inputActions : Array Json := #[]
 
-/-- Zero is available only from the structure at this Hom's actual complete Category. -/
+
 private def nativeZero (type source target : Expr) : TermElabM Expr := do
   let structureValue ← nativeHomStructure type
   let structureValue := structureValue.consumeMData
@@ -514,11 +578,11 @@ private def nativeZero (type source target : Expr) : TermElabM Expr := do
     (type.getAppArgs.set! 2 source |>.set! 3 target)
   mkAppOptM ``Zero.zero #[some hom, some instanceValue]
 
-/-- Preserve the particular descriptor occurrence's original construction and typed
-index while preparing its native component. The same parser serves direct operands
-and the whole symbolic-tree constraint check. -/
-private def readConstructionLeg (context : PublishedSourceContext) (packet : Json) :
-    TermElabM NativeConstructionLeg := do
+
+
+
+private def readConstructionLeg (context : PublishedSourceContext σ) (packet : Json) :
+    StateCpsT σ TermElabM NativeConstructionLeg := do
   match checkServiceFields #["ctor", "args"] packet with
   | .error reason => malformed reason | .ok () => pure ()
   let #[identity, diagramPacket, conePacket, indexPacket] ← arrayField packet "args"
@@ -540,7 +604,7 @@ private def readConstructionLeg (context : PublishedSourceContext) (packet : Jso
     malformed "the construction leg changed its complete native diagram arity"
   for expected in fields, packet in packets do
     let actual ← operand context (← inferType expected) packet
-    context.checkInput expected (← context.bind actual)
+    checkInput context expected (← context.bind actual)
   let transformation ← mkAppM (if selected.source.colimit then
     ``CategoryTheory.Limits.Cocone.ι else ``CategoryTheory.Limits.Cone.π) #[cone]
   let component ← mkAppM ``CategoryTheory.NatTrans.app #[transformation]
@@ -549,20 +613,29 @@ private def readConstructionLeg (context : PublishedSourceContext) (packet : Jso
   let index ← operand context domain indexPacket
   NativeConstructionLeg.prepare owner selected cone (← context.bind index)
 
-/-- Named symbolic arrows use their original published declarations and complete parameters. -/
-private def descriptorArrow (context : PublishedSourceContext) (tag : String)
-    (packet : Json) : TermElabM Expr := do
+
+private def descriptorArrow (context : PublishedSourceContext σ) (tag : String)
+    (packet : Json) : StateCpsT σ TermElabM Expr := do
   match checkServiceFields #["ctor", "args"] packet with
   | .error reason => malformed reason | .ok () => pure ()
   let state ← semanticState
   if tag == "constructionLeg" then
-    return (← readConstructionLeg context packet).value
+    return ← context.select (← (← readConstructionLeg context packet).selected) none
   if tag == "objectField" then
     let parsed ← match ObjectField.decode packet with
       | .ok parsed => pure parsed | .error reason => malformed reason
     let #[entry] := state.objects.filter (·.id.raw == parsed.object)
       | malformed "the object field has no unique original object declaration"
-    let object ← explicit context (← mkConstWithFreshMVarLevels entry.declaration) parsed.parameters
+    let #[category] := state.categories.filter (·.id == entry.category)
+      | malformed "the object field lost its complete original registered category"
+    let formed ← namedApplicable (.inl entry) category context.select fun head expected => do
+      return .ok (← explicit context head parsed.parameters expected)
+    let .ok (_, object) := formed
+      | malformed "the object field changed its complete original declared object"
+    let some selectedObject ← selection? context object
+      | malformed "the object field lost its exact selected object binding"
+    let some original ← sourceApplication? entry.declaration selectedObject
+      | malformed "the object field lost its original declaration parameter table"
     let field ← match parsed.field with
       | "constants" => pure entry.constants
       | "inclusion" => pure entry.inclusion
@@ -573,10 +646,13 @@ private def descriptorArrow (context : PublishedSourceContext) (tag : String)
     let some declaration := field
       | malformed "the original object has no selected published map field"
     discard <| checkedDeclaration declaration
-    let value ← applyObjectParameters entry.id.raw declaration object.getAppArgs
-    if parsed.field == "constants" || parsed.field == "inclusion" then return value
-    let inverse := parsed.field == "inversePresentation" || parsed.field == "inverseRefinement"
-    return ← mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[value]
+    let value ← applyObjectParameters entry.id.raw declaration original.getAppArgs
+    let value ← if parsed.field == "constants" || parsed.field == "inclusion" then pure value
+      else do
+        let inverse := parsed.field == "inversePresentation" || parsed.field == "inverseRefinement"
+        mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[value]
+    let selected := sourceDerivedReference (.named (.registered (.inl entry) category)) value
+    return ← context.select { selected with originalApplication := some original } none
   if tag == "cellComponent" || tag == "constructedCellComponent" then
     let parsed ← match if tag == "cellComponent" then
         (CellComponent.decode packet).map fun value =>
@@ -603,7 +679,7 @@ private def descriptorArrow (context : PublishedSourceContext) (tag : String)
     let .forallE _ domain _ _ ← whnfR (← inferType partialArrow)
       | malformed "the cartesian descriptor lost its native receiver"
     let receiver ← operand context domain parsed.receiver
-    return (← family.arrowAt levels (application.getAppArgs.push receiver)).1
+    return ← context.select (← family.arrowSelection levels (application.getAppArgs.push receiver)) none
   if tag == "presentation" then
     let #[identity, .arr parameters, direction] ← arrayField packet "args"
       | malformed "a presentation arrow requires its original id, parameters and direction"
@@ -615,19 +691,22 @@ private def descriptorArrow (context : PublishedSourceContext) (tag : String)
       | malformed "the presentation arrow has no unique accepted comparison"
     discard <| checkedDeclaration entry.declaration
     let iso ← explicit context (← mkConstWithFreshMVarLevels entry.declaration) parameters
+    let family ← PresentationFamily.forEntry entry
+    let iso ← context.select (← family.selected iso) none
     return ← mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[iso]
   if let some (Sum.inr entry, category) ← namedSelection? tag then
     match checkServiceFields #["ctor", "args"] packet with
     | .error reason => malformed reason | .ok () => pure ()
-    let formed ← namedApplicable (.inr entry) category fun head expected => do
+    let formed ← namedApplicable (.inr entry) category context.select fun head expected => do
       return .ok (← explicit context head (← arrayField packet "args") expected)
     let .ok (_, value) := formed
       | malformed "the named symbolic arrow changed its complete native declaration"
     return value
   if let #[entry] := state.binders.filter (·.id.raw == tag) then
     discard <| checkedDeclaration entry.operation
-    return sourceReference ``BinderEntry entry.id.raw entry.operation
-      (← explicit context (← mkConstWithFreshMVarLevels entry.operation) (← arrayField packet "args"))
+    let value ← explicit context (← mkConstWithFreshMVarLevels entry.operation)
+      (← arrayField packet "args")
+    return ← context.select (← sourceReferenceAt (.binder entry) value value) none
   malformed "the symbolic arrow has no supplied original native declaration"
 
 private def symbolicEndpoint (fresh : Expr → TermElabM Expr)
@@ -667,7 +746,7 @@ private partial def withSymbolicOperands (carrier : Expr)
     withLocalDeclD (← mkFreshUserName `inlineMapInterface) type fun arrow =>
       withSymbolicOperands carrier domain operands (index + 1) (actual.push arrow) known fresh finish
 
-/-- Compare the complete native category interface independently of packet endpoint positions. -/
+
 private def checkSymbolicCategory (actual expected : Expr) : TermElabM Unit := do
   let actualArgs := actual.getAppArgs
   let expectedArgs := expected.getAppArgs
@@ -677,12 +756,10 @@ private def checkSymbolicCategory (actual expected : Expr) : TermElabM Unit := d
       isDefEq (← nativeHomStructure actual) (← nativeHomStructure expected) do
     malformed "the symbolic operands use another full native category or Hom interface"
 
-/-- A nested map's input category follows only its supplied complete action descriptors. -/
-private partial def withSymbolicCategory (context : PublishedSourceContext) (type : Expr)
-    (actions : Array Json) (index : Nat) (finish : Expr → TermElabM Unit) : TermElabM Unit := do
-  let some descriptor := actions[index]? | return ← finish type
-  let edge ← selectedAction descriptor
-  let (functor, _) ← action context edge descriptor
+
+private partial def withSymbolicCategory (type : Expr)
+    (actions : Array Expr) (index : Nat) (finish : Expr → TermElabM Unit) : TermElabM Unit := do
+  let some functor := actions[index]? | return ← finish type
   let (source, target) ← functorCategoryBundles functor
   let targetCarrier ← mkAppM ``CategoryTheory.Bundled.α #[target]
   withLocalDeclD (← mkFreshUserName `nestedTargetInterface) targetCarrier fun targetObject => do
@@ -691,27 +768,28 @@ private partial def withSymbolicCategory (context : PublishedSourceContext) (typ
     let sourceCarrier ← mkAppM ``CategoryTheory.Bundled.α #[source]
     withLocalDeclD (← mkFreshUserName `nestedSourceInterface) sourceCarrier fun sourceObject => do
       let sourceType ← nativeHomType (← categoricalPointIdentity source sourceObject)
-      withSymbolicCategory context sourceType actions (index + 1) finish
+      withSymbolicCategory sourceType actions (index + 1) finish
 
-/-- Provenance travels with this one endpoint constraint, including across an
-inline intermediate. It is never recovered by using an endpoint expression as a key. -/
+
+
 private structure SymbolicEndpointConstraint where
   source : Expr
   construction : Option (NativeConstructionLeg × Bool) := none
 
-/-- Validate the entire symbolic tree in one transient endpoint constraint context.
-Inline positions are interface metavariables only during this check. Every concrete native
-endpoint constraint is retained independently, so unification cannot erase original runtime
-occurrence marks. The supplied check compares their actual source dependencies afterward. -/
-private def validateSymbolicCore (context : PublishedSourceContext)
-    (nodes : Array NativeSymbolicNode)
-    (checkShared : Expr → Expr → TermElabM Unit) : TermElabM Unit := do
-  let stableContext ← getLCtx
-  let stableInstances ← getLocalInstances
+
+
+
+
+private def validatePreparedSymbolic (context : PublishedSourceContext σ) (state : σ)
+    (nodes : Array (NativeSymbolicNode × Array Expr × Option Expr ×
+      Option NativeConstructionLeg × Option Expr))
+    (checkShared : σ → Expr → Expr → TermElabM Unit) : TermElabM Unit := do
+  let stableContext ← liftM (m := MetaM) getLCtx
+  let stableInstances ← liftM (m := MetaM) getLocalInstances
   let stable := stableContext.foldl (fun values declaration =>
     values.push (mkFVar declaration.fvarId)) (#[] : Array Expr)
   let freshEndpoint : Expr → TermElabM Expr := fun carrier => do
-    let carrier ← instantiateMVars carrier
+    let carrier ← liftM (m := MetaM) <| instantiateMVars carrier
     if (carrier.find? fun term => term.isFVar && !stable.contains term).isSome then
       malformed "an inline endpoint carrier depends on a temporary category interface"
     withLCtx stableContext stableInstances <| mkFreshExprMVar carrier
@@ -721,15 +799,15 @@ private def validateSymbolicCore (context : PublishedSourceContext)
   let comparisons ← IO.mkRef
     (#[] : Array (SymbolicEndpointConstraint × SymbolicEndpointConstraint))
   let compare := fun (first second : SymbolicEndpointConstraint) => do
-    let left ← instantiateMVars first.source
-    let right ← instantiateMVars second.source
+    let left ← liftM (m := MetaM) <| instantiateMVars first.source
+    let right ← liftM (m := MetaM) <| instantiateMVars second.source
     let handledLeft ← match first.construction with
-      | some (original, target) => context.constructionEndpoint original target right
+      | some (original, target) => context.constructionEndpoint state original target right
       | none => pure false
     let handledRight ← match second.construction with
-      | some (original, target) => context.constructionEndpoint original target left
+      | some (original, target) => context.constructionEndpoint state original target left
       | none => pure false
-    unless handledLeft || handledRight do checkShared left right
+    unless handledLeft || handledRight do checkShared state left right
   let constrain := fun (actual : Expr) (endpoint : NativeSymbolicEndpoint)
       (construction : Option NativeConstructionLeg) (target : Bool) => do
     let stated ← symbolicEndpoint freshEndpoint (← inferType actual) endpoint known
@@ -740,7 +818,8 @@ private def validateSymbolicCore (context : PublishedSourceContext)
     | .inline position => constraints.modify (·.push (position, actual))
     unless ← isDefEq actual.source stated do
       malformed "a symbolic map changed its explicitly framed native endpoint"
-  let rec visit : List NativeSymbolicNode → TermElabM Unit
+  let rec visit : List (NativeSymbolicNode × Array Expr × Option Expr ×
+      Option NativeConstructionLeg × Option Expr) → TermElabM Unit
     | [] => do
       synthesizeSyntheticMVars (postpone := .no)
       for (first, second) in ← comparisons.get do
@@ -750,44 +829,38 @@ private def validateSymbolicCore (context : PublishedSourceContext)
         for (otherPosition, other) in constraints do
           if position == otherPosition then
             compare expression other
-      let transient := (← getLCtx).foldl (fun values declaration =>
+      let transient := (← liftM (m := MetaM) getLCtx).foldl (fun values declaration =>
         let value := mkFVar declaration.fvarId
         if stable.contains value then values else values.push value) (#[] : Array Expr)
       for (_, expression) in ← known.get do
-        let carrier ← instantiateMVars (← inferType expression)
+        let carrier ← liftM (m := MetaM) <| instantiateMVars (← inferType expression)
         if carrier.hasMVar || carrier.hasLevelMVar ||
             (carrier.find? fun term => term.isFVar && !stable.contains term).isSome then
           malformed "an inline endpoint has no complete native carrier in its original scope"
       let allowed ← (← known.get).foldlM (fun result (_, expression) => do
-        let unresolved ← getMVars (← instantiateMVars expression)
+        let unresolved ← getMVars (← liftM (m := MetaM) <| instantiateMVars expression)
         return result ++ unresolved) (#[] : Array MVarId)
       for expression in ← checked.get do
-        let expression ← mkLambdaFVars transient (← instantiateMVars expression)
+        let expression ← mkLambdaFVars transient (← liftM (m := MetaM) <| instantiateMVars expression)
           (usedOnly := false) (usedLetOnly := false)
         for unknown in ← getMVars expression do
           unless allowed.contains unknown do
             malformed m!"the symbolic interface leaves a native parameter undetermined: {← inferType (.mvar unknown)}"
-          let type ← instantiateMVars (← inferType (.mvar unknown))
+          let type ← liftM (m := MetaM) <| instantiateMVars (← inferType (.mvar unknown))
           if type.hasMVar || type.hasLevelMVar ||
               (type.find? fun term => term.isFVar && !stable.contains term).isSome then
             malformed "an inline endpoint has no complete native carrier in its original scope"
         let abstracted ← abstractMVars expression (levels := false)
         let closed ← mkLambdaFVars stable abstracted.expr
           (usedOnly := false) (usedLetOnly := false)
-        let closed ← instantiateMVars closed
+        let closed ← liftM (m := MetaM) <| instantiateMVars closed
         if closed.hasMVar || closed.hasLevelMVar || closed.hasFVar || closed.hasSorry then
           malformed "the symbolic interface did not close over its exact rigid native scope"
         checkWithKernel closed
-    | node :: remaining => do
+    | (node, actions, functor, construction, prepared) :: remaining => do
       let type ← nativeHomType node.expected
-      withSymbolicCategory context type node.inputActions 0 fun type => do
+      withSymbolicCategory type actions 0 fun type => do
         let args := type.getAppArgs
-        let functor : Option Expr ← if node.tag == "map" then do
-            let some descriptor := node.descriptor
-              | malformed "a map action lost its complete descriptor"
-            let edge ← selectedAction descriptor
-            pure (some (← action context edge descriptor).1)
-          else pure none
         let domain := fun source target => do
           if let some functor := functor then
             let map ← mkAppOptM ``CategoryTheory.Functor.map
@@ -801,7 +874,6 @@ private def validateSymbolicCore (context : PublishedSourceContext)
             mkAppM ``CategoryTheory.Bundled.α #[source]
           else pure args[0]!
         withSymbolicOperands carrier domain node.operands 0 #[] known freshEndpoint fun operands => do
-          let mut construction : Option NativeConstructionLeg := none
           let value ← if node.tag == "identity" then do
               let #[object] := operands
                 | malformed "an identity requires its actual original object"
@@ -829,13 +901,9 @@ private def validateSymbolicCore (context : PublishedSourceContext)
                 | malformed "a map action requires its actual original map"
               mkAppM ``CategoryTheory.Functor.map #[functor, arrow]
             else do
-              let some descriptor := node.descriptor
-                | malformed "the symbolic arrow lost its complete original descriptor"
-              if node.tag == "constructionLeg" then
-                let original ← readConstructionLeg context descriptor
-                construction := some original
-                pure original.value
-              else descriptorArrow context node.tag descriptor
+              let some value := prepared
+                | throwError "the symbolic arrow lost its prepared original native descriptor"
+              pure value
           let actual ← nativeHomType value
           checkSymbolicCategory actual type
           checked.modify (·.push value)
@@ -845,23 +913,52 @@ private def validateSymbolicCore (context : PublishedSourceContext)
           visit remaining
   visit nodes.toList
 
-/-- Validate supplied symbolic data in a transient native scope. Authenticated opaque packet
-positions are opened as rigid locals at their original declaration binder. Discovering a new
-position restarts the complete check; no partial pass or opaque mathematical term escapes.
-The optional position resolver is used only here, never by ordinary source preparation. -/
-opaque validateSymbolicBatch (context : PublishedSourceContext)
+
+
+
+private def validateSymbolicCore (context : PublishedSourceContext σ)
     (nodes : Array NativeSymbolicNode)
-    (checkShared : Expr → Expr → TermElabM Unit)
+    (checkShared : σ → Expr → Expr → TermElabM Unit) : StateCpsT σ TermElabM Unit := do
+  let prepared ← nodes.mapM fun node => do
+    let actions ← node.inputActions.mapM fun descriptor => do
+      let edge ← selectedAction descriptor
+      return (← action context edge descriptor).1
+    let functor ← if node.tag == "map" then do
+        let some descriptor := node.descriptor
+          | malformed "a map action lost its complete descriptor"
+        let edge ← selectedAction descriptor
+        pure (some (← action context edge descriptor).1)
+      else pure none
+    let (construction, value) ← if #["identity", "zero", "compose", "map"].contains node.tag then
+        pure (none, none)
+      else do
+        let some descriptor := node.descriptor
+          | malformed "the symbolic arrow lost its complete original descriptor"
+        if node.tag == "constructionLeg" then
+          let original ← readConstructionLeg context descriptor
+          pure (some original, some original.value)
+        else
+          pure (none, some (← descriptorArrow context node.tag descriptor))
+    pure (node, actions, functor, construction, value)
+  validatePreparedSymbolic context (← get) prepared checkShared
+
+
+
+
+
+opaque validateSymbolicBatch (context : PublishedSourceContext σ) (initial : σ)
+    (nodes : Array NativeSymbolicNode)
+    (checkShared : σ → Expr → Expr → TermElabM Unit)
     (parameterCount : Nat := 0)
     (parameterPosition? : Json → MetaM (Option Nat) := fun _ => pure none) :
     TermElabM Unit := do
   let original ← Term.saveState
   try
     withNewMCtxDepth do
-      let rec withParameters (fuel : Nat) (parameters : Array (Nat × Expr)) :
+      let rec withParameters (fuel : Nat) (parameters : Array (Nat × Expr)) (state : σ) :
           TermElabM Unit := do
         let saved ← Term.saveState
-        let current := (← getLCtx).foldl (fun values declaration =>
+        let current := (← liftM (m := MetaM) getLCtx).foldl (fun values declaration =>
           values.push (mkFVar declaration.fvarId)) (#[] : Array Expr)
         let pending ← IO.mkRef (none : Option (Nat × Expr × Meta.SavedState))
         let validationContext := { context with
@@ -877,10 +974,10 @@ opaque validateSymbolicBatch (context : PublishedSourceContext)
                 throwError "one opaque packet position changed its native declaration type"
               return some value
             if (← pending.get).isNone then
-              pending.set (some (position, ← instantiateMVars domain, ← Meta.saveState))
+              pending.set (some (position, ← liftM (m := MetaM) <| instantiateMVars domain, ← Meta.saveState))
             throwError "the symbolic parameter requires its exact transient native scope" }
         let outcome ← try
-            validateSymbolicCore validationContext nodes checkShared
+            (validateSymbolicCore validationContext nodes checkShared).runK state fun _ _ => pure ()
             for (_, value) in parameters do
               if ← isProof value then
                 malformed "opaque symbolic data resolved to a native proof parameter"
@@ -895,7 +992,7 @@ opaque validateSymbolicBatch (context : PublishedSourceContext)
             throw error
         | some (position, domain, discovered) =>
           discovered.restore
-          let domain ← instantiateMVars domain
+          let domain ← liftM (m := MetaM) <| instantiateMVars domain
           let template ← abstractMVars domain
           if template.expr.hasMVar ||
               (template.expr.find? fun term => term.isFVar && !current.contains term).isSome then
@@ -907,18 +1004,18 @@ opaque validateSymbolicBatch (context : PublishedSourceContext)
           | 0 => malformed "the opaque parameter table changed during native framing"
           | fuel + 1 =>
             check domain
-            withLocalDeclD (← mkFreshUserName `opaqueNativeParameter) domain fun value =>
-              withParameters fuel (parameters.push (position, value))
-      withParameters parameterCount #[]
+            (context.withLocal (← mkFreshUserName `opaqueNativeParameter) domain).runK state fun value state =>
+              withParameters fuel (parameters.push (position, value)) state
+      withParameters parameterCount #[] initial
   finally
     original.restore (restoreInfo := true)
 
-/-- Source-only single-node entrance. Runtime packets use the complete batch above. -/
-opaque validateSymbolic (context : PublishedSourceContext) (expected : Expr) (tag : String)
+
+opaque validateSymbolic (context : PublishedSourceContext σ) (initial : σ) (expected : Expr) (tag : String)
     (operands : Array NativeSymbolicOperand) (descriptor : Option Json)
     (inputActions : Array Json := #[]) : TermElabM Unit :=
-  validateSymbolicBatch context #[{ expected, tag, operands, descriptor, inputActions }]
-    fun first second => do
+  validateSymbolicBatch context initial #[{ expected, tag, operands, descriptor, inputActions }]
+    fun _ first second => do
       checkRegisteredDomains first second
       unless ← isDefEq first second do
         malformed "the symbolic maps changed their shared original native endpoint"
@@ -929,10 +1026,10 @@ private def homAt (bundle source target : Expr) : TermElabM Expr := do
 
 mutual
 
-/-- Read explicit map data through actual native operands and the complete selected category. -/
-private partial def mapValue (context : PublishedSourceContext) (bundle : Expr)
-    (packet : Json) : TermElabM Expr := do
-  if let some value ← context.retained packet then
+
+private partial def mapValue (context : PublishedSourceContext σ) (bundle : Expr)
+    (packet : Json) : StateCpsT σ TermElabM Expr := do
+  if let some value ← context.retained (← get) packet then
     let type ← nativeHomType value
     unless ← isDefEq type (← homAt bundle type.getAppArgs[2]! type.getAppArgs[3]!) do
       malformed "a retained map belongs to a different complete selected category"
@@ -955,7 +1052,7 @@ private partial def mapValue (context : PublishedSourceContext) (bundle : Expr)
     let target ← if sourcePacket == targetPacket then pure source
       else context.bind (← operand context carrier targetPacket)
     if tag == "identity" then
-      context.checkInput source target
+      checkInput context source target
       return ← categoricalPointIdentity bundle source
     return ← nativeZero (← homAt bundle source target) source target
   if tag == "compose" then
@@ -985,8 +1082,8 @@ private partial def mapValue (context : PublishedSourceContext) (bundle : Expr)
     malformed "the symbolic arrow has another full native selected category"
   return value
 
-private partial def mapAt (context : PublishedSourceContext) (bundle source target : Expr)
-    (packet : Json) : TermElabM Expr := do
+private partial def mapAt (context : PublishedSourceContext σ) (bundle source target : Expr)
+    (packet : Json) : StateCpsT σ TermElabM Expr := do
   let domain ← homAt bundle source target
   let tag := (packet.getObjValAs? String "ctor").toOption
   let value ← if tag.any (#["typedMap", "identity", "zero", "compose", "map", "cellComponent",
@@ -1062,11 +1159,11 @@ private def pointOwner (state : SemanticState) (operation : String)
     | .error reason => malformed reason
   return (.action edge, parameters, #[arrow.source, arrow.target, arrow.callable], request.arrow)
 
-/-- All original native parameters and endpoints come from the released point envelope.
-A whole-map demand returns its actual native arrow. Scalar continuation retains the original
-carrier field, and generalized application uses the native composition family. -/
-private def point (context : PublishedSourceContext) (operation : String)
-    (arguments : Json) : TermElabM Expr := do
+
+
+
+private def point (context : PublishedSourceContext σ) (operation : String)
+    (arguments : Json) : StateCpsT σ TermElabM Expr := do
   match checkServiceFields #["ctor", "args"] arguments with
   | .error reason => malformed reason
   | .ok () => pure ()
@@ -1076,7 +1173,7 @@ private def point (context : PublishedSourceContext) (operation : String)
   unless packet.operation == operation do malformed "the point packet changed its original operation"
   let state ← semanticState
   let (owner, declarationPackets, extras, descriptor) ← pointOwner state operation packet
-  let retainedArgument ← context.retained packet.argument
+  let retainedArgument ← context.retained (← get) packet.argument
   let generalized : Bool ← match retainedArgument with
     | some value => do
       let type ← inferType value
@@ -1115,22 +1212,22 @@ private def point (context : PublishedSourceContext) (operation : String)
     parameters := parameters.push value
   unless parameters.size == family.parameterCount do
     malformed "the point descriptor omitted an original native parameter"
-  parameters ← parameters.mapM instantiateMVars
-  let levels ← levels.mapM instantiateLevelMVars
+  parameters ← liftM (m := MetaM) <| parameters.mapM instantiateMVars
+  let levels ← liftM (m := MetaM) <| levels.mapM instantiateLevelMVars
   let (expectedArrow, bundle) ← family.arrowAt levels parameters
   let (expectedSource, expectedTarget) ← categoricalPointEndpoints expectedArrow
   let source ← context.bind (← operand context (← inferType expectedSource) packet.source)
   let target ← context.bind (← operand context (← inferType expectedTarget) packet.target)
-  context.checkInput expectedSource source
-  context.checkInput expectedTarget target
-  let retainedArrow ← context.retained packet.arrow
+  checkInput context expectedSource source
+  checkInput context expectedTarget target
+  let retainedArrow ← context.retained (← get) packet.arrow
   let arrow ← if let some arrow := retainedArrow then do
-      context.admitCategorical family parameters arrow
+      context.admitCategorical (← get) family parameters arrow
       pure arrow
     else do
       unless packet.arrow == descriptor do
         malformed "the point arrow differs from its complete original source descriptor"
-      pure expectedArrow
+      context.select (← family.arrowSelection levels parameters) none
   if generalized then
     let whole := (packet.argument.getObjValAs? String "ctor").toOption == some "identity" &&
       packet.domain == packet.source &&
@@ -1141,33 +1238,44 @@ private def point (context : PublishedSourceContext) (operation : String)
     let point ← if whole then categoricalPointIdentity bundle source
       else mapAt context bundle domain source packet.argument
     let family ← if whole then family.asWhole else pure family
-    let point ← family.withRequest levels parameters arrow domain source target point
-    return ← family.mark levels parameters domain point
+    let selected ← family.withRequest levels parameters arrow domain source target point
+      (some (context.scope (← get)))
+    let function := mkAppN
+      (family.family.instantiateLevelParams family.universeParams levels) parameters
+    let .forallE _ pointType _ _ ← whnfR (← inferType (mkApp function domain))
+      | malformed "the generalized point lost its original native argument position"
+    let point ← context.select selected (some pointType)
+    let selected ← family.selected levels parameters domain { selected with value := point }
+      (context := some (context.scope (← get)))
+    return ← context.select selected none
   let function ← family.function levels parameters arrow
   let .forallE _ pointType _ _ ← whnfR (← inferType function)
     | malformed "the selected category has no native scalar point interface"
   let point ← operand context pointType packet.argument
-  let some originalPoint ← sourcePointOrigin? point
+  let some selectedPoint ← selection? context point
+    | malformed "the scalar operand lost its original generalized-point domain"
+  let some originalPoint := selectedPoint.pointOrigin
     | malformed "the scalar operand lost its original generalized-point domain"
   let domain ← context.bind (← operand context (← inferType originalPoint.domain) packet.domain)
-  context.checkInput originalPoint.domain domain
+  checkInput context originalPoint.domain domain
   let family ← family.asReference
-  let arrow ← if retainedArrow.isSome then pure arrow
-    else family.mark levels parameters source (← categoricalPointIdentity bundle source)
-  let point ← family.withScalarRequest levels parameters arrow domain source target point
+  let selectedPoint ← family.withScalarRequest levels parameters arrow domain source target
+    { selectedPoint with value := point } (some (context.scope (← get)))
   let function ← family.function levels parameters arrow
-  let (result, _) ← elabSourceApplication function #[Syntax.missing] none fun _ _ => pure point
+  let (result, _) ← elabSourceApplicationScoped function #[Syntax.missing] none
+    fun _ domain => context.select selectedPoint (some domain)
   return result
 
-/-- A raw diagram is read at the actual selected presentation's native constructor.
-Original declaration metavariables identify parameter positions before any native unification;
-the supplied source/type subterms at those exact positions retain their original occurrences. -/
-private def rawLimit (context : PublishedSourceContext) (entry : LimitEntry)
-    (arguments : Json) : TermElabM Expr := do
+
+
+
+private def rawLimit (context : PublishedSourceContext σ) (entry : LimitEntry)
+    (arguments : Json) : StateCpsT σ TermElabM Expr := do
   match checkServiceFields #["ctor", "args"] arguments with
   | .error reason => malformed reason | .ok () => pure ()
   let family ← LimitFamily.forId entry.id
   let declaration ← mkConstWithFreshMVarLevels family.entry.declaration
+  let previous ← liftM (m := MetaM) getMCtx
   let (parameters, _, result) ← forallMetaTelescopeReducing (← inferType declaration)
   let result ← whnfR result
   unless result.isAppOf (if entry.colimit then ``CategoryTheory.Limits.ColimitCocone
@@ -1188,21 +1296,24 @@ private def rawLimit (context : PublishedSourceContext) (entry : LimitEntry)
     let .mvar identity := parameter
       | malformed "the raw presentation lost an original formal parameter position"
     parameterIds := parameterIds.insert identity index
+  let owned := (← liftM (m := MetaM) getMCtx).decls.foldl
+    (fun result identity _ => if previous.decls.contains identity then result else result.push identity)
+    (#[] : Array MVarId)
   let retained ← IO.mkRef (Array.replicate parameters.size (none : Option Expr))
   let remember := fun (identity : MVarId) (actual : Expr) => do
     let some index := parameterIds[identity]? | return
     if ← isProof actual then return
-    let actual ← instantiateMVars actual
+    let actual ← liftM (m := MetaM) <| instantiateMVars actual
     if actual.hasMVar || actual.hasLevelMVar then
       malformed "the raw diagram did not supply a complete original parameter"
-    if let some previous := (← retained.get)[index]?.bind id then
-      -- The already chosen original position is authoritative. A later occurrence
-      -- validates against it; equal native expressions never choose another supplier.
-      context.checkInput actual previous
+    if let some previous := (← liftM (m := IO) retained.get)[index]?.bind id then
+
+
+      checkInput context actual previous
     else
       let bound ← context.bind actual
-      retained.modify (·.set! index (some bound))
-  let rec positions : Expr → Expr → TermElabM Unit
+      liftM (m := IO) <| retained.modify (·.set! index (some bound))
+  let rec positions : Expr → Expr → StateCpsT σ TermElabM Unit
     | .mvar identity, actual => remember identity actual
     | .mdata _ expected, actual => positions expected actual
     | .app expectedFunction expectedArgument, actual => do
@@ -1229,40 +1340,50 @@ private def rawLimit (context : PublishedSourceContext) (entry : LimitEntry)
     | _, _ => pure ()
   for original in fields, packet in packets do
     let statedType ← inferType original
-    let type ← instantiateMVars statedType
+    let type ← liftM (m := MetaM) <| instantiateMVars statedType
     let type ← if type.isAppOfArity ``Quiver.Hom 4 then pure type else whnfR type
     let actual ← if type.isAppOfArity ``Quiver.Hom 4 then mapValue context bundle packet
       else operand context type packet
     let actualType ← inferType actual
+    liftM (m := TermElabM) <| extendSourceApplicationScope owned
     checkRegisteredDomains actualType statedType
     unless ← isDefEq actual original do
       malformed "the raw diagram changed a fixed native field or original parameter"
     positions original actual
     positions statedType actualType
-  let selected ← retained.get
+  let selected ← liftM (m := IO) retained.get
   let mut computational := #[]
   for parameter in parameters, index in [:parameters.size] do
     if ← isProof parameter then continue
     let some actual := selected[index]?.bind id
       | malformed "the raw diagram omitted an original native parameter position"
     computational := computational.push actual
-  let declaration ← instantiateMVars declaration
-  let applied ← applySourceArguments declaration (Array.replicate computational.size Syntax.missing)
+  let declaration ← liftM (m := MetaM) <| instantiateMVars declaration
+  let applied ← applySourceArgumentsScoped declaration (Array.replicate computational.size Syntax.missing)
     fun index domain => do
       let some actual := computational[index]?
         | malformed "the raw presentation changed its complete computational telescope"
-      unless ← isDefEq (← inferType actual) domain do
-        malformed "the raw parameter changed its original native binder type"
-      pure actual
+      context.bindAt actual domain
   let .const selectedDeclaration levels := applied.getAppFn.consumeMData
     | malformed "the raw limit lost its actual declaration spine"
   unless selectedDeclaration == entry.declaration &&
       applied.getAppNumArgs == family.parameterCount do
     malformed "the raw presentation changed its original complete application"
-  family.mark levels applied.getAppArgs
+  let construction ← mkFreshUserName `rawLimitConstruction
+  let owner ← family.prepareOwner (context.identities (← get)) levels construction
+  let template ← context.select {
+    value := owner.selection.receiver
+    formalBindings := owner.formalBindings
+    limit := some owner.selection } none
+  let selected ← family.selectedAtOwner owner levels applied.getAppArgs
+  let some original := selected.limit
+    | malformed "the whole raw cone lost its complete original owner"
+  let retained ← NativeLimitSelection.ofSource
+    { original.source with ownerFamily := some template } original.receiver
+  context.select { selected with limit := some retained } none
 
-private def actionObject (context : PublishedSourceContext) (operation : String)
-    (edge : EdgeRef) (arguments : Json) : TermElabM Expr := do
+private def actionObject (context : PublishedSourceContext σ) (operation : String)
+    (edge : EdgeRef) (arguments : Json) : StateCpsT σ TermElabM Expr := do
   match checkServiceFields #["ctor", "args", "receiver"] arguments with
   | .error reason => malformed reason
   | .ok () => pure ()
@@ -1291,15 +1412,15 @@ private def actionObject (context : PublishedSourceContext) (operation : String)
   let .forallE _ domain _ _ ← whnfR (← inferType (mkAppN head parameters))
     | malformed "the object action lost its original native receiver"
   let receiver ← operand context domain packet.receiver
-  let parameters ← parameters.mapM instantiateMVars
-  let levels ← levels.mapM instantiateLevelMVars
-  family.mark levels parameters (← instantiateMVars receiver)
+  let parameters ← liftM (m := MetaM) <| parameters.mapM instantiateMVars
+  let levels ← liftM (m := MetaM) <| levels.mapM instantiateLevelMVars
+  context.select (← family.selected levels parameters (← liftM (m := MetaM) <| instantiateMVars receiver)) none
 
-/-- A universal action consumes the actual earlier cone at its original native slot.
-The retained completion supplies the owner; external parameters and prepared_role only
-validate that same selected source interface. They cannot select another equal cone. -/
-private def universalRequest (context : PublishedSourceContext) (operation input : String)
-    (family : LimitUniversalFamily) (arguments : Json) : TermElabM Expr := do
+
+
+
+private def universalRequest (context : PublishedSourceContext σ) (operation input : String)
+    (family : LimitUniversalFamily) (arguments : Json) : StateCpsT σ TermElabM Expr := do
   unless input == family.input do
     malformed "the universal action requires its complete original native input form"
   let role ← match arguments.getObjValAs? String "prepared_role" with
@@ -1311,7 +1432,7 @@ private def universalRequest (context : PublishedSourceContext) (operation input
   for binding in bindings do
     match checkServiceFields #["slot", "value"] binding with
     | .ok () => pure () | .error reason => malformed reason
-  let some coneProjection := (← getEnv).getProjectionFnInfo?
+  let some coneProjection := (← liftM (m := MetaM) getEnv).getProjectionFnInfo?
       family.presentation.coneProjection
     | malformed "the universal action lost its original native cone projection"
   let #[coneBinding] := bindings.filter fun binding =>
@@ -1330,7 +1451,7 @@ private def universalRequest (context : PublishedSourceContext) (operation input
     malformed "the universal cone belongs to another original native presentation"
   let supplied ← complete context (mkConst declaration levels)
     (← arrayField arguments "parameters")
-  let supplied ← instantiateMVars supplied
+  let supplied ← liftM (m := MetaM) <| instantiateMVars supplied
   unless supplied.consumeMData.getAppFn == original.consumeMData.getAppFn &&
       supplied.getAppNumArgs == family.parameterCount do
     malformed "the universal request changed its complete original parameter telescope"
@@ -1339,11 +1460,11 @@ private def universalRequest (context : PublishedSourceContext) (operation input
       unless ← isDefEq (← inferType expected) (← inferType actual) do
         malformed "the universal request changed an original formal hypothesis"
     else
-      context.checkInput expected (← context.bind actual)
-  let parent ← SourceLayout.ofTerm (← context.scope.close original)
+      checkInput context expected (← context.bind actual)
+  let parent ← sourceLayout context original
   let #[universal] := parent.fields.filter (·.projection == family.projection)
     | malformed "the universal action lost its original native record position"
-  let predecessors ← parent.actionInputs context.scope original #[universal]
+  let predecessors ← parent.actionInputs (context.scope (← get)) original #[universal]
   unless bindings.size == predecessors.size do
     malformed "the universal action changed its complete earlier native field inputs"
   for predecessor in predecessors do
@@ -1352,13 +1473,25 @@ private def universalRequest (context : PublishedSourceContext) (operation input
       | malformed "the universal action changed an original predecessor slot"
     let packet ← match binding.getObjVal? "value" with
       | .ok packet => pure packet | .error reason => malformed reason
-    let expected ← predecessor.source.inContext context.scope
+    let expected ← predecessor.source.inContext (context.scope (← get))
     let actual ← if predecessor.projection == family.presentation.coneProjection then
         pure cone
       else context.bind (← operand context (← inferType expected) packet)
-    context.checkInput expected actual
-  let initial ← family.markAtOwner owner levels original.getAppArgs (some cone)
-  let mut layout ← SourceLayout.ofTerm (← context.scope.close initial)
+    checkInput context expected actual
+  let some ownerFamily := selected.source.ownerFamily
+    | malformed "the universal action lost its exact original owner-template binding"
+  let template ← SelectedLimitOwner.ofBinding (context.scope (← get))
+    (context.selections (← get)) ownerFamily
+  let initial ← family.selectedAtOwner template levels original.getAppArgs context.select (some cone)
+  let some application := initial.application
+    | malformed "the universal action lost its complete original native family"
+  let initial := { initial with
+    application := some { application with owner := some owner }
+    limit := some selected }
+  let declaredType ← mkAppM (if selected.source.colimit then
+    ``CategoryTheory.Limits.IsColimit else ``CategoryTheory.Limits.IsLimit) #[cone]
+  let initial ← context.select initial (some declaredType)
+  let mut layout ← sourceLayout context initial
   let mut fields : Array FieldLayout := #[]
   for projection in path.extract 1 path.size do
     let #[field] := layout.fields.filter (·.projection == projection)
@@ -1369,14 +1502,14 @@ private def universalRequest (context : PublishedSourceContext) (operation input
     layout ← field.toLayout
   unless operation == nativeRecordActionAddress family.operation fields do
     malformed "the universal operation differs from its exact native field address"
-  complete context (← layout.source.inContext context.scope)
+  complete context (← layout.source.inContext (context.scope (← get)))
     (← arrayField arguments "arguments")
 
-/-- A creation request starts from its explicit original source owner and unchanged
-actual target c/t. All remaining source data are checked at their retained native positions;
-the fixed comparison stays inside the already selected contextual family. -/
-private def creationRequest (context : PublishedSourceContext) (operation input : String)
-    (arguments : Json) : TermElabM Expr := do
+
+
+
+private def creationRequest (context : PublishedSourceContext σ) (operation input : String)
+    (arguments : Json) : StateCpsT σ TermElabM Expr := do
   let packets ← arrayField arguments "parameters"
   unless packets.size ≥ 4 do
     malformed "the creation request requires its target cone, universal data, owner and source diagram"
@@ -1386,7 +1519,12 @@ private def creationRequest (context : PublishedSourceContext) (operation input 
   let some diagramPacket := packets[3]? | malformed "the creation request lost its source diagram"
   let some (selected, owner) ← context.creationOwner ownerPacket
     | malformed "the creation request requires its explicit retained original construction owner"
-  let some prepared ← PreparedCreationFamily.ofSelection context.scope owner
+  let some source ← selection? context owner
+    | malformed "the retained owner lost its complete original selected source"
+  let some (family, target) := source.creationOwner
+    | malformed "the retained owner lost its complete original accepted creation families"
+  let some prepared ← PreparedCreationFamily.ofSelection (context.scope (← get)) owner
+      selected family target (context.selections (← get))
     | malformed "the retained owner has no original accepted creation family"
   unless prepared.operation == operation && input == prepared.input &&
       prepared.construction == selected.source.construction do
@@ -1399,11 +1537,11 @@ private def creationRequest (context : PublishedSourceContext) (operation input 
       target.source.construction == prepared.construction do
     malformed "the creation request changed its original target-cone occurrence"
   prepared.target.requireInterface target.source
-  let expectedCone ← prepared.interface.targetCone.inContext context.scope
-  context.checkInput expectedCone cone
+  let expectedCone ← prepared.interface.targetCone.inContext (context.scope (← get))
+  checkInput context expectedCone cone
   let universalType ← mkAppM ``CategoryTheory.Limits.IsLimit #[cone]
   let universal ← context.bind (← operand context universalType universalPacket)
-  context.checkInput (← prepared.interface.targetUniversal.inContext context.scope) universal
+  checkInput context (← prepared.interface.targetUniversal.inContext (context.scope (← get))) universal
   match checkServiceFields #["ctor", "args"] diagramPacket with
   | .ok () => pure () | .error reason => malformed reason
   unless diagramPacket.getObjValAs? String "ctor" == .ok prepared.inputs.diagramTag do
@@ -1412,35 +1550,35 @@ private def creationRequest (context : PublishedSourceContext) (operation input 
   unless fields.size == prepared.inputs.diagramPorts.size do
     malformed "the creation request changed its complete native source diagram fields"
   for field in prepared.inputs.diagramPorts, packet in fields do
-    let expected ← field.source.source.inContext context.scope
-    context.checkInput expected
+    let expected ← field.source.source.inContext (context.scope (← get))
+    checkInput context expected
       (← context.bind (← operand context (← inferType expected) packet))
   let captures := prepared.captureSources
   unless packets.size == 4 + captures.size do
     malformed "the creation request changed its full original computational capture table"
   for source in captures, packet in packets.extract 4 packets.size do
-    let expected ← source.inContext context.scope
-    context.checkInput expected
+    let expected ← source.inContext (context.scope (← get))
+    checkInput context expected
       (← context.bind (← operand context (← inferType expected) packet))
-  let prepared ← prepared.withArguments context.scope cone universal
-  let initial ← prepared.mark context.scope
+  let initial ← prepared.selectedArguments (context.scope (← get)) owner cone universal
+  let initial ← context.select initial none
   let role ← match arguments.getObjValAs? String "prepared_role" with
     | .ok role => pure role | .error reason => malformed reason
   let path := ((role.splitOn "/").filter (!·.isEmpty)).toArray.map String.toName
-  let mut layout ← SourceLayout.ofTerm (← context.scope.close initial)
+  let mut layout ← sourceLayout context initial
   for projection in path do
     let #[field] := layout.fields.filter (·.projection == projection)
       | malformed "the creation continuation changed its original native result path"
     if field.wireIndex.isNone then
       malformed "a creation law is not a computational result field"
     layout ← field.toLayout
-  complete context (← layout.source.inContext context.scope)
+  complete context (← layout.source.inContext (context.scope (← get)))
     (← arrayField arguments "arguments")
 
-/-- The single compiler entrance from a published address and its original typed operands.
-Wire scope/owner checks are callbacks, and every mathematical application and selected route
-is formed here through the native source producers. The result goes to the ordinary lowerer. -/
-opaque prepare (context : PublishedSourceContext) (call : Json) : TermElabM Expr := do
+
+
+
+opaque prepare (context : PublishedSourceContext σ) (call : Json) : StateCpsT σ TermElabM Expr := do
   let operation ← match call.getObjValAs? String "op" with
     | .ok operation => pure operation
     | .error reason => malformed reason
@@ -1461,13 +1599,13 @@ opaque prepare (context : PublishedSourceContext) (call : Json) : TermElabM Expr
         | .error reason => malformed reason
       let (source, projection) ← context.projection
         ((arguments.getObjVal? "value").toOption.getD .null) position
-      let some info := (← getEnv).getProjectionFnInfo? projection
+      let some info := (← liftM (m := MetaM) getEnv).getProjectionFnInfo? projection
         | malformed "the retained source field lost its native projection"
-      let value := Expr.proj (← getConstInfoCtor info.ctorName).induct info.i source
+      let value := Expr.proj (← liftM (m := MetaM) <| getConstInfoCtor info.ctorName).induct info.i source
       check value
       pure value
     else if operation == "$cas.apply" then do
-      let some source ← context.retained ((arguments.getObjVal? "value").toOption.getD .null)
+      let some source ← context.actionSource ((arguments.getObjVal? "value").toOption.getD .null)
         | malformed "the acted value must be a scoped reference"
       complete context source (← arrayField arguments "arguments")
     else if let .ok (some (edge, false)) := PublishedPorts.edge? state operation then
@@ -1496,29 +1634,102 @@ opaque prepare (context : PublishedSourceContext) (call : Json) : TermElabM Expr
         | malformed "the raw limit address has several original native owners"
       rawLimit context entry arguments
     else do
-      let (initial, prescribed, reference) ← if let some (_, family, path) ← LiftFamily.forAddress? state operation then do
-          let (head, _) ← family.instantiate
-          pure (family.mark (← complete context head (← arrayField arguments "parameters")), some path, none)
+      let (initial, prescribed, reference) ← if let some (row, family, path) ←
+          LiftFamily.forAddress? state operation then do
+          let (head, levels) ← family.instantiate
+          let applied ← complete context head (← arrayField arguments "parameters")
+          let levels ← liftM (m := MetaM) <| levels.mapM instantiateLevelMVars
+          let selected ← family.selected levels applied.getAppArgs
+          let computationFamily ← LiftFamily.forLift row .computation
+          let bindings ← arrayField arguments "bindings"
+          let mut retained : Option (Expr × SourceSelection Expr × Name) := none
+          let mut positions : Std.HashSet Nat := {}
+          for binding in bindings do
+            match checkServiceFields #["slot", "value"] binding with
+            | .ok () => pure () | .error reason => malformed reason
+            let position ← match binding.getObjValAs? Nat "slot" with
+              | .ok position => pure position | .error reason => malformed reason
+            unless !positions.contains position do
+              malformed "the lift request repeats an original predecessor field slot"
+            positions := positions.insert position
+            let packet ← match binding.getObjVal? "value" with
+              | .ok packet => pure packet | .error reason => malformed reason
+            let some actual ← context.retained (← get) packet
+              | malformed "a lift predecessor must retain its original actual field occurrence"
+            let some fieldSource ← selection? context actual
+              | malformed "a lift predecessor lost its complete original selected source"
+            let some field := fieldSource.field
+              | malformed "a lift predecessor lost its original selected field owner"
+            let .fvar ownerId := field.owner
+              | malformed "a lift predecessor lost its exact original computation binding"
+            let some original ← selection? context field.owner
+              | malformed "the lift predecessor owner lost its complete selected computation"
+            let some application := original.application
+              | malformed "the lift predecessor owner lost its original native family"
+            let .lift originalFamily := application.family
+              | malformed "the lift predecessor came from another selected operation"
+            unless (SelectedApplicationFamily.lift originalFamily).exactlyMatches
+                (.lift computationFamily) do
+              malformed "the lift predecessor changed its complete original computation family"
+            let layout ← sourceLayout context field.owner
+            let some declared := layout.fields[position]?
+              | malformed "the lift predecessor is outside its original native record"
+            unless declared.sourceIndex == position && declared.projection == field.projection &&
+                declared.wireIndex.isSome do
+              malformed "the lift predecessor changed its original native field position"
+            if let some selection := original.recordSelection then
+              unless selection == field.selection do
+                malformed "the lift predecessor changed its original whole-record selection"
+            match retained with
+            | some (previous, _, selection) =>
+              unless previous.fvarId! == ownerId && selection == field.selection do
+                malformed "the lift predecessors came from different original computations"
+            | none => retained := some (field.owner, original, field.selection)
+          if let some (_, original, _) := retained then
+            let some application := original.application
+              | malformed "the retained lift lost its original application"
+            unless application.parameters.size == applied.getAppNumArgs do
+              malformed "the lift continuation changed its complete original parameter table"
+            for expected in application.parameters, actual in applied.getAppArgs do
+              if ← isProof expected then
+                (context.scope (← get)).withOriginalSources
+                  #[← inferType expected, ← inferType actual] fun native => do
+                    unless ← isDefEq native[0]! native[1]! do
+                      malformed "the lift continuation changed an original formal hypothesis"
+              else
+                checkInput context expected (← context.bind actual)
+          let initial ← match family.port, retained with
+            | .computation, some (owner, _, _) => pure owner
+            | .computation, none => context.select selected none
+            | .factor, some (owner, _, selection) =>
+              let some application := selected.application
+                | malformed "the selected factor lost its complete native family"
+              context.select { selected with
+                application := some { application with owner := some owner }
+                recordSelection := some selection } none
+            | .factor, none =>
+              malformed "the factor requires its actual original computation predecessors"
+          pure (initial, some path, none)
         else do
           let some family ← PublishedPorts.family? state operation
             | malformed "the operation is not a published address"
-          let declaration ← family.declaration state
+          if let .method _ := family then
+            malformed "a method requires its complete routed invocation"
+          let reference ← SelectedSourceReference.forComputation family
+          let some declaration := reference.declaration
+            | malformed "the published family lost its complete original declaration"
           discard <| checkedDeclaration declaration
-          let selected ← match family with
-            | .method _ => malformed "a method requires its complete routed invocation"
-            | .construction id => pure (sourceReference ``ConstructionEntry id.raw declaration)
-            | .functor id => pure (sourceReference ``EdgeRef.functor id.raw declaration)
-            | .operation id => pure (sourceReference ``OperationEntry id.raw declaration)
-            | .morphism id => pure (sourceReference ``MorphismEntry id.raw declaration)
-          pure (← complete context (selected (← mkConstWithFreshMVarLevels declaration))
-            (← arrayField arguments "parameters"), none, some family)
+          let applied ← complete context (← mkConstWithFreshMVarLevels declaration)
+            (← arrayField arguments "parameters")
+          let selected ← sourceReferenceAt reference applied applied
+          pure (← context.select selected none, none, some family)
       let role ← match arguments.getObjValAs? String "prepared_role" with
         | .ok role => pure role
         | .error reason => malformed reason
       let path := ((role.splitOn "/").filter (!·.isEmpty)).toArray.map String.toName
       if let some prescribed := prescribed then
         unless path == prescribed do malformed "the requested field differs from its published lift address"
-      let mut layout ← SourceLayout.ofTerm (← context.scope.close initial)
+      let mut layout ← sourceLayout context initial
       let mut selected : Array FieldLayout := #[]
       for projection in path do
         let #[field] := layout.fields.filter (·.projection == projection)
@@ -1529,9 +1740,9 @@ opaque prepare (context : PublishedSourceContext) (call : Json) : TermElabM Expr
       if let some reference := reference then
         unless operation == recordActionAddress reference selected do
           malformed "the operation address differs from its actual declared computational field"
-      let term ← layout.source.inContext context.scope
+      let term ← layout.source.inContext (context.scope (← get))
       complete context term (← arrayField arguments "arguments")
-  let term ← instantiateMVars term
+  let term ← liftM (m := MetaM) <| instantiateMVars term
   if term.hasMVar || term.hasLevelMVar then malformed "the call leaves a complete native parameter undetermined"
   check term
   return term

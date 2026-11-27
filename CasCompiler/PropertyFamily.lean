@@ -1,5 +1,8 @@
 module
 
+public import CasCompiler.SelectionData
+import all CasCompiler.SelectionData
+
 public import CasCompiler.RoutedMethodFamily
 public import CasCompiler.SourceReference
 
@@ -9,21 +12,9 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- The accepted property proposition over a complete rigid source category family.
-Its native result is Prop. Computational observations of that proposition are not proofs. -/
-structure PropertyFamily where
-  private mk ::
-  entry : PropertyEntry
-  classifier : ClassifierEntry
-  route : Route
-  categoryFamily : Expr
-  family : Expr
-  actions : Array Expr
-  universeParams : List Name
-  parameterCount : Nat
 
-/-- Retain an exact accepted property, classifier and structural route before specialization.
-Reuse: PropertyEntry, nativeRouteFunctor, Classifier.Holds and whole-family universe closure. -/
+
+
 opaque PropertyFamily.forSelection (source : CategoryExpr) (id : PropertyId)
     (refs : Array EdgeRef) : MetaM PropertyFamily := withLCtx {} #[] do
   let state ← semanticState
@@ -41,6 +32,8 @@ opaque PropertyFamily.forSelection (source : CategoryExpr) (id : PropertyId)
   let #[route] := routes.filter (fun route => route.refs == refs &&
       route.target.syntacticEq classifier.host)
     | throwError "the property lost its exact complete source route"
+  let actionFamilies ← route.refs.mapM SourceActionFamily.forEdge
+  let receiverViews ← sourceReceiverViewPlans state route
   let categoryFamily ← nativeCategoryFamily state source fun _ => mkFreshLevelMVar
   let (family, actions, count) ←
       forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
@@ -56,8 +49,8 @@ opaque PropertyFamily.forSelection (source : CategoryExpr) (id : PropertyId)
       else whnfR declared
     unless declared.isAppOfArity ``LeanCategories.Classifier 1 do
       throwError "the accepted property declaration lost its complete native classifier type"
-    -- The accepted declaration fixes these universe arguments. The source route's host
-    -- levels are constrained by the whole-type comparison below, before final closure.
+
+
     let expected := mkApp declared.getAppFn selected.target
     unless ← withoutModifyingState <| isDefEq (← inferType classifierValue) expected do
       unless ← expandSourceStructures ((← getMVars classifierValue).map mkMVar) do
@@ -77,36 +70,39 @@ opaque PropertyFamily.forSelection (source : CategoryExpr) (id : PropertyId)
     return (← close callable, ← selected.actions.mapM close, parameters.size)
   let (expressions, universes) ← closeRoutedUniverses (#[categoryFamily, family] ++ actions)
   return ⟨entry, classifier, route, expressions[0]!, expressions[1]!,
-    expressions.drop 2, universes, count⟩
+    expressions.drop 2, actionFamilies, receiverViews, universes, count⟩
 
 def PropertyFamily.instantiate (family : PropertyFamily) : MetaM (Expr × List Level) := do
   let levels ← family.universeParams.mapM fun _ => mkFreshLevelMVar
   return (family.family.instantiateLevelParams family.universeParams levels, levels)
 
-/-- Retain the complete original application beside Holds' native image, using the existing
-typed Function.const provenance layout. Holds remains the proposition's literal native head;
-the retained application supplies parameter and receiver occurrences independently of its image. -/
-def PropertyFamily.mark (family : PropertyFamily) (applied : Expr) : MetaM Expr := do
-  unless applied.getAppNumArgs == family.parameterCount + 1 do
+
+
+def PropertyFamily.selected (family : PropertyFamily) (levels : List Level)
+    (parameters : Array Expr) (receiver : Expr) : MetaM (SourceSelection Expr) := do
+  unless levels.length == family.universeParams.length &&
+      parameters.size == family.parameterCount do
     throwError "the property lost its complete original source application"
+  let applied := mkAppN (family.family.instantiateLevelParams family.universeParams levels)
+    (parameters.push receiver)
   let proposition := applied.headBeta
   unless proposition.isAppOfArity ``CasCatalogue.Classifier.Holds 3 do
     throwError "the property family lost its native Holds proposition"
-  let image ← mkAppM ``Function.const #[← inferType applied, proposition.appArg!, applied]
-  let image := Expr.mdata (KVMap.empty.setName `CasCompiler.source.propertyApplication
-    ``PropertyFamily) image
-  return .mdata (KVMap.empty
-    |>.setName `CasCompiler.source.kind ``PropertyEntry
-    |>.setString `CasCompiler.source.id family.entry.id.raw
-    |>.setName `CasCompiler.source.declaration family.classifier.declaration
-    |>.setString `CasCompiler.source.propertySource (toJson family.route.source).compress
-    |>.setString `CasCompiler.source.propertyRoute (toJson family.route.refs).compress)
-    (mkApp proposition.appFn! image)
+  check proposition
+  return {
+    value := proposition
+    originalApplication := some applied
+    observation := some (.classifier family.classifier)
+    application := some {
+      family := .property family
+      universes := levels
+      parameters
+      arguments := #[receiver] } }
 
-/-- Specialize one already selected complete property family at its original source object.
-This is the common native producer for source competition and deferred property calls. -/
+
+
 opaque PropertyFamily.atReceiver (family : PropertyFamily) (selected : NativeSourceCategory)
-    (receiver : Expr) : MetaM Expr := do
+    (receiver : Expr) : MetaM (SourceSelection Expr) := do
   unless selected.role == .object do
     throwError "a property requires its selected source object category"
   unless family.route.source.syntacticEq selected.expression do
@@ -122,13 +118,14 @@ opaque PropertyFamily.atReceiver (family : PropertyFamily) (selected : NativeSou
   let applied ← instantiateMVars (mkAppN head (parameters.push receiver))
   if applied.hasMVar || applied.hasLevelMVar then
     throwError "the property leaves a complete source parameter undetermined"
-  family.mark applied
+  family.selected (← levels.mapM instantiateLevelMVars)
+    (← parameters.mapM instantiateMVars) (← instantiateMVars receiver)
 
-/-- The source reader and deferred children form the same complete native proposition.
-Route alternatives are compared before specializing any category parameter or receiver.
-An admitted preferred route selects only its actual family, without asserting an equality. -/
+
+
+
 opaque PropertyFamily.forReceiver (selected : NativeSourceCategory) (id : PropertyId)
-    (receiver : Expr) : MetaM (PropertyFamily × Expr) := do
+    (receiver : Expr) : MetaM (PropertyFamily × SourceSelection Expr) := do
   unless selected.role == .object do
     throwError "a property requires its selected source object category"
   let state ← semanticState
@@ -147,73 +144,13 @@ opaque PropertyFamily.forReceiver (selected : NativeSourceCategory) (id : Proper
     | throwError "the property is not reachable from the receiver's category"
   let agreements ← sourceRouteAgreements state selected routes
   let family ← PropertyFamily.forSelection selected.expression entry.id route.refs
-  let .mdata data proposition ← family.atReceiver selected receiver
-    | throwError "the property lost its complete source marker"
-  let mut proposition := proposition
+  let selected ← family.atReceiver selected receiver
+  let mut proposition := selected.value
   for proof in agreements.reverse do
     proposition ← withLetDecl (← mkFreshUserName `propertyRouteAgreement)
       (← inferType proof) proof fun binding => mkLetFVars #[binding] proposition
         (usedLetOnly := false) (generalizeNondepLet := false)
-  return (family, .mdata data proposition)
-
-def PropertyFamily.fromMark (data : MData) : MetaM PropertyFamily := do
-  unless data.getName `CasCompiler.source.kind == ``PropertyEntry do
-    throwError "the property lost its original source marker"
-  let source ← IO.ofExcept <| ((Json.parse (data.getString `CasCompiler.source.propertySource)).bind
-    (fromJson? (α := CategoryExpr))).mapError IO.userError
-  let route ← IO.ofExcept <| ((Json.parse (data.getString `CasCompiler.source.propertyRoute)).bind
-    (fromJson? (α := Array EdgeRef))).mapError IO.userError
-  let family ← PropertyFamily.forSelection source ⟨data.getString `CasCompiler.source.id⟩ route
-  unless data.getName `CasCompiler.source.declaration == family.classifier.declaration do
-    throwError "the property marker changed its accepted classifier declaration"
-  return family
-
-private partial def propertyBody (source : Expr) : MetaM Expr := do
-  match ← instantiateMVars source with
-  | .mdata data body =>
-    if data.contains `CasCompiler.lower.value then
-      throwError "a property source cannot replace its proposition with a retained value"
-    propertyBody body
-  | .letE _ _ value body _ =>
-    unless ← isProof value do
-      throwError "a property source lost its native proposition boundary"
-    propertyBody (body.instantiate1 value)
-  | value => pure value
-
-/-- Read the explicitly retained original source application, then validate its complete
-native proposition. No parameter or receiver is inferred from the resultant classifier image. -/
-opaque PropertyFamily.application (family : PropertyFamily) (source : Expr) :
-    MetaM (List Level × Array Expr × Expr) := do
-  let body ← propertyBody source
-  unless body.isAppOfArity ``CasCatalogue.Classifier.Holds 3 do
-    throwError "the property changed its complete native Holds proposition"
-  let .mdata data retained := body.appArg!
-    | throwError "the property lost its original source application witness"
-  unless data.getName `CasCompiler.source.propertyApplication == ``PropertyFamily &&
-      retained.isAppOfArity ``Function.const 4 do
-    throwError "the property changed its typed source application witness"
-  let applied := retained.getAppArgs[3]!
-  -- mark changes only the literal image argument of applied.headBeta. Check that
-  -- exact producer relation before conversion can erase distinct source occurrences.
-  let stated := mkApp body.appFn! retained.getAppArgs[2]!
-  unless applied.headBeta == stated do
-    throwError "the property source witness changed its original native proposition"
-  let (head, levels) ← family.instantiate
-  unless applied.getAppNumArgs == family.parameterCount + 1 &&
-      (← isDefEq head applied.getAppFn) do
-    throwError "the property changed its complete original source family application"
-  let parameters := applied.getAppArgs.extract 0 family.parameterCount
-  let some receiver := applied.getAppArgs[family.parameterCount]?
-    | throwError "the property lost its original receiver position"
-  unless ← isDefEq applied body do
-    throwError "the property changed its selected classifier, route or original receiver"
-  let parameters ← parameters.mapM instantiateMVars
-  let levels ← levels.mapM instantiateLevelMVars
-  let receiver ← instantiateMVars receiver
-  if parameters.any (fun parameter => parameter.hasMVar || parameter.hasLevelMVar) ||
-      receiver.hasMVar || receiver.hasLevelMVar || levels.any (·.hasMVar) then
-    throwError "the property leaves a complete source parameter undetermined"
-  return (levels, parameters, receiver)
+  return (family, { selected with value := proposition })
 
 def PropertyFamily.specializeActions (family : PropertyFamily) (levels : List Level)
     (arguments : Array Expr) : MetaM (Array Expr) := do
@@ -223,20 +160,55 @@ def PropertyFamily.specializeActions (family : PropertyFamily) (levels : List Le
   return family.actions.map fun action =>
     (mkAppN (action.instantiateLevelParams family.universeParams levels) arguments).headBeta
 
-/-- Recognize only an original property source marker through ordinary native aliases.
-This selects an observation contract, never a mathematical truth value. -/
-partial def propertySource? (source : Expr) : MetaM (Option (MData × Expr)) := do
-  match ← instantiateMVars source with
-  | .mdata data body =>
-    if data.getName `CasCompiler.source.kind == ``PropertyEntry then return some (data, body)
-    propertySource? body
-  | .fvar id =>
-    match (← id.getDecl).value? with
-    | some value => propertySource? value
-    | none => pure none
-  | .letE _ _ value body _ => propertySource? (body.instantiate1 value)
-  | value =>
-    let reduced := value.headBeta
-    if reduced == value then pure none else propertySource? reduced
+
+
+
+private partial def originalPropertyProposition (context : OpenContext)
+    (selections : SourceSelectionScope Expr) (expression : Expr)
+    (seen : Array BindingId := #[]) : MetaM Expr := do
+  if let .fvar localId := expression then
+    if let some binding := context.bindings.find? (·.expression.fvarId! == localId) then
+      if let some selected := selections[binding.id]? then
+        unless selected.formalBindings.isEmpty && !seen.contains binding.id do
+          throwError "the property source lost its complete original value alias"
+        return ← originalPropertyProposition context selections selected.value (seen.push binding.id)
+    if let some value := (← localId.getDecl).value? then
+      return ← originalPropertyProposition context selections value seen
+    return expression
+  match expression with
+  | .mdata _ body => originalPropertyProposition context selections body seen
+  | .letE _ type value body _ =>
+    unless ← isProp type do
+      throwError "the property source introduced a data-bearing proposition alias"
+    originalPropertyProposition context selections (body.instantiate1 value) seen
+  | _ => pure expression
+
+
+
+
+opaque PropertyFamily.checkSelection (family : PropertyFamily) (context : OpenContext)
+    (selections : SourceSelectionScope Expr) (selected : SourceSelection Expr) : MetaM Unit := do
+  let some application := selected.application
+    | throwError "the property source lost its complete original application"
+  unless (SelectedApplicationFamily.property family).exactlyMatches application.family &&
+      application.universes.length == family.universeParams.length &&
+      application.parameters.size == family.parameterCount &&
+      application.arguments.size == 1 && application.owner.isNone &&
+      application.ownerSelection.isNone do
+    throwError "the property source changed its complete selected family or input positions"
+  let applied := mkAppN
+    (family.family.instantiateLevelParams family.universeParams application.universes)
+    (application.parameters ++ application.arguments)
+  let some original := selected.originalApplication
+    | throwError "the property source lost its original native application"
+  unless original.equal applied do
+    throwError "the property source witness changed its original native proposition"
+  let expected := applied.headBeta
+  unless expected.isAppOfArity ``CasCatalogue.Classifier.Holds 3 do
+    throwError "the property source lost its original Holds proposition"
+  let actual ← originalPropertyProposition context selections selected.value
+  unless actual.equal expected do
+    throwError "the property source witness changed its original native proposition"
+  check expected
 
 end CasCompiler
