@@ -1250,3 +1250,46 @@ The complete result is
 `3aaf8254f5a08369eaee022dcc4275743c579b70b7fbc75c3cf908a35c9714a8`.
 This closes T300's named check and source conditions. T362 and the remaining
 revised KM0 regressions still require completion.
+
+## T362 native reporting and T360 transport-copy cost, 2026-11-27
+
+The first public T362 attempt at `6d91463` stopped during dependency preparation:
+522.7863896340132 s for the public command, with an interrupted 514.648-second
+inner loop. It reinstalled the same Lean 4.33.0 toolchain and began rebuilding
+Mathlib before any selected consumer executed. The container and source tuple
+were unchanged; the cause of the toolchain's removal is not established.
+`timing/logs/t362-focused-6d91463/` retains the result and exact interruption
+receipt. Standard pinned cache retrieval restored 3565 linked artifacts for
+3302 Mathlib roots from the consumer's two actual native import setups in
+172.9882548842579 s, status 0. Its scope, hashes, output and triage remain in
+`timing/logs/t362-cache-restore-20261127/`.
+
+At `06f9079`, the unchanged module then completed in 338.23552911076695 s
+including its 101.044-second changed-producer rebuild. Its next complete repeat
+took 161.9964829343371 s. Both native runs produced complete reports for all nine
+source occurrences and closed both sessions; these module measurements do not
+include the public Python control's corruption assertions.
+
+The required public command
+`just test-feedback AcceptanceRunTests.test_source_occurrences_survive_reporting`
+passed all 77 assertions at the same revision but took 342.9588487832807 s.
+It therefore did not close T362. The complete record is
+`timing/logs/t362-focused-06f9079/gate-1-result.json`; output SHA256 is
+`458c192cdf725706439aff3d1991cfba9ec89f7ea9f7d66252564969bd14eea5`.
+
+| Operation | Calls per public check | Aggregate seconds | Priority and remedy | Remaining measured cost |
+| --- | ---: | ---: | --- | --- |
+| Command startup and report/corruption controls outside the native loop | 1 | 179.730219 | T360: retain the native encoded payload while changing the copied timing-event envelope | Pending the same public command |
+| Unchanged native module loop, including preparation and build | 1 | 163.228630 | Retain its complete inputs and observations | 163.228630 |
+
+The corruption control expanded a 1312017-byte native flat-file log into
+216799929 bytes when it decoded every payload and rewrote schema 1. A process
+snapshot after 305 s showed 115 s of CPU in the test process and the actual
+collector just starting; the available records do not subdivide every part of
+the 179.730219-second residual. The required mutation removes one timing event
+and renumbers sequence/parent references. Keeping schema 2 and its original
+data node tables preserves the same payload without that expansion. Only timing
+events need decoding to select the event to remove. All 600 assertion-call ASTs,
+including the 77 focused assertions and the 97 warm-control assertions, remain
+unchanged. The ordinary command and the procedure's comparable-run median must
+still meet the bound before this contingency and T362 close.

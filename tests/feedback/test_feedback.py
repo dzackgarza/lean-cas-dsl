@@ -1377,9 +1377,13 @@ class AcceptanceRunTests(unittest.TestCase):
         flat_session = files[str(flat_path)]["session"]
         source_log = next(path for path in (copied_run / "application").glob("*.jsonl")
                           if loads_application_event(path.read_text().splitlines()[0])["session"] == flat_session)
-        events = [loads_application_event(line) for line in source_log.read_text().splitlines()]
-        removed = [event for event in events if event["event"] == "computation.timing"
-                   and event["data"]["file"] == str(flat_path) and event["data"]["ordinal"] == 1]
+        encoded_lines = source_log.read_text().splitlines()
+        events = [json.loads(line, parse_float=Decimal) for line in encoded_lines]
+        timings = [loads_application_event(line)
+                   for event, line in zip(events, encoded_lines, strict=True)
+                   if event["event"] == "computation.timing"]
+        removed = [event for event in timings if event["data"]["file"] == str(flat_path)
+                   and event["data"]["ordinal"] == 1]
         self.assertEqual(len(removed), 1)
         removed_sequence = removed[0]["sequence"]
         kept = [event for event in events if event["sequence"] != removed_sequence]
@@ -1388,7 +1392,6 @@ class AcceptanceRunTests(unittest.TestCase):
         for event in kept:
             event["sequence"] = renumbered[event["sequence"]]
             event["parents"] = [renumbered[parent] for parent in event["parents"]]
-            event["schema"] = 1
         source_log.write_text("".join(dumps_exact_json(event) + "\n" for event in kept))
         history = ROOT / "timing/computations.jsonl"
         history_size = history.stat().st_size
