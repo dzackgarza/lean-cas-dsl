@@ -15,10 +15,12 @@ checks and push with the normal hooks.
 For direct and full-cycle Spec Kit runs, `speckit-tasks` applies the
 [task contribution rules](CONTRIBUTING.md#task-rows-and-open-questions) when it writes or revises a task.
 `speckit-analyze` independently traces each task's named input, prerequisites, evidence producer
-and assertion against the implementation revision. Apply SPEC007–SPEC010 to the source and the
-proposed check. Report the task ID, the source or record that supports the finding, and the
+and assertion against the implementation revision. Apply SPEC001–SPEC011 where applicable, including the scope, cost and stopping condition of the actual check. Report the task ID, the source or record that supports the finding, and the
 change needed when the check can pass incorrectly, fail for another task's defect, or depends
-on an unverified prerequisite.
+on an unverified prerequisite. A constitutional conflict or a finding that prevents execution
+or truthful acceptance blocks implementation. Return the finding to the workflow that owns
+the affected artifact, correct it, and analyze the revised artifacts before implementation.
+Start a fresh workflow run after correction so the decision uses the revised inputs.
 
 **Source location:** the kernel source (`CasCompiler/`, `CasRuntime/`) is on branch `integration/kernel-v1-20261106` (PR #87), which pins Lean 4.33.0 and Mathlib `v4.33.0`. `main` pins the toolchain and Mathlib of the research image ([#90](https://github.com/dzackgarza/lean-cas-dsl/issues/90)). PR #87 merges after the kernel branch is ported to those pins; #90 owns the port and records which Mathlib the running container holds. The two branches carry the same governing documents: the constitution, this file, `CONTRIBUTING.md` and `specs/`. An edit to one of them is committed on both branches.
 

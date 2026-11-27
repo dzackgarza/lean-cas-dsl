@@ -44,6 +44,12 @@ class TaskReviewTests(unittest.TestCase):
     def test_missing_verdict_stops_implementation(self):
         self.run_review("Incomplete analysis.\n", False)
 
+    def test_conflicting_verdicts_stop_implementation(self):
+        self.run_review("TASK REVIEW: BLOCKED\nTASK REVIEW: READY\n", False)
+
+    def test_truncated_report_stops_implementation(self):
+        self.run_review("TASK REVIEW: READY\n" + " " * 70000, False)
+
     def test_ready_review_reaches_implementation(self):
         self.run_review("No blocking findings.\nTASK REVIEW: READY\n", True)
 

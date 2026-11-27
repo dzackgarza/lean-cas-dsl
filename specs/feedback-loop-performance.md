@@ -21,7 +21,13 @@ operational.
   median spread of the ten targets with three or more passing runs on 2026-11-27, whose slowest
   runs were 1.28 times their median at the median and up to 2.0 times).
 - The current focused command must pass its assertions and finish within 300 s for task
-  closure. An overrun stays recorded. Check competing jobs and repeat on comparable inputs.
+  closure. On an overrun, keep the result and inspect the exact selectors, fixtures and
+  commands they launch. Compare each with the active task's required observation (SPEC004–SPEC006).
+  If the command includes another task's work or a complete milestone file, correct the task
+  check first. Assign those assertions to their owner, retain their full inputs there, and
+  measure the corrected focused command. T300's complete unchanged RX09 reporting control
+  belongs to KM0. Use the corrected measurement to decide whether a contingency applies.
+  For a correctly scoped overrun, check competing jobs and repeat on comparable inputs.
   If the runner refuses a repeat after an overrun, measure the same selection with `just slow`
   and the reason for the repeat. Return to the ordinary command for closure.
   If the median of three comparable runs exceeds 300 s, investigate the largest measured cost
