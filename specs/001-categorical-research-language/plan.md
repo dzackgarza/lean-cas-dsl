@@ -30,7 +30,7 @@ The source/runtime boundary remains categorical and independently specified. A l
 | External boundary | Data-only versioned framing, exact dependent roles and scoped references, existing engines, retained callable ownership, no automatic retry/replay or provider-priority fallback. All advertised deferred/suspended behavior needs a real kernel handler. |
 | Platform | Existing authorized execution environment and actual CAS/notebook surface. No owner-machine access, new persistent environment or alternate frontend is a planning prerequisite. |
 | Legacy bridge | T024/T025 are retired by the current owner order. Do not revive v1 bridge work as a prerequisite. Existing retained implementations move to v2 through their separate public-only owners after kernel readiness, in the category tasks of the [computational milestones](#computational-milestones). Their original mathematics and acceptance questions remain unchanged. |
-| Budget phase | C21 governs: functional work may use the time/memory/heartbeat limits needed. Original budgets remain final obligations, including the 99-root 3×3 specimen under 60 seconds and RX-LIFT's shared 200,000 heartbeats/full 22-binding prefix. Fast development feedback remains an immediate continuing priority; other optimization cannot select functional work except the narrow C21 cannot-finish-at-all exception. |
+| Budget phase | C21 governs: functional work may use the time/memory/heartbeat limits needed. Original budgets remain final obligations, including the 99-root 3×3 specimen under 60 seconds and RX-LIFT's shared 200,000 heartbeats/full 22-binding prefix. Fast development feedback remains an immediate continuing priority; other optimization cannot select functional work except the narrow C21 cannot-finish-at-all exception. A focused loop over its bound is M0 work of its contingency task ([M0 loop](#m0-loop-acceptance-condition-cost-areas-and-contingency-tasks)), not optimization inside a functional task. |
 
 The scoped contracts remain [mathematical input][M], [computational runtime][R], [data model][D] and [notebook session][N]. Their behavioral requirements remain binding. The schedule in this plan and tasks implements the current C21 order; it does not reintroduce their historical first-use-proof, early-freeze, v1-bridge or budget gates. Exact changes of responsibility and proof ownership are specified below, not left to an implementer to reconcile contradictory task dependencies.
 
@@ -116,7 +116,7 @@ The stories retain the specification's user outcomes. Shared code is implemented
 | US7 — real notebook | Actual new execution path in worker/client, committed state, cancellation/owner/snapshot rules and inert queries | Connected cells use retained results; explicit execution performs work, inspection performs none; no replay resurrects old choices/owners. |
 | US8 — mathematical discovery/display | Source-derived discovery, retained metadata, once-only mathematical rendering and actual provenance | Users inspect actual selected data and full applicability independently of provider availability, without executing lazy components or executable formatters. |
 
-US2–US6 use the shared production path developed with US1; this dependency is explicit, not a claim that a protocol-only phase is independently executable. Their generic capabilities use that interface in the fixed task order; the interface does not authorize separate active tasks. US7 and US8 are real integration, not mock frontends or polish. US9 is Phase 0 of the task list (T114, T351, T112, T354, T127, T300). US10 is delivered by the [computational milestones](#computational-milestones).
+US2–US6 use the shared production path developed with US1; this dependency is explicit, not a claim that a protocol-only phase is independently executable. Their generic capabilities use that interface in the fixed task order; the interface does not authorize separate active tasks. US7 and US8 are real integration, not mock frontends or polish. US9 is Phase 0 of the task list (T114, T351, T354, T112, T127, T300) with the loop contingency tasks T355 to T361. US10 is delivered by the [computational milestones](#computational-milestones).
 
 ## Completion milestones
 
@@ -128,8 +128,8 @@ functional work earlier while retaining its later proof and acceptance obligatio
 
 | Milestone | Complete observable outcome | Owners and scope |
 | --- | --- | --- |
-| [M0 — Fast edit-to-result feedback](https://github.com/dzackgarza/lean-cas-dsl/milestone/1) | A substantive edit in the current owner rebuilds affected executable dependencies and runs the unchanged public consumer within the normal focused-loop bound. Current diagnostics, failures and timings are truthful. Retain this behavior throughout development. | #84, T114/US9; reuse T016's completed work without treating its historical timing as current readiness. T351 (the inherited worktree committed by mechanism), then T112, T354 (the first statement of `sets.cas` within the loop bound), T127 (FR-043: timing records, test-run logs, application logs) and T300 (a truthful acceptance run) continue this capability as the first unchecked tasks; they are kernel milestone K0. |
-| [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol and both directions of growth: every DSL script of the acceptance and extension files runs through the public session. F needs no notebook. Its checks observe kernel behaviour and require no computed mathematical result (constitution C22). It has [checkpoints](#m1-checkpoints). M1 is the sequence of [kernel milestones](#kernel-milestones) K0 to K20 and F; each is one file or one named group of files of the permanent and extension workloads, and F is the last. | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
+| [M0 — Fast edit-to-result feedback](https://github.com/dzackgarza/lean-cas-dsl/milestone/1) | A substantive edit in the current owner rebuilds affected executable dependencies and runs the unchanged public consumer within the normal focused-loop bound. Current diagnostics, failures and timings are truthful. Retain this behavior throughout development. | #84, T114/US9; reuse T016's completed work without treating its historical timing as current readiness. T351 (the inherited worktree committed by mechanism), then T354 (the M0 loop restored for `sets.cas`, whose first statement takes about 504 s at the tip), T112, T127 (FR-043: timing records, test-run logs, application logs) and T300 (a truthful acceptance run) continue this capability as the first unchecked tasks; they are kernel milestone KM0. The loop contingency tasks T355 to T361 restore the bound when a loop goes over it ([M0 loop](#m0-loop-acceptance-condition-cost-areas-and-contingency-tasks)). |
+| [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol and both directions of growth: every DSL script of the acceptance and extension files runs through the public session. F needs no notebook. Its checks observe kernel behaviour and require no computed mathematical result (constitution C22). It has [checkpoints](#m1-checkpoints). M1 is the sequence of [kernel milestones](#kernel-milestones) KM0 to KM21 and F; each is one acceptance file, or a named group of its statements, of the permanent and extension workloads, and F is the last. | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
 | [M2 — V1 category implementations and delivery](https://github.com/dzackgarza/lean-cas-dsl/milestone/3) | The [computational milestones](#computational-milestones) deliver the category implementations in mathematical order. All required V1 category implementations supply actual computations, defining data and later uses through the released contract; publish and build one compatible mathematics/kernel/contract/leaf/worker tuple; the notebook unit completes the delivery and republishes the tuple with the protocol-2 worker (T093). | #93, the V1 category tasks of the [table](tasks.md#complete-the-required-computational-implementations-and-actual-delivery-tuple), T352 and T105; #90 at T352 supplies the research-image toolchain/Mathlib port; the notebook unit (T083–T093, T010, T097–T099, T346–T348, T325, with lean-jupyter-kernel T003–T014; #69 and #24 hold its obligations). |
 | [M3 — Independently accepted V1](https://github.com/dzackgarza/lean-cas-dsl/milestone/4) | All #24 A–F obligations, independent mathematical assessment, preservation arguments, frozen extension trials and original final budgets hold together on the delivered tuple. | #24 and full closure of #66/#69/#82/#85/#91; #97 records #10's unchanged V1 closure condition; the project root remains open through M4/M5. |
 | [M4 — Full B0 and classified Sage coverage](https://github.com/dzackgarza/lean-cas-dsl/milestone/5) | Complete #19's K1–K14 computations and the separate versioned Sage coverage denominator, including required hypotheses, defining maps and continuations. | #19, #20, #21, #22, #23; the V2 category tasks (T255, T256, T258–T265) and the V3 tasks; the inventory and classification tasks T140–T147 with T225–T234; assessment and publication T160–T169. Their bounded construction/input work (T139) can inform V1 before their later full closure. |
@@ -181,34 +181,67 @@ input to broader algorithms.
 
 **Diagnostic surface.** The user turns diagnostics on with Lean's option commands: `set_option trace.CasDsl.execution true` for the later cells of the session, and `set_option trace.CasDsl.execution true in #cas …` for one command; a section scope covers several commands of one cell. #8 settles this form: it applies the opt-in, per-cell or per-notebook logging ruling of August 6 through Lean's scope and trace controls, and it adds no notebook magic parser. T157 implements the classes, levels and scopes in this form.
 
+### M0 loop: acceptance condition, cost areas and contingency tasks
+
+**Acceptance condition.** The focused loop of the active task finishes within the 300-second bound: the rebuild of the edited owner and its dependents, and the run of the unchanged public consumer ([development boundaries](../../AGENTS.md#development-boundaries), [feedback loops](../../CONTRIBUTING.md#feedback-loops)). The run row of `timing/runs.jsonl` measures it with its fields `seconds`, `within_loop_bound`, `phases.build`, `phases.execution`, `phases.acceptance` and `preparation_seconds`, together with the module and acceptance rows of T112. The trigger, the target, the noise rule and the method are those of [the loop-performance procedure](../feedback-loop-performance.md). This condition holds for each task and each milestone check of Part 1; M0 is not complete while a loop of the active task stays over its bound.
+
+**Measured state.** Snapshot of `timing/runs.jsonl` on the kernel branch, 2026-11-20 to 2026-11-27:
+
+| Measure | Value |
+| --- | --- |
+| Runs | 712 |
+| Median time of a run | 107 s |
+| 90th percentile of a run | 456 s |
+| Runs over 300 s (`within_loop_bound` false) | 117 |
+| Build phase, median and 90th percentile (691 runs) | 33 s, 219 s |
+| Execution phase, median and 90th percentile (517 runs) | 52 s, 248 s |
+| Acceptance phase, median and 90th percentile (13 runs) | 116 s, 563 s |
+| Longest milestone run | 7,003 s |
+| First statement of `sets.cas` | about 504 s: one request preparation 355 s, `ObservationDescriptor.prepare` 154 s, about 5.5 million JSON nodes |
+
+**Cost areas.** The predictable costs of the loop fall in seven areas. Each area has one contingency task in Phase 0 of the [task list](tasks.md#loop-contingency-tasks-m0).
+
+| Area | Phase of the procedure | What it concerns at the tip | What measures it | Remedy class | Task |
+| --- | --- | --- | --- | --- | --- |
+| A — build fan-out | Build | An edit of a low module rebuilds its importers: the shared setup of one loop reached 702 s (`CasCompiler.SourceInstanceTests`, `7159dc7d`); aggregate targets (`CasCompilerTests`, `CasRuntimeTests`, `CasDslTests`) belong to `just milestone`. Files: `lakefile.lean`, the imports of the edited module (for example `CasCompiler/Context.lean`). | `phases.build` of the run row; the job times of the build log | Cut an import fan-out; keep aggregate targets out of the focused loop | T355 |
+| B — native compilation | Build | Native code of test executables and facets in `lakefile.lean`; the tip records no separate time for it. | The times of compile and link jobs in the build log | No native executable in the focused loop that its check does not use; reuse a built executable | T356 |
+| C — elaboration | Execution | Test modules of 206 to 279 s (`CasCompiler.SourceInstanceTests`, `CasCompiler.SourceTupleTests`, `CasRuntime.ConstrainedPointTests`); heartbeats spent in a tuple such as `(a + b, 0)`; instance search after `Meta.reduce` at transparency `all` (`CasCompiler/SourceTypeOrigin.lean`, `trySourceInstance`). | Lean `--profile` and `set_option profiler true`; `seconds` of `timing/modules.jsonl` | Remove repeated elaboration; split a test module by mechanism; remove reduction that a search repeats | T357 |
+| D — runtime statement cost | Execution, Acceptance | Observation and result serialization size, repeated request preparation and captured-context size: `CasRuntime/Observation.lean` (`ObservationDescriptor.prepare`), `CasTools/JsonGraph.lean`, `CasRuntime/PreparedRequest.lean`, `CasCompiler/Context.lean`. `let a := 17 + 29 in ℤ` took 195.8 s (`60424a12`); each statement of `sets.cas` that reaches preparation 41 to 505 s. | The `request.prepare.*` and `observation.*` rows of the application log (T127); the statement rows of `timing/computations.jsonl` | Share a repeated subgraph; stop a repeated preparation; keep the descriptor complete | T358 (T354 now) |
+| E — process and peer startup | Startup | The container command of `scripts/feedback.sh`, the Lean process and its imports, the Python peers of `scripts/probes/`, the start of Sage; `CasRuntime/Connection.lean` starts the peers. | `shared_worker_setup_seconds` and `shared_session_setup_seconds`; the `session.prepared` row | Reuse a process; start a peer once for a module | T359 |
+| F — harness overhead | Harness | Log volume and file IO (2,348 committed log files under `timing/logs/` at `dd71f95`; application logs of whole request graphs), sequential module runs: `scripts/feedback.sh`, `scripts/accept_files.sh`, `CasTools/Diagnostics.lean` (`ApplicationLog.write`). | The size of the run directory; the execution phase minus the sum of the module times | Less log volume for each event; compression at the end of the run (T112) | T360 |
+| G — host contention | any | Concurrent Lean processes, memory and swap of the host, disk space. | The process list, `free` and `df` at the start of the run | `just stop` (LOOP004); one run at a time; free disk space | T361 |
+
+**Contingency tasks.** A contingency task is outside the execution order. Its trigger, first step and done condition are those of the procedure, for a loop of the active task whose largest row of the triage table is in its area; the worker does it first and then returns to the active task, with the public consumer, its inputs and its expectations unchanged. T354 is the area-D instance known now; it is the first task of Phase 0 that changes source, after T351, which commits the tree that it edits. Slowness that keeps the loop within the bound is a row for the final performance work (C21). M0 work is never done under the name of a functional task ([LOOP006](../../CONTRIBUTING.md#feedback-loops)).
+
 ### Kernel milestones
 
-M1 is a sequence of small vertical milestones. Each runs one acceptance file, or one named group of statements, of the permanent and extension workloads through `CasRuntime.KernelSession` with the empty manifest and with protocol peers. Its one check is `just loop` on those files, as the [task list](tasks.md#kernel-milestones) states, together with the checks of its tasks. The order starts with `sets.cas`, as the computational order starts with sets, and ends with F. A milestone holds the tasks whose checks run its files or that its M1 checkpoint names, with the inputs that they name in `After` (including the upstream tasks of their sibling inputs) and that no earlier milestone holds; the task list places each task in its milestone and runs the milestones in this order. A defect that the run shows and that no task of the milestone owns gets its task in that milestone. The next milestone is the first one with an unchecked task.
+M1 is a sequence of small vertical milestones. Each runs one acceptance file, or a named group of its statements, of the permanent and extension workloads through `CasRuntime.KernelSession` with the empty manifest and with protocol peers. Its check is one `just loop` for each of its files, as the [task list](tasks.md#kernel-milestones) states, together with the checks of its tasks. A milestone holds at most eight tasks: the tasks whose mechanisms its statements need and that no earlier milestone holds, with the upstream tasks that come before them. A task check names test modules and statements whose whole route needs only its own mechanism and mechanisms that work at the tip or that earlier tasks deliver ([check route](tasks.md#how-a-part-1-task-is-written-and-checked)); a whole file is the check of its milestone. The order starts with the statements of `sets.cas` that work at the tip, as the computational order starts with sets, and ends with F. A defect that the run shows and that no task of the milestone owns gets its task in that milestone. The next milestone is the first one with an unchecked task, the loop contingency tasks aside. The names KM0 to KM21 differ from the question groups K1 to K14 of B0 (#19).
 
-| Milestone | Files of its check | Checkpoint | Tasks |
+| Milestone | Statements of its check | Checkpoint | Tasks |
 | --- | --- | --- | --- |
-| K0 | the checks of its tasks | — | T351 T112 T354 T127 T300 |
-| K1 | `sets.cas` | M1.1, M1.2 | T116 T027 T007 T303 T009 T011 T123 T308 T131 T138 T056 T017 T021 T020 T026 T121 T032 T119 T129 T113 T019 T013 T042 T038 T120 T035 T128 T048 |
-| K2 | `finite_sets.cas` | — | T031 T314 T065 |
-| K3 | `functions.cas` | — | T030 T305 T124 T059 T320 T321 |
-| K4 | `inverses.cas` | — | none (check only) |
-| K5 | `numbers.cas` | — | T053 T054 T312 T122 T132 T034 T073 T345 |
-| K6 | `fractions.cas` | — | none (check only) |
-| K7 | `polynomials.cas` | — | T125 T136 T036 T317 T135 T057 |
-| K8 | `composed.cas` | — | T037 |
-| K9 | `factorization.cas` | — | T313 T344 T066 |
-| K10 | `linear_algebra.cas` | — | none (check only) |
-| K11 | `lattices.cas` | — | none (check only) |
-| K12 | `several_variables.cas` | — | T315 T343 T137 T316 |
-| K13 | `differentials.cas` | — | T050 |
-| K14 | `calculus.cas` | — | T067 |
-| K15 | `series.cas`, `ellipses.cas`, `rx09-successor-series.cas`, `rx09-constant-one-rejection.cas` | M1.6 | T068 T069 |
-| K16 | `algebras_schemes.cas` | — | none (check only) |
-| K17 | `rx-lift-prescribed-stages.cas`, `rx-lift-source-comparison.cas`, `rx08-ordinary-kernel.cas` | M1.4 | T043 T044 T130 T046 T049 |
-| K18 | `rx05-carrier-diamond.cas`, `rx06-reindexing.cas`, `rx07-f9-transport.cas` | M1.5 | T055 T309 T058 T118 T115 |
-| K19 | `rx01-selected-orders.cas`, `rx02-two-subsets.cas`, `rx02-complete-core-action.cas`, `rx03-cyclic-automorphisms.cas`, `rx03-complete-automorphism-arrows.cas`, `rx04-square-bound.cas` | M1.7 | T134 T061 T323 T074 T075 |
-| K20 | `rx10-fixed-execution-question.cas` | M1.8 | T018 T022 T324 T023 T028 T100 T101 |
-| F | every file of the permanent and extension workloads | M1.3 | T301 T302 T304 T306 T307 T310 T311 T033 T342 T318 T319 T060 T322 T051 T064 |
+| KM0 | the checks of its tasks | — | T351 T354 T112 T127 T300 |
+| KM1 | `sets.cas`: `sets.card.z4_cubed`, `sets.card.z7`, `sets.card.z5_empty_power`, `sets.card.integers`, `sets.card.naturals`, `sets.finite.integers`, `sets.implemented.card_fin` | — | T017 T301 T027 T302 T021 T310 |
+| KM2 | `numbers.cas`: `numbers.integers.sum`, `numbers.containments`, `numbers.containments.transitive`, `numbers.membership.negative` | — | T116 T119 T312 T129 T113 T306 |
+| KM3 | `sets.cas`: `let A`, `sets.card.fin2_times_z3`, `sets.finite.fin2_times_z3`, `sets.card.square` | M1.1 | T007 T303 T042 T121 T032 T123 T048 T308 |
+| KM4 | `sets.cas`: `let f`, `let g`, `sets.eq.rev_rev`, `sets.apply.rev`, `sets.apply.rev_rev` | — | T035 T031 |
+| KM5 | `sets.cas`: the statements of KM3 and KM4 and `sets.limit.pullback.card`, with the peer | M1.2 | T011 T009 T020 T019 T026 T013 T100 T038 |
+| KM6 | the whole `sets.cas` | — | T135 T057 T319 |
+| KM7 | the whole `finite_sets.cas` | — | T138 T056 T314 T065 |
+| KM8 | `numbers.cas`: `numbers.zmod5.*`, `numbers.zmod7.*`, `numbers.rationals.sum`, `numbers.membership.zmod` | — | T305 T122 T132 T034 T059 |
+| KM9 | the whole `numbers.cas` and `fractions.cas` | — | T120 T315 T344 T342 T343 |
+| KM10 | the whole `functions.cas` | — | T124 T320 T321 T033 |
+| KM11 | the whole `inverses.cas` and `linear_algebra.cas` | — | T030 T311 T304 |
+| KM12 | the whole `polynomials.cas` | — | T125 T136 T036 T317 |
+| KM13 | the whole `composed.cas` and `differentials.cas` | — | T128 T037 T050 |
+| KM14 | the whole `factorization.cas` | — | T313 T066 |
+| KM15 | the whole `several_variables.cas` and `algebras_schemes.cas` | — | T137 T316 |
+| KM16 | the whole `calculus.cas`, `series.cas`, `ellipses.cas`, `rx09-successor-series.cas`, `rx09-constant-one-rejection.cas` | M1.6 | T067 T068 T069 |
+| KM17 | `rx-lift-prescribed-stages.cas`, `rx-lift-source-comparison.cas`, `rx08-ordinary-kernel.cas` | M1.4 | T043 T044 T130 T046 T049 |
+| KM18 | `rx05-carrier-diamond.cas`, `rx06-reindexing.cas`, `rx07-f9-transport.cas` | M1.5 | T131 T053 T054 T055 T309 T058 T118 T115 |
+| KM19 | `rx01-selected-orders.cas`, `rx02-two-subsets.cas`, `rx02-complete-core-action.cas`, `rx03-cyclic-automorphisms.cas`, `rx03-complete-automorphism-arrows.cas`, `rx04-square-bound.cas` | M1.7 | T134 T061 T323 T073 T074 T345 T075 |
+| KM20 | the whole `lattices.cas` | — | T018 T322 |
+| KM21 | `rx10-fixed-execution-question.cas` | M1.8 | T022 T324 T023 T028 T101 |
+| F | every file of the permanent and extension workloads | M1.3 | T307 T318 T060 T051 T064 |
 
 ### M1 checkpoints
 
@@ -222,14 +255,14 @@ No checkpoint was evaluated on 2026-11-25. A checkpoint whose observation alread
 
 | Checkpoint | Observation | Inputs | First observed at the close of milestone |
 | --- | --- | --- | --- |
-| M1.1 — Typed carriers | A different source input of equal value is rejected. Two bindings with equal defining expressions stay distinct through a projection, a substitution and a later call. An absent selection is an error at the reader. Two selected limits with one apex keep their own cones. | The checks of T116, T032 and T048 | K1 |
-| M1.2 — Connected statement path | A source file runs through one session. Each statement is read, lowered and dispatched to a protocol peer at its registered address with its actual operands. The reply is admitted and retained, and a later statement uses that value with no second dispatch. | `tests/acceptance/sets.cas`: its definitions `A`, `f` and `g` and the later statements that use them | K1 |
+| M1.1 — Typed carriers | A different source input of equal value is rejected. Two bindings with equal defining expressions stay distinct through a projection, a substitution and a later call. An absent selection is an error at the reader. Two selected limits with one apex keep their own cones. | The checks of T116, T032 and T048 | KM3 |
+| M1.2 — Connected statement path | A source file runs through one session. Each statement is read, lowered and dispatched to a protocol peer at its registered address with its actual operands. The reply is admitted and retained, and a later statement uses that value with no second dispatch. | `tests/acceptance/sets.cas`: its definitions `A`, `f` and `g` and the later statements that use them | KM5 |
 | M1.3 — Forms of connected calculation | Every statement of the permanent acceptance files reads to its registered meaning. With an empty manifest, each computational statement ends in no implementation at a registered address. No statement ends in an internal error or a reader gap. | Every file of `tests/acceptance/*.cas` | F |
-| M1.4 — Construction and later use | The original RX-LIFT source with its 22 bindings prepares each lift field, comparison and factor request at the selected lift, with the earlier outputs as operands. The returned object, maps and factor are the operands of the later requests. | `rx-lift-prescribed-stages.cas`, `rx-lift-source-comparison.cas`, RX08 | K17 |
-| M1.5 — Selected structures | The inputs select their routes, cells, classifiers and reindexing before dispatch. A required omission is refused with no dispatch. A declared choice-producing operation binds the member that the peer returns (T115). | RX05, RX06, RX07; an operation that lean-categories#182 registers | K18 |
-| M1.6 — Exact, infinite and qualified requests | The inputs prepare requests that keep the exact source, the tolerance and the full index family. A demand outside an earlier finite display reaches the same retained object. | RX09; the ellipsis, series and approximation statements of the permanent files | K15 |
-| M1.7 — Growth | A new accepted declaration reaches an unchanged consumer, and a new generic operation reaches an existing object, with no kernel edit. | RX01 to RX04; the checks of T073 and T075 | K19 |
-| M1.8 — Computational contract | A peer written from the published contract alone uses deferred and suspended service, and an unchanged consumer receives its output. A peer that asks for an operation with no implementation receives the no-implementation outcome and continues. The published interface matches the built kernel. | RX10; the checks of T022, T023 and T324 | K20 |
+| M1.4 — Construction and later use | The original RX-LIFT source with its 22 bindings prepares each lift field, comparison and factor request at the selected lift, with the earlier outputs as operands. The returned object, maps and factor are the operands of the later requests. | `rx-lift-prescribed-stages.cas`, `rx-lift-source-comparison.cas`, RX08 | KM17 |
+| M1.5 — Selected structures | The inputs select their routes, cells, classifiers and reindexing before dispatch. A required omission is refused with no dispatch. A declared choice-producing operation binds the member that the peer returns (T115). | RX05, RX06, RX07; an operation that lean-categories#182 registers | KM18 |
+| M1.6 — Exact, infinite and qualified requests | The inputs prepare requests that keep the exact source, the tolerance and the full index family. A demand outside an earlier finite display reaches the same retained object. | RX09; the ellipsis, series and approximation statements of the permanent files | KM16 |
+| M1.7 — Growth | A new accepted declaration reaches an unchanged consumer, and a new generic operation reaches an existing object, with no kernel edit. | RX01 to RX04; the checks of T073 and T075 | KM19 |
+| M1.8 — Computational contract | A peer written from the published contract alone uses deferred and suspended service, and an unchanged consumer receives its output. A peer that asks for an operation with no implementation receives the no-implementation outcome and continues. The published interface matches the built kernel. | RX10; the checks of T022, T023 and T324 | KM21 |
 
 ### Notebook unit
 
@@ -261,7 +294,7 @@ through every retained phase. V1 completion is recorded by M3/#97 under the unch
 
 `itree next` selects the completion owner; the unchecked task order selects the current work
 within its scope. #84/T114 came first and is closed on its complete current loop evidence;
-later tasks inherit the continuing C21/C24 obligation. T351, T112, T354, T127 and T300 (FR-041, FR-043) are the first
+later tasks inherit the continuing C21/C24 obligation. T351, T354, T112, T127 and T300 (FR-041, FR-043) are the first
 unchecked tasks. They continue that capability under #92 and do not reopen #84. The former
 full-#85 blocker of #84 is obsolete.
 M1 consumes that capability, M2 consumes F, and M3 consumes the delivered candidate. Native
@@ -329,7 +362,7 @@ Computational work is leaf work (constitution C22, C23; FR-042). Its milestones 
 
 ## Implementation order and dependency correction
 
-1. T114's current changed-source/public-consumer feedback under #84 is complete; preserve it during the remaining work. Commit the inherited worktree by mechanism (T351), bring the first statement of `sets.cas` within the loop bound (T354), then complete its timing records, test-run logs and application logs (T112, T127; FR-043) and the truthful acceptance run (T300). Then retain adequate existing foundations and prepare the actual source/public driver interfaces. Do not reopen checked setup to produce new receipts. A missing mathematical input becomes a lean-categories task before its consumer, and the workstream does it there ([execution order](tasks.md#execution-order)); downstream mathematics never fills it.
+1. T114's current changed-source/public-consumer feedback under #84 is complete; preserve it during the remaining work. Commit the inherited worktree by mechanism (T351), restore the M0 loop for `sets.cas` (T354), then complete its timing records, test-run logs and application logs (T112, T127; FR-043) and the truthful acceptance run (T300). Then retain adequate existing foundations and prepare the actual source/public driver interfaces. Do not reopen checked setup to produce new receipts. A missing mathematical input becomes a lean-categories task before its consumer, and the workstream does it there ([execution order](tasks.md#execution-order)); downstream mathematics never fills it.
 2. Implement T032 lowering and T013's concrete execution composition at their positions in the [task order](tasks.md#execution-order). Functional outputs needed by the executor are T017–T021/T026; source selection is T053–T056. These are parts of one functioning path, not preliminary standalone release projects.
 3. Bind actual results and connect T038; remove transferred fallback paths. T041's real driver is prepared without T039 or broad mathematical coverage as a prerequisite. T027's shared outcome classification does not depend on completing suspension first.
 4. Complete every required generic mechanism and protocol behaviour, so that every DSL script runs through the public session (F). No per-construct export freeze, preservation proof or early contributor trial gates this expansion. Full kernel readiness, not a first scalar or first RX-LIFT, enables substantial leaf work.
