@@ -113,13 +113,13 @@ protocol-v2 contracts:
     @uv run --project "{{contracts}}" python scripts/test_protocol_v2.py "{{contracts}}"
 
 build: _integration-intent
-    @python3 -m unittest discover -s scripts -p 'test_*.py'
+    @just setup-sdk
+    @uv run --frozen --project "${CAS_LEAF_CONTRACT_PATH:-.lake/packages/cas_leaf_contracts}" python -m unittest discover -s scripts -p 'test_*.py'
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
     @just build-production
-    @just setup-sdk
     @lake build +CasCompilerTests:olean
     @lake build +CasRuntimeTests:olean
     @just audit-production

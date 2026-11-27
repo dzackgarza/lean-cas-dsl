@@ -6,8 +6,6 @@ name: Gates
       - b0/**
     paths-ignore:
       - '**/*.md'
-  # Pre-v1: complete acceptance stays on source pushes and explicit dispatch;
-  # it is not an automatic pull-request gate during construction.
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,11 +17,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - name: Check out the chain at latest main
-        run: python3 scripts/ci_chain.py
+      - name: Prepare the committed dependency revisions
+        run: python3 scripts/ci_chain.py --manifest-revisions
       - name: No leaves in lean-cas-dsl
-        run: python3 scripts/check_no_leaves.py --self-test && python3 
-          scripts/check_no_leaves.py
+        run: python3 scripts/check_no_leaves.py --self-test && python3 scripts/check_no_leaves.py
       - name: Permanent acceptance assertions
         run: python3 scripts/check_acceptance_permanent.py
   kernel-purity:
@@ -32,6 +29,8 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Prepare the committed dependency revisions
+        run: python3 scripts/ci_chain.py --manifest-revisions
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
@@ -39,10 +38,8 @@ jobs:
           lint: false
           build: false
           auto-config: 'false'
-      - name: Build the gate at latest main
+      - name: Build the gate at the committed dependency revisions
         run: |
-          python3 scripts/ci_chain.py
-          lake update lean_categories cas_leaf_contracts nbdsl-worker
           uv sync --frozen --project .lake/packages/cas_leaf_contracts
           lake env lake build CasGates
   build:
@@ -53,11 +50,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - name: Check out the chain at latest main
-        run: python3 scripts/ci_chain.py
+      - name: Prepare the committed dependency revisions
+        run: python3 scripts/ci_chain.py --manifest-revisions
       - name: Clone QC infrastructure
-        run: git clone --depth 1 https://github.com/dzackgarza/ai-review-ci.git 
-          "$HOME/ai-review-ci"
+        run: git clone --depth 1 https://github.com/dzackgarza/ai-review-ci.git "$HOME/ai-review-ci"
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
@@ -86,10 +82,10 @@ jobs:
         with:
           path: base
           ref: ${{ github.event.pull_request.base.sha || github.event.before }}
-      - name: Check out each side's chain at latest main
+      - name: Prepare each side's committed dependency revisions
         run: |
-          python3 head/scripts/ci_chain.py head
-          python3 head/scripts/ci_chain.py base
+          python3 head/scripts/ci_chain.py head --manifest-revisions
+          python3 head/scripts/ci_chain.py base --manifest-revisions
       - name: Install Lean
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
@@ -100,8 +96,7 @@ jobs:
           lint: 'false'
           use-mathlib-cache: 'false'
       - name: Check candidate assertions against the accepted base ledger
-        run: python3 head/scripts/check_acceptance_permanent.py --base 
-          base/CasAcceptance/Permanent/admitted.json
+        run: python3 head/scripts/check_acceptance_permanent.py --base base/CasAcceptance/Permanent/admitted.json
       - name: Run the suite at the base and at the head
         run: |
           for side in base head; do
@@ -109,12 +104,8 @@ jobs:
             if [ "$side" = head ]; then
               inventory_args=(--inventory "$GITHUB_WORKSPACE/base/CasAcceptance/Permanent/admitted.json")
             fi
-            # The harness exits nonzero when an assertion fails; the report decides, and a run
-            # that did not complete writes none, which fails the comparison.
             rm -f "$GITHUB_WORKSPACE/$side.json"
-            (cd "$side" && python3 scripts/ci_chain.py \
-              && lake update lean_categories cas_leaf_contracts nbdsl-worker \
-              && lake exe cache get && lake build cas-harness \
+            (cd "$side" && lake exe cache get && lake build cas-harness \
               && { lake exe cas-harness "${inventory_args[@]}" --report "$GITHUB_WORKSPACE/$side.json" || true; })
           done
       - name: Publish the head report as the burndown queue
@@ -127,12 +118,10 @@ jobs:
             base.json
           if-no-files-found: error
       - name: Compare, assertion by assertion
-        run: python3 head/scripts/check_acceptance_regression.py base.json 
+        run: python3 head/scripts/check_acceptance_regression.py base.json head.json
+      - name: Admitted assertions keep their semantic questions (gov-meaning-permanence)
+        run: python3 head/scripts/check_question_permanence.py --base base/CasAcceptance/Permanent/questions.json
           head.json
-      - name: Admitted assertions keep their semantic questions 
-          (gov-meaning-permanence)
-        run: python3 head/scripts/check_question_permanence.py --base 
-          base/CasAcceptance/Permanent/questions.json head.json
   controller-boundary:
     name: Controller boundary fixtures
     runs-on: ubuntu-latest
