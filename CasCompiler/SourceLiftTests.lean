@@ -1,28 +1,31 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.SourceTestSupport
 import CasCompiler.Parse
 import LeanCategories.Catalogue
 import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneLifts
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.SourceTestSupport
 meta import CasCompiler.Parse
 meta import LeanCategories.Catalogue
 meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneLifts
 
 open Lean Meta Elab Term CasCompiler
+open CasCompiler.SourceTest
 
 universe u₁ u₂ v₁ v₂
 
--- The native layout retains independent object and morphism universes at both boundaries.
+
 example {C : Type u₁} {D : Type u₂} [CategoryTheory.Category.{v₁} C]
     [CategoryTheory.Category.{v₂} D] (U : CategoryTheory.Functor C D)
     (selected : CasCatalogue.MonoLift U) (X : C) (K : D)
     (i : K ⟶ U.obj X) (monicity : CategoryTheory.Mono i) : SourceLiftApplication U :=
   ⟨selected, X, K, i, monicity⟩
 
--- Reuse the original selected application and accepted MonoLift projection terms.
--- This checks native source translation, without deciding any acceptance question.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let path := "tests/acceptance/proposals/independent-extension-reconstruction-20261024/" ++
     "completion/rx-lift-prescribed-stages.cas"
@@ -44,12 +47,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the native composed-map proposition did not parse"
         let expected ← session.term ⟨parsed⟩
         let question ← file.withContext (session.readQuestion body)
-        question.source.withOpen fun bindings expression => do
-          let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
-          unless ← isDefEq expression expected do
-            throwError "the original inverse equation changed its complete native reading"
-          checkWithKernel
-            (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+        discard <| session.elaborateScoped Syntax.missing do
+          let expression ← session.readTerm question
+          let expected ← session.readTerm expected
+          checkOriginal #[expression, expected] fun native => do
+            unless ← isDefEq native[0]! native[1]! do
+              throwError "the original inverse equation changed its complete native reading"
+            checkWithKernel
+              (← mkExpectedTypeHint (← mkEqRefl native[0]!) (← mkEq native[0]! native[1]!))
+          return expression
         questions := questions.push text
       continue
     let `(cas_item| $statement:cas_stmt) := item | continue
@@ -62,8 +68,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       catch error => throwError "original binding {name}: {error.toMessageData}"
     let .definition next value := formed
       | throwError "the original selected lift did not extend its source context"
-    unless value.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
-      throwError "the selected lift shortened its original ordered context"
+    session.withTerm value fun _ _ _ => pure ()
+    let previous ← authoredEntries session.context session.selections
+    let current ← authoredEntries value.source.context value.selections
+    unless current.map (·.id) == previous.map (·.id) do
+      throwError "the selected lift changed its original ordered authored context"
     let expectedName := match name with
       | `X1 => some "CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstObject"
       | `i1 => some "CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstInclusion"
@@ -75,11 +84,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok parsed := Parser.runParserCategory (← getEnv) `term expectedName
         | throwError "the owned lift projection did not parse"
       let expected ← session.term ⟨parsed⟩
-      value.source.withOpen fun bindings expression => do
-        let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
-        unless ← isDefEq expression expected do
-          throwError "the original lift projection {name} changed its selected native application"
-        checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+      discard <| session.elaborateScoped Syntax.missing do
+        let expression ← session.readTerm value
+        let expected ← session.readTerm expected
+        checkOriginal #[expression, expected] fun native => do
+          unless ← isDefEq native[0]! native[1]! do
+            throwError "the original lift projection {name} changed its selected native application"
+          checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+            (← mkEq native[0]! native[1]!))
+        return expression
       observed := observed.push name
     session := next
     if name == `i0 then
