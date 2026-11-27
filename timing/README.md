@@ -404,3 +404,26 @@ Native container controls verified the actual image digest, stdin, exit status, 
 propagation and direct-container image provenance. A baseline now requires its final
 `run.finished` event. All 2,348 formerly indexed raw log files were removed from the index
 with their on-disk SHA-256 values unchanged; `git ls-files timing/logs` is empty.
+
+## T127 statement phase boundaries
+
+At clean revision `1108e97`, `just loop CasRuntime.SessionLogTests` passed in
+178.725 s (`20261127T025437Z-loop.vp7tKr`): preparation 51.247 s, build 12.847 s,
+execution 113.634 s. It runs only the original `sets.implemented.card_fin` statement
+from `sets.cas`, with the real protocol peer and with an empty manifest. The inherited
+whole-file assertions remain unchanged in `CasRuntime.SessionFileLogTests`, still included
+in the original aggregate.
+
+The peer case held with exactly one `meth.cardinality` registration on `obj.sets.fin`
+and took 39.918 s for its statement. The empty case took 19.561 s and ended with
+`noImplementation` at `meth.cardinality`, with no dispatch. The native assertions verify
+the schema-2 stream, source span, causal parents, setup and statement timing, balanced
+lowering, exact prepared/executed descriptor identity, ordered read/lower/prepare/dispatch/
+admit/retain boundaries and terminal outcomes.
+
+`FeedbackTests.test_application_log_codec_preserves_exact_values` also passed: 0.003 s
+inside unittest, 6.919 s for its public command. Its unchanged test source and original
+revision are retained with `codec-result.json` and `codec.log.gz` in the passing run
+directory. The original phase run interrupted by TERM (127.120 s) and the failed
+JSON-result equality elaboration control (118.977 s) remain in the timing streams and
+raw run directories. Required-field extraction was preserved in the corrected comparisons.
