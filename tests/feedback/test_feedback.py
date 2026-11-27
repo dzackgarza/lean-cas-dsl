@@ -432,22 +432,77 @@ class FeedbackTests(unittest.TestCase):
                         str(ROOT), str(checkout)], check=True)
         revision = subprocess.check_output(
             ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
-        consumer, importer = "FeedbackSessionLog.lean", "FeedbackSourceIdentity.lean"
+        consumer, other_source = "FeedbackSourceIdentity.lean", "lakefile.lean"
+        unrelated = "FeedbackUnrelated.lean"
         borrowed = "tests/acceptance/sets.cas"
         self.addCleanup(retain_checkout, checkout, revision,
                         ["CasRuntime/SessionLogTests.lean", borrowed, "scripts/feedback_records.py"])
         for name in [".gitignore", "justfile", "lean-toolchain", "scripts/feedback.sh",
                      "scripts/container.sh", "scripts/feedback_records.py", "scripts/application_log.py",
                      "scripts/source_occurrences.py", "scripts/acceptance_inputs.py",
-                     "scripts/check_acceptance_permanent.py", "scripts/probes/kernel_session_peer.py",
-                     borrowed]:
+                     "scripts/check_acceptance_permanent.py", borrowed]:
             target = checkout / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, target)
-        original_consumer = (ROOT / "CasRuntime/SessionLogTests.lean").read_bytes()
+        original_session_log = (ROOT / "CasRuntime/SessionLogTests.lean").read_bytes()
         original_borrowed = (ROOT / borrowed).read_bytes()
+        original_consumer = (
+            "module\n"
+            "\n"
+            "import CasRuntime.Session\n"
+            "import CasCompiler.Parse\n"
+            "import LeanCategories.Catalogue\n"
+            "public meta import Lean.Elab.Command\n"
+            "meta import CasRuntime.Session\n"
+            "meta import CasCompiler.Parse\n"
+            "meta import LeanCategories.Catalogue\n"
+            "\n"
+            "open Lean Meta Elab Command Term CasCompiler CasRuntime CasCatalogue CasCatalogue.Backend\n"
+            "\n"
+            "run_cmd do\n"
+            "  let environment ← getEnv\n"
+            "  try\n"
+            "    let preparationStarted ← IO.monoMsNow\n"
+            "    let input : System.FilePath := \"tests/acceptance/sets.cas\"\n"
+            "    let contents ← IO.FS.readFile input\n"
+            "    let original ← liftCoreM <| SourceFile.parse input.toString contents\n"
+            "    let selected : Array (TSyntax `cas_stmt) := original.items.filterMap fun item =>\n"
+            "      match item with\n"
+            "      | `(cas_item| test $id:ident $_:str : $statement:cas_stmt) =>\n"
+            "        if id.getId == `sets.implemented.card_fin then some statement else none\n"
+            "      | _ => none\n"
+            "    let #[statement] := selected\n"
+            "      | throwError \"the source identity control lost its one original cardinality assertion\"\n"
+            "    unless (statement.raw.reprint.getD \"\").trimAscii.toString ==\n"
+            "        \"assert implemented |Fin(3)|\" do\n"
+            "      throwError \"the source identity control changed the original cardinality assertion\"\n"
+            "    let root ← IO.currentDir\n"
+            "    let nonce := (← IO.FS.readFile \"/proc/sys/kernel/random/uuid\").trimAscii.toString\n"
+            "    let path := root / \".tmp\" / s!\"source-identity-{nonce}.json\"\n"
+            "    IO.FS.createDirAll (root / \".tmp\")\n"
+            "    IO.FS.writeFile path <| (Json.mkObj [(\"backends\", .arr #[]),\n"
+            "      (\"registrations\", .arr #[])]).compress\n"
+            "    let session ← liftTermElabM <| KernelSession.start (some path)\n"
+            "      (computationOnly := true) (preparationStarted? := some preparationStarted)\n"
+            "    try\n"
+            "      unless session.kernel.rejected.isEmpty do\n"
+            "        throwError \"the source identity control rejected its explicit empty manifest\"\n"
+            "      let run ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|\n"
+            "        original.withContext (session.run statement)\n"
+            "      unless run.attempted && run.outcome.stratum? == some \"noImplementation\" &&\n"
+            "          (run.outcome.detail.splitOn \"meth.cardinality\").length > 1 do\n"
+            "        throwError \"the source identity prerequisite is {run.outcome.kind}: {run.outcome.detail}\"\n"
+            "      unless (← session.kernel.dispatches.get).isEmpty do\n"
+            "        throwError \"the explicit empty manifest dispatched an implementation\"\n"
+            "      unless (← IO.FS.readFile input) == contents do\n"
+            "        throwError \"the original acceptance source changed during the source identity control\"\n"
+            "    finally\n"
+            "      session.close\n"
+            "  finally\n"
+            "    setEnv environment\n"
+        ).encode()
         (checkout / consumer).write_bytes(original_consumer)
-        (checkout / importer).write_text("module\n\nimport FeedbackSessionLog\n")
+        (checkout / unrelated).write_text("module\n\nimport Lean\n")
         manifest = json.loads((ROOT / "lake-manifest.json").read_text())
         root_package = manifest["name"]
         manifest["packagesDir"] = str((ROOT / manifest.get("packagesDir", ".lake/packages")).resolve())
@@ -466,20 +521,36 @@ class FeedbackTests(unittest.TestCase):
         (checkout / "lakefile.lean").write_text(
             "import Lake\nopen Lake DSL\npackage feedback_source_identity\n"
             f"require «cas-dsl» from {json.dumps(str(ROOT))}\n"
-            "lean_lib FeedbackSessionLog\nlean_lib FeedbackSourceIdentity\n\n" +
+            "lean_lib FeedbackSourceIdentity\nlean_lib FeedbackUnrelated\n\n" +
             marker + configuration.split(marker, 1)[1])
-        artifact = checkout / ".lake/build/lib/lean/FeedbackSessionLog.olean"
+        artifact = checkout / ".lake/build/lib/lean/FeedbackSourceIdentity.olean"
         self.assertFalse(artifact.exists())
+        for fault, selection in [
+                ("facet-only", "+FeedbackSourceIdentity:leanArts"),
+                ("unrelated-facet", "FeedbackUnrelated +FeedbackSourceIdentity:leanArts")]:
+            guard_log = control / f"{fault}.log"
+            with guard_log.open("w") as output:
+                rejected = subprocess.run(
+                    ["just", "loop", selection], cwd=checkout,
+                    stdout=output, stderr=subprocess.STDOUT, check=False)
+            self.assertNotEqual(rejected.returncode, 0, guard_log.read_text())
+            self.assertIn("an explicit +Module:facet", guard_log.read_text())
+            rejected_record = json.loads((checkout / "timing/runs.jsonl").read_text().splitlines()[-1])
+            self.assertEqual(rejected_record["status"], rejected.returncode)
+            self.assertFalse(rejected_record["attempted"], rejected_record)
+            self.assertIsNone(rejected_record["phases"]["build"]["status"])
+            self.assertIsNone(rejected_record["phases"]["execution"]["status"])
+            self.assertFalse(artifact.exists())
         log = control / "public-loop.log"
         with log.open("w") as output:
             result = subprocess.run(
-                ["just", "loop", "FeedbackSessionLog FeedbackSourceIdentity"], cwd=checkout,
+                ["just", "loop", "FeedbackSourceIdentity +FeedbackSourceIdentity:leanArts"], cwd=checkout,
                 stdout=output, stderr=subprocess.STDOUT, check=False)
         self.assertEqual(result.returncode, 0, log.read_text())
         self.assertTrue(artifact.is_file(), "the original consumer was not built afresh")
         record = json.loads((checkout / "timing/runs.jsonl").read_text().splitlines()[-1])
-        self.assertEqual(record["targets"], ["FeedbackSessionLog", "FeedbackSourceIdentity"])
-        self.assertEqual(record["sources"], [consumer, importer])
+        self.assertEqual(record["targets"], ["FeedbackSourceIdentity", "+FeedbackSourceIdentity:leanArts"])
+        self.assertEqual(record["sources"], [consumer])
         self.assertEqual(record["status"], 0, record)
         self.assertEqual(record["execution_status"], 0, record)
         self.assertFalse(record["over_limit"], record)
@@ -507,8 +578,8 @@ class FeedbackTests(unittest.TestCase):
             steps[step["step"]] = (path, step, path.read_bytes())
         rows = [json.loads(line) for line in
                 (checkout / record["computations"]["record_file"]).read_text().splitlines()]
-        self.assertEqual(len(rows), 4, rows)
-        self.assertEqual(len({row["session"] for row in rows}), 4)
+        self.assertEqual(len(rows), 2, rows)
+        self.assertEqual(len({row["session"] for row in rows}), 2)
         phases = {"build": [], "execution": []}
         originals = {}
         prepared_lines = {}
@@ -531,7 +602,11 @@ class FeedbackTests(unittest.TestCase):
             self.assertEqual(position["startByte"], original_borrowed.index(statement))
             self.assertEqual(original_borrowed[position["startByte"]:position["stopByte"]].strip(),
                              statement)
-            self.assertEqual(row["completion"]["data"]["position"], position)
+            self.assertEqual(row["start"]["event"], "statement.started")
+            self.assertEqual(row["completion"]["event"], "statement.finished")
+            self.assertEqual(row["completion"]["session"], row["start"]["session"])
+            self.assertEqual(row["completion"]["parents"],
+                             row["start"]["parents"] + [row["start"]["sequence"]])
             self.assertEqual(row["statement_sha256"],
                              hashlib.sha256(row["start"]["data"]["source"].encode()).hexdigest())
             self.assertEqual(row["outcome"], row["completion"]["data"])
@@ -569,8 +644,10 @@ class FeedbackTests(unittest.TestCase):
                 self.assertEqual(step["final_input_sha256"], source_hash)
                 self.assertIn(event["data"]["sourceFile"], (consumer, str(checkout / consumer)))
         for phase, observed in phases.items():
-            self.assertEqual(len(observed), 2, phase)
-            self.assertEqual(sum(row["outcome"]["kind"] == "holds" for row in observed), 1)
+            self.assertEqual(len(observed), 1, phase)
+            self.assertEqual(observed[0]["outcome"]["kind"], "gap")
+            self.assertFalse(observed[0]["outcome"]["published"])
+            self.assertIn("meth.cardinality", observed[0]["outcome"]["detail"])
             self.assertEqual(sum(row["outcome"]["stratum"] == "noImplementation"
                                  for row in observed), 1)
             self.assertTrue(all(row["outcome"]["attempted"] for row in observed))
@@ -588,12 +665,15 @@ class FeedbackTests(unittest.TestCase):
                     "escaped-source",
                     "unrecorded-source", "mismatched-source", "mismatched-header", "foreign-header",
                     "mismatched-step", "foreign-step",
-                    "missing-context-input", "null-context-input", "zero-context-input", "changed-final-input"]
+                    "missing-context-input", "null-context-input", "zero-context-input", "changed-final-input",
+                    "numeric-build-input", "malformed-build-input", "changed-build-input",
+                    "wrong-type-native", "wrong-type-header", "wrong-type-step"]
         for fault in variants:
             with self.subTest(source_identity=fault):
                 selected = phases["build" if fault in
                                   ("intact", "missing-build-source", "foreign-source", "escaped-source",
-                                   "unrecorded-source")
+                                   "unrecorded-source", "numeric-build-input", "malformed-build-input",
+                                   "changed-build-input", "wrong-type-native")
                                   else "execution"][0]
                 source_log, lines, index, prepared, header = prepared_lines[selected["session"]]
                 copied = control / fault
@@ -608,6 +688,11 @@ class FeedbackTests(unittest.TestCase):
                     replacement = {**prepared, "schema": 1, "data": dict(prepared["data"])}
                     del replacement["data"]["sourceFile"]
                     altered_context["inputs"][borrowed] = borrowed_hash
+                    if fault == "missing-build-source":
+                        original_path, original_step, _ = steps[selected["step"]]
+                        altered_step = copy.deepcopy(original_step)
+                        altered_step["inputs"][borrowed] = borrowed_hash
+                        (copied_run / "steps" / original_path.name).write_text(json.dumps(altered_step) + "\n")
                 elif fault == "foreign-source":
                     foreign = str(checkout.parent / consumer)
                     replacement = {**prepared, "schema": 1,
@@ -618,25 +703,31 @@ class FeedbackTests(unittest.TestCase):
                     replacement = {**prepared, "schema": 1,
                                    "data": {**prepared["data"], "sourceFile": escaped}}
                     altered_context["inputs"][escaped] = source_hash
+                elif fault == "wrong-type-native":
+                    replacement = {**prepared, "schema": 1,
+                                   "data": {**prepared["data"], "sourceFile": [consumer]}}
                 elif fault == "unrecorded-source":
                     replacement = {**prepared, "schema": 1,
                                    "data": {**prepared["data"], "sourceFile": borrowed}}
                 elif fault == "mismatched-source":
                     replacement = {**prepared, "schema": 1,
-                                   "data": {**prepared["data"], "sourceFile": importer}}
-                elif fault in ("mismatched-header", "foreign-header"):
+                                   "data": {**prepared["data"], "sourceFile": other_source}}
+                elif fault in ("mismatched-header", "foreign-header", "wrong-type-header"):
                     index = 0
                     replacement = {**header, "schema": 1,
-                                   "data": {**header["data"], "feedbackSource": importer
-                                            if fault == "mismatched-header" else str(checkout.parent / consumer)}}
-                elif fault in ("mismatched-step", "foreign-step", "changed-final-input"):
+                                   "data": {**header["data"], "feedbackSource": other_source
+                                            if fault == "mismatched-header" else [consumer]
+                                            if fault == "wrong-type-header" else str(checkout.parent / consumer)}}
+                elif fault in ("mismatched-step", "foreign-step", "changed-final-input", "wrong-type-step"):
                     original_path, original_step, _ = steps[selected["step"]]
                     altered_step = dict(original_step)
                     if fault == "mismatched-step":
-                        altered_step.update(source=importer, input_sha256=context["inputs"][importer],
-                                            final_input_sha256=context["inputs"][importer])
+                        altered_step.update(source=other_source, input_sha256=context["inputs"][other_source],
+                                            final_input_sha256=context["inputs"][other_source])
                     elif fault == "foreign-step":
                         altered_step["source"] = str(checkout.parent / consumer)
+                    elif fault == "wrong-type-step":
+                        altered_step["source"] = [consumer]
                     else:
                         altered_step["final_input_sha256"] = "0" * 64
                     (copied_run / "steps" / original_path.name).write_text(json.dumps(altered_step) + "\n")
@@ -645,6 +736,12 @@ class FeedbackTests(unittest.TestCase):
                 elif fault == "null-context-input":
                     altered_context["inputs"][consumer] = None
                 elif fault == "zero-context-input":
+                    altered_context["inputs"][consumer] = "0" * 64
+                elif fault == "numeric-build-input":
+                    altered_context["inputs"][consumer] = 0
+                elif fault == "malformed-build-input":
+                    altered_context["inputs"][consumer] = "not-a-sha256"
+                elif fault == "changed-build-input":
                     altered_context["inputs"][consumer] = "0" * 64
                 if replacement is not None:
                     copied_lines = list(lines)
@@ -673,7 +770,11 @@ class FeedbackTests(unittest.TestCase):
                     self.assertNotEqual(status, 0, summary)
                     self.assertFalse(summary["complete"], summary)
                     self.assertFalse(retained[selected["computation"]]["complete"], summary)
-                    self.assertTrue(any("source" in failure for failure in summary["malformed"]), summary)
+                    self.assertTrue(any("source" in failure.lower() for failure in summary["malformed"]), summary)
+                    if fault in ("missing-build-source", "missing-execution-source"):
+                        self.assertIn(
+                            f"statement {selected['computation']} has no recorded native consumer source",
+                            summary["malformed"])
         self.assertEqual(context_file.read_bytes(), original_context)
         for path, original_log in originals.items():
             self.assertEqual(path.read_bytes(), original_log)
@@ -681,7 +782,7 @@ class FeedbackTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), original_step)
         self.assertEqual((checkout / consumer).read_bytes(), original_consumer)
         self.assertEqual((checkout / borrowed).read_bytes(), original_borrowed)
-        self.assertEqual((ROOT / "CasRuntime/SessionLogTests.lean").read_bytes(), original_consumer)
+        self.assertEqual((ROOT / "CasRuntime/SessionLogTests.lean").read_bytes(), original_session_log)
         self.assertEqual((ROOT / borrowed).read_bytes(), original_borrowed)
         self.assertEqual((ROOT / "timing/computations.jsonl").stat().st_size, global_record_size)
 

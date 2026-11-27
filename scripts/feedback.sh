@@ -12,7 +12,7 @@ usage() {
     'Current-source feedback (C21/C24). Called by just loop, slow, milestone and stop.' \
     'loop "MODULE ..." [STEM | --extension STEM ...] executes complete original inputs.' \
     'loop --extension STEM builds the suite imports and observes that unchanged completion file.' \
-    'An explicit +Module:facet is build-only and requires a selected acceptance consumer.' \
+    'An explicit +Module:facet requires its matching fresh local module or a selected acceptance consumer.' \
     'slow "REASON" MODULE... [-- acceptance arguments...] runs the same checks as an explicit long run.' \
     'milestone "REASON" builds all original targets and freshly executes their tests and suite.'
 }
@@ -180,8 +180,8 @@ esac
 if [[ "$command" != milestone ]]; then
   for target in "${targets[@]}"; do
     if [[ "$target" == *:* ]]; then
-      [[ ${#stems[@]} -gt 0 && "$target" == +* ]] ||
-        die 'an explicit +Module:facet is build-only and needs a selected acceptance consumer'
+      [[ "$target" == +* ]] ||
+        die 'an explicit +Module:facet needs its matching fresh local module or a selected acceptance consumer'
       build_targets+=("$target")
       continue
     fi
@@ -197,6 +197,22 @@ if [[ "$command" != milestone ]]; then
     sources+=("$file")
     build_targets+=("+$module:deps")
   done
+  if [[ ${#stems[@]} -eq 0 ]]; then
+    for target in "${build_targets[@]}"; do
+      facet_module=${target#+}
+      facet_module=${facet_module%%:*}
+      facet_source=${facet_module//.//}.lean
+      matched_consumer=false
+      for selected_source in "${sources[@]}"; do
+        if [[ "$selected_source" == "$facet_source" ]]; then
+          matched_consumer=true
+          break
+        fi
+      done
+      [[ "$matched_consumer" == true ]] ||
+        die 'an explicit +Module:facet needs its matching fresh local module or a selected acceptance consumer'
+    done
+  fi
 fi
 
 python3 -S scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \

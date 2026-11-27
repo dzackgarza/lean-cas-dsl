@@ -684,8 +684,13 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
             step_source = recorded_source(original_step.get("source"))
             file = declared_file if declared is not None else native_file
             source_hash = context["inputs"].get(file)
-            if not file or source_hash is None:
-                malformed.append(f"statement {key} has no recorded source input")
+            if (not file or not isinstance(source_hash, str) or
+                    re.fullmatch(r"[0-9a-f]{64}", source_hash) is None):
+                malformed.append(f"statement {key} has no valid recorded source input")
+                agreed = False
+            step_inputs = original_step.get("inputs")
+            if not isinstance(step_inputs, dict) or step_inputs.get(file) != source_hash:
+                malformed.append(f"statement {key} changed its recorded initial source input")
                 agreed = False
             if native_file is None:
                 malformed.append(f"statement {key} has no recorded native consumer source")

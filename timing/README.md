@@ -1466,3 +1466,83 @@ the 1312744 compressed bytes have SHA256
 `5d68fe35dbdbfabb8fe0ba80d436617830a4c27dfd8bd6e4fa25c7043aa45fab`.
 The adjacent manifest records that lossless retention; it does not finalize
 or change the interrupted run.
+
+## T369 focused source-identity control, 2026-11-27
+
+The scope review of the first 420.882-second design found that it repeated the
+full T127 provider/phase/dispatch control and freshly executed an import-only
+driver. The revised plan and task retain those original T127 cases unchanged
+at their existing gates. The focused control now builds and freshly executes
+one small consumer of the original `sets.implemented.card_fin` statement with
+an explicit empty manifest. It starts its session before borrowing the original
+source context. The public selection is
+`just loop "FeedbackSourceIdentity +FeedbackSourceIdentity:leanArts"`.
+Facet-only and unrelated-facet selections must fail before native work.
+
+The first corrected-scope public attempt took 259.98540150001645 s. Its native
+loop passed in 240.604637878 s, but the Python test incorrectly expected a
+terminal `position` field and stopped before its replay controls. The test now
+checks the producer's actual causal link from the terminal event to the
+source-bearing start event. The missing-native negative control supplies the
+borrowed source hash in both copied initial snapshots and requires the specific
+missing-native-consumer diagnostic. No production field was added for the
+incorrect assertion. This failed receipt remains at
+`timing/logs/t369-corrected-20960e5/gate-1-result.json`.
+
+The complete public command
+`just test-feedback FeedbackTests.test_build_statement_sources_keep_consumer_identity`
+then ran three times with identical production, test, input and pin hashes:
+
+| Sample | Public seconds | Native loop seconds | Result |
+| --- | ---: | ---: | --- |
+| 1 | 333.999465075 | 310.082234082 | Native work succeeded; the loop exceeded its bound, so later Python assertions and replays were not reached |
+| 2 | 284.727308712 | 252.574605063 | Complete public check passed |
+| 3 | 230.272818794 | 203.827428272 | Complete public check passed |
+
+The median is 284.72730871196836 s and the latest complete ordinary check passes
+within 300 s. Both passing cases verify two actual direct computation rows,
+one from build and one from fresh execution, their consumer and borrowed
+statement identities, an intact replay, and all 20 negative record variants.
+The variants retain the original native statement events and outcomes. All
+600 pre-T369 Python assertions, `CasRuntime/SessionLogTests.lean` and the
+original `tests/acceptance/sets.cas` remain unchanged.
+
+The receipts and complete outputs are
+`timing/logs/t369-terminal-20960e5/gate-{1,2,3}-result.json` and their corresponding
+output logs. The output hashes, in sample order, are
+`4c054928b662e59daac2b5390fbfe0f9cd774ccb01cfa955686095e6c421aced`,
+`4e70e0fc7fbd65e36572222d6ed91b6abf626a9e0d68b2796f9bf39fe48570a9`
+and `807aa2cd05d8ddb72801a9e52def8d31b51287aa45e9e72ef8e7becd0638979a`.
+
+For the overrun, the disjoint measured cost partition sums to 333.999465 s:
+197.653208 s before fixture preparation across build and fresh execution,
+50.526624 s of native context preparation, 45.012 s for the two original
+statement executions, 23.917231 s outside the native loop, 14.727515 s after
+the terminal events, 1.227 s of fixture/session preparation, and 0.935886 s
+of other recorded boundaries. The first interval includes Lake, import,
+compilation and elaboration work; it does not isolate one implementation cost.
+The partition is retained in
+`timing/logs/t369-source-identity-review/terminal-cost-partition.json`.
+Host snapshots record CPU, memory and I/O pressure. Three competing
+Python/Sage processes belong to another repository; their active or abandoned
+state was not established and they were left untouched. The unchanged passing
+measurements close this overrun investigation without a source optimization
+or a claimed performance gain. Standing contingency checkboxes remain open.
+T369 still awaits the other required KM0 regressions and complete broad run.
+
+After all current writers stopped, two older closed raw logs were retained as
+gzip archives beside their original locations, with `.retention.json` manifests
+recording the exact restore commands and verified expanded hashes. The
+216799929-byte expanded missing-timing negative control under
+`timing/logs/feedback-tests/source-occurrences-t5e7wq0l/` has original SHA256
+`baef9897793ea3b669f97945bd5400f69c0c02229502fe44fba082bc23ef424b`;
+its 7200593-byte archive has SHA256
+`6d5f39828ae262ebbcf3ef9c9291b278745aba816c29b91aab19fcdd142b3bb8`.
+The 11972835-byte closed application log under
+`timing/logs/20261125T181144Z-slow.MWPVn8/` has original SHA256
+`f95835e87dba21b10df5790c139125ba7f826e05053c0a465a9f54fc3e7f1215`;
+its 181951-byte archive has SHA256
+`33115e8eab0bf013d6be363fdb06c8a3a568a67fa53dcefb38797a74ed38b54f`.
+Each archive and manifest was durably written and its decompression verified
+before removing the uncompressed file. These exact historical bytes remain
+recoverable; the interrupted broad run is unchanged.

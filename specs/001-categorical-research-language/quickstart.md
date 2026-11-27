@@ -12,8 +12,9 @@ workspace, and inspect its actual `justfile` and compatible dependency tuple. Th
 [feedback command reference](../../CONTRIBUTING.md#feedback-loops) gives the full usage.
 
 A named local module is checked by building its `+Module:deps` and freshly executing its source
-with `lake lean`. An explicit `+Module:facet` builds artifacts and requires an acceptance
-consumer in the same invocation:
+with `lake lean`. An explicit `+Module:facet` builds artifacts and requires either an acceptance
+consumer or that same named local module selected for fresh execution in the same invocation.
+For example:
 
 ```sh
 just loop "CasRuntime.SessionTests"

@@ -165,8 +165,9 @@ PY
 
 `scripts/feedback.sh` runs from the host or inside the research container. For a named local
 module, the focused command builds its `+Module:deps` and then uses `lake lean` to execute the
-actual source afresh. An explicit `+Module:facet` selects an artifact build and requires a
-selected acceptance consumer in the same invocation. For example,
+actual source afresh. An explicit `+Module:facet` selects an artifact build and requires
+that same named local module selected for fresh execution, or a selected acceptance
+consumer, in the same invocation. For example,
 `just loop "+CasCatalogue.TestSuite:leanArts" ellipses` rebuilds the suite producer and runs the
 whole unchanged `tests/acceptance/ellipses.cas` file.
 
@@ -174,6 +175,7 @@ whole unchanged `tests/acceptance/ellipses.cas` file.
 | --- | --- | --- |
 | `just loop "MODULES" [FILE …]` | After a change: freshly execute the test modules of the changed mechanism and the statements that the active task's check names. Use the selected-file long-run command below for complete kernel milestone files. Put several modules in the quoted argument; file arguments are stems of `tests/acceptance/*.cas`. | 300 seconds for the whole command. A completed overrun returns nonzero and records both the execution outcome and the exceeded bound. There is no kill timer. |
 | `just loop "+MODULE:FACET" [--manifest PATH] FILE …` | Build the named artifacts and run their selected public acceptance consumer. | The same ordinary-loop bound; an artifact build alone cannot supply the consumer result. |
+| `just loop "MODULE +MODULE:FACET"` | Build the selected local module's artifacts and freshly execute that same module. | The same ordinary-loop bound; an unrelated module cannot supply the artifact's consumer. |
 | `just slow "REASON" TARGET … [-- acceptance arguments …]` | Run the same selected workload explicitly when it needs longer. Use `--` before acceptance arguments, including an optional `--manifest PATH`. | Record a reason of at least 20 characters. The command is allowed to finish without the ordinary-loop bound. |
 | `just milestone "REASON"` | At milestone acceptance, build both test aggregates and the notebook targets, freshly execute their test modules, and run every acceptance file. | A stated reason and clean committed tree are required. Current costs belong in `timing/README.md`. |
 | `just stop` | Stop every `lake` and `lean` process of this checkout. A build started through `docker exec` can continue after its caller stops. | — |
