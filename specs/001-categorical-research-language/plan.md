@@ -20,7 +20,8 @@ The source/runtime boundary remains categorical and independently specified. A l
 
 | Responsibility | Decision and limit |
 |---|---|
-| Language/runtime | Lean 4.33.0 on the kernel branch (T352 ports it to the toolchain of the research image, #90), ordinary checked Lean term formation, source-derived dependent programs, actual runtime value/owner/transaction state. Python supplies the released SDK and notebook client, not a second mathematical interpreter. |
+| Language/runtime | Lean 4.33.0 on `main` for current kernel development (T352 retains the published research-image port and acceptance, #90), ordinary checked Lean term formation, source-derived dependent programs, actual runtime value/owner/transaction state. Python supplies the released SDK and notebook client, not a second mathematical interpreter. |
+| Development branch | Cumulative kernel work and the Spec Kit implement/converge cycle proceed directly on `main`. Reconcile PR #87 with main's distinct changes through preserved Git history, carrying the compatible development toolchain, Lake configuration and lockfile together. Governing documents have one current copy on `main`; historical branches retain their evidence. Source integration does not close F, T352 or any unchecked task. |
 | Logs and timing records | FR-043 (constitution C24): the Phase 0 tasks T112, T127 and T300 of the [task list](tasks.md#phase-0--fast-edit-to-result-feedback); later tasks extend the application log with their mechanisms. Diagnostics shown to the user stay opt-in (#8). |
 | Mathematical authority | Independently accepted lean-categories declarations, actual structural/constructor actions, complete operation families and abstract computation interfaces. Kernel/leaf authors do not commission subject mathematics shaped to their implementation. |
 | Operational substrate | Reuse CSLib `PFunctor.FreeM` at `3951377e5a3f5772737f11cd62bc5bb6a72f95d1` and PolyFun stateful handlers at `a5895e454254a400774fa396b64d5b968f0933df`, with compatible Mathlib `db584cd6d46c92f209a44c0f1c829460d327499d`. These libraries provide sequencing, not a CAS lowerer or concrete executor. |
@@ -245,7 +246,7 @@ M1 is a sequence of small vertical milestones. Each runs one acceptance file (a 
 
 ### M1 checkpoints
 
-M1 closes on F. Before F, these checkpoints close one at a time. A checkpoint is one observation of kernel behaviour through the public session `CasRuntime.KernelSession`, on the original source inputs that its row names, with a protocol peer or an empty manifest (constitution C22; SC-014). It closes when the observation holds on the kernel branch. It claims only itself. It satisfies no user story: the acceptance of a story needs computed results and is assessed when the category implementations exist. It checks no task box, and the independent assessment of the same inputs stays in Part 2. Issue #92 holds the checklist.
+M1 closes on F. Before F, these checkpoints close one at a time. A checkpoint is one observation of kernel behaviour through the public session `CasRuntime.KernelSession`, on the original source inputs that its row names, with a protocol peer or an empty manifest (constitution C22; SC-014). It closes when the observation holds on `main`. It claims only itself. It satisfies no user story: the acceptance of a story needs computed results and is assessed when the category implementations exist. It checks no task box, and the independent assessment of the same inputs stays in Part 2. Issue #92 holds the checklist.
 
 The observation of a checkpoint is first made in the closing of the kernel milestone that its last column names. It is part of that milestone, so it serves the active task. A checkpoint that does not hold then is observed again at the close of each later task until it holds. A condition on the source text, such as the removal of a mechanism, belongs to the definition of a task (T116, T051, T064, and the rule "Typed selections" of the task list) and not to a checkpoint.
 
@@ -383,7 +384,7 @@ Proof obligations retain their original quantifiers: semantic safety under arbit
 
 ## Source organization recorded at `e24045ca`
 
-This section records how the source on branch `integration/kernel-v1-20261106` is organized and which engineering choices it makes. Read the source before you rely on a statement here.
+This section records the historical source organization and engineering choices at `e24045ca` on `integration/kernel-v1-20261106`. Current development proceeds on `main`. Read the current source before you rely on a statement here.
 
 ### Production path
 

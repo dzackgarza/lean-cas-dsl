@@ -2,6 +2,14 @@
 
 **Feature:** `001-categorical-research-language` · **2026-11-07**. This is the current research/decision entry for the [clarified specification](spec.md), [consolidated plan](plan.md) and [mathematical-input contract](contracts/mathematical-input.md). It supersedes the later G1 proposals as normative selection instructions. The original [independent architectural alternatives/reuse ledger](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664331639) and [adversarial discussions](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664324222) remain historical evidence, not independent approval of this revision.
 
+## 2026-11-27 — Cumulative kernel development on main
+
+**Decision** (owner instruction of 2026-11-27; constitution C21). Reconcile the cumulative kernel work of PR #87 with main's distinct changes and continue the current Spec Kit implement/converge cycle directly on `main`. Keep the complete validated Lean 4.33.0 / Mathlib `db584cd6` development tuple together. Preserve main's Custodian shallow-retrieval repair and its regression, the incoming planning-migration instructions, existing branch history and evidence, and the unchanged ownership of unfinished ports from earlier branches.
+
+**Rationale.** The current compatible environment executes the kernel loop. Main's earlier `96fd1af1` toolchain change recorded unresolved upstream build failures, and its Mathlib pin differs from the recorded research image. Replacing the validated tuple with those stale pins would not perform the required image port. C21 and the plan's environment rule permit current functional work while T352 retains the complete published-image port, recorded latest Mathlib/toolchain, `just test` and CI acceptance. The latest-main delivery policy remains unchanged.
+
+**Alternatives considered.** Keeping the kernel on a separate development branch conflicts with the current direct-main instruction. Replacing either whole source tree would lose distinct work; preserve both histories and resolve the Lake files as one compatible tuple. Applying the withdrawn selection-boundary branch wholesale would bypass its still-open task T309. Moving source to `main` does not certify F, the published image, or an unchecked milestone.
+
 ## 2026-11-25 — Acceptance of kernel work, and the order of computational work
 
 **Decision** (owner instructions of 2026-11-25; constitution v4.0.0; spec clarifications of that date). Kernel work is accepted on kernel behaviour, with a protocol peer or an empty manifest. A computed mathematical result is leaf work and needs an implementation of every category on the selected structural route. Computational work has version milestones of its own, after kernel readiness, in the order of the structural scaffolding of the categories.

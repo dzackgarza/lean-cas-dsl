@@ -13,6 +13,39 @@ import verify
 
 
 class CandidateRetrievalTest(unittest.TestCase):
+    def test_exact_source_can_be_retrieved_from_a_shallow_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root/'source'
+            source.mkdir()
+            def git(*args):
+                return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(source), *args],
+                                      check=True, capture_output=True, text=True).stdout.strip()
+            git('init', '-q', '-b', 'main')
+            git('config', 'user.name', 'fixture')
+            git('config', 'user.email', 'fixture@example.test')
+            (source/'data.txt').write_text('original\n')
+            git('add', 'data.txt')
+            git('commit', '-qm', 'original data')
+            earlier = git('rev-parse', 'HEAD')
+            (source/'data.txt').write_text('selected complete data\n')
+            git('commit', '-qam', 'selected data')
+            selected = git('rev-parse', 'HEAD')
+            shallow = root/'shallow'
+            subprocess.run(['git', 'clone', '--quiet', '--depth', '1', source.as_uri(), str(shallow)],
+                           check=True, capture_output=True)
+            actual = subprocess.run(['git', '-C', str(shallow), 'rev-parse', '--is-shallow-repository'],
+                                    check=True, capture_output=True, text=True).stdout.strip()
+            self.assertEqual(actual, 'true')
+            destination = root/'retrieved'
+            retrieve(str(shallow), 'HEAD', selected, destination)
+            self.assertEqual((destination/'data.txt').read_bytes(), (source/'data.txt').read_bytes())
+            self.assertEqual(subprocess.run(['git', '-C', str(destination), 'rev-parse', 'HEAD'],
+                                           check=True, capture_output=True, text=True).stdout.strip(), selected)
+            with self.assertRaises(ValueError):
+                retrieve(str(shallow), 'HEAD', earlier, root/'moved-ref')
+            self.assertFalse((root/'moved-ref'/'data.txt').exists())
+
     def test_exact_source_is_data_and_links_never_reach_the_reviewer_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -127,10 +127,10 @@ to forecast the remaining delivery outcomes.
 
 ## Feedback loops
 
-Use the selected toolchain and dependency tuple of the kernel implementation worktree (locate it
-with `git worktree list`). These recipes describe that checkout; documentation on `main` does
-not establish that its implementation commands are present there. Dependency refresh and SDK
-setup are explicit operations.
+Kernel development runs directly on `main`. Locate its active checkout with `git worktree list`
+and use its selected toolchain and complete dependency tuple. Preserve the established build and
+dependency workspace when reconciling branches. Dependency refresh and SDK setup are explicit
+operations. T352 separately retains the published research-image port and its full acceptance.
 
 `scripts/feedback.sh` runs from the host or inside the research container. For a named local
 module, the focused command builds its `+Module:deps` and then uses `lake lean` to execute the
