@@ -1,8 +1,10 @@
 module
 
 import CasRuntime.Literal
+import CasRuntime.ExecutionContext
 public meta import Lean.Elab.Command
 meta import CasRuntime.Literal
+meta import CasRuntime.ExecutionContext
 
 open Lean Meta Elab Term CasCompiler CasRuntime
 
@@ -77,6 +79,74 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let source ← inspect bound point
       unless (← ScalarLiteral.check source (toJson (3 : Nat))) == .notScalar do
         throwError "scalar validation specialized a rigid source index from returned data"
+
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) IdentitySupply.new
+  let context ← ContextTelescope.capture #[]
+  SourceSelectionScope.withBinding identities {} context { value := mkConst ``Nat }
+      fun context selections carrier => do
+    let allocated ← identities.fresh .sourceBinding
+    context.withLocalBinding ⟨allocated.worker, allocated.serial⟩ .parameter `point carrier
+        (fun context point => do
+          let source ← SourceLayout.ofTerm (← context.close point.expression)
+            (← selections.close context)
+          let packet := toJson (3 : Nat)
+          unless (← ScalarLiteral.check source packet) == .checked do
+            throwError "scalar validation lost an explicitly retained original carrier"
+          let some candidate ← ScalarLiteral.read source packet
+            | throwError "the original carrier's scalar packet was not readable"
+          unless !candidate.hasFVar && (← isDefEq candidate (mkNatLit 3)) do
+            throwError "scalar decoding replaced the supplied packet with its source point"
+          reject source (.str "3") "a scalar literal requires a natural JSON number")
+        (originalSource := some (mkNatLit 17))
+  let carrierId ← identities.fresh .sourceBinding
+  context.withLocalBinding ⟨carrierId.worker, carrierId.serial⟩ .parameter `unknown
+      (mkSort (.succ .zero)) fun context carrier => do
+    let pointId ← identities.fresh .sourceBinding
+    context.withLocalBinding ⟨pointId.worker, pointId.serial⟩ .parameter `point carrier.expression
+        fun context point => do
+      let source ← SourceLayout.ofTerm (← context.close point.expression)
+      let packet := toJson (3 : Nat)
+      unless (← ScalarLiteral.check source packet) == .notScalar &&
+          (← ScalarLiteral.read source packet).isNone do
+        throwError "a returned scalar packet supplied an unselected rigid carrier"
+
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) IdentitySupply.new
+  let program ← identities.fresh .program
+  let occurrence ← identities.fresh .occurrence
+  let context ← ContextTelescope.capture #[]
+  let natural ← literalSource (← `((4 : Nat)))
+  let packet := toJson (3 : Nat)
+  let graph := ValueGraph.empty identities
+  let environment ← RuntimeEnvironment.capture identities.worker context #[] (some graph)
+  let origin ← environment.origin program occurrence natural
+  let (graph, value) ← graph.stage identities origin (.portable packet.compress.toUTF8)
+  let candidate ← environment.checkResult graph natural value
+  let .ok (some actual) := graph.packet? candidate.root
+    | throwError "the dependent scalar control lost its actual admitted index"
+  unless actual == packet do
+    throwError "the dependent scalar control replaced its admitted index packet"
+  withBoundValue identities context {} (mkNatLit 4) candidate.root fun context bound index => do
+    discard <| RuntimeEnvironment.captureBound identities.worker context bound graph
+    let inspect (context : OpenContext) (selections : SourceSelectionScope Expr)
+        (type : Expr) : MetaM Unit := do
+      let allocated ← identities.fresh .sourceBinding
+      context.withLocalBinding ⟨allocated.worker, allocated.serial⟩ .parameter `point type
+          fun context point => do
+        let source ← SourceLayout.ofTerm (← context.close point.expression)
+          (← selections.close context)
+        unless (← ScalarLiteral.check source packet) == .notScalar &&
+            (← ScalarLiteral.read source packet).isNone do
+          throwError "a runtime index was replaced by its descriptive source during scalar validation"
+    let finite := mkApp (mkConst ``Fin) index
+    inspect context {} finite
+    SourceSelectionScope.withBinding identities {} context { value := finite }
+      fun context selections carrier => inspect context selections carrier
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let source ← literalSource (← `(((1 : Rat) / 2)))

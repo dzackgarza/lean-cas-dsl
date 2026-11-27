@@ -27,10 +27,10 @@ private def constraintProof (condition : Expr) : MetaM (Option Expr) := do
   checkWithKernel (← mkExpectedTypeHint proof condition)
   return some proof
 
-/-- Read only closed, data-only scalar representations, discarding the value at the public gate.
-Grammar reference: CasContract.Port wire encoding and CasCatalogue.Codec.decodeAt. Reuse Lean's
-constructor telescopes, native literal expressions, mkDecideProof and synchronous kernel checks.
-Function/type fields have no scalar decoding path; no finite-function or law reconstruction runs. -/
+
+
+
+
 private partial def decode (asked : Expr) (packet : Json) : MetaM (Option Expr) := do
   let type ← whnf (← zetaReduce asked)
   if type.hasFVar || type.hasMVar || type.hasLevelMVar || type.isSort || type.isForall then
@@ -113,24 +113,40 @@ private partial def decode (asked : Expr) (packet : Json) : MetaM (Option Expr) 
   checkWithKernel (← mkExpectedTypeHint result asked)
   return some result
 
-/-- Validate a wholly inline closed scalar at its source type, then discard the checked value.
-This establishes representation constraints, not correctness of the requested computation.
-Structured/owned/open-dependent values retain their prepared operational admission path. -/
+
+
+private def decodeSource (source : SourceLayout) (packet : Json) : MetaM (Option Expr) :=
+  source.source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    let type ← inferType expression
+    let selections ← source.selections.inContext context
+    for index in ← selectedContextDependencies context selections type do
+      let some binding := bindings[index]?
+        | throwError "a scalar type dependency is outside its complete native context"
+      if binding.role == .result ||
+          (binding.role != .selectedStructure && binding.originalSource.isSome) then return none
+    context.withOriginalSources #[type] fun native => do
+      let some value ← decode native[0]! packet | return none
+      if value.hasFVar || value.hasMVar || value.hasLevelMVar then return none
+      return some value
+
+
+
+
 opaque check (source : SourceLayout) (packet : Json) : MetaM Status := do
   let .ok () := CasRuntime.checkLiteral packet | return .notScalar
-  source.source.withOpen fun _ expression => do
-    let some _ ← decode (← inferType expression) packet | return .notScalar
-    return .checked
+  let some _ ← decodeSource source packet | return .notScalar
+  return .checked
 
-/-- Read a wholly inline closed scalar candidate as a native value of its source type.
-The value is computational data for a comparison of candidates. It proves nothing about
-the computation that returned it. Reuse: the checked decoder above. -/
+
+
+
 opaque read (source : SourceLayout) (packet : Json) : MetaM (Option Expr) := do
   let .ok () := CasRuntime.checkLiteral packet | return none
-  source.source.withOpen fun _ expression => do decode (← inferType expression) packet
+  decodeSource source packet
 
-/-- Read an inline candidate at a closed registered literal type, as `read` does at a source
-type. The registry's literal form fixes that type; the candidate does not select it. -/
+
+
 opaque readAt (type : Expr) (packet : Json) : MetaM (Option Expr) := do
   let .ok () := CasRuntime.checkLiteral packet | return none
   decode type packet
@@ -141,8 +157,8 @@ namespace CasRuntime.PropertyObservation
 
 open Lean CasCatalogue.Backend
 
-/-- The released property observation packet is Option Bool, with no native proof reading.
-This exact constructor grammar is shared by response admission and question observation. -/
+
+
 def decode (packet : Json) : Except String (Option Bool) := do
   checkServiceFields #["ctor", "args"] packet
   let label ← packet.getObjValAs? String "ctor"
