@@ -1,8 +1,10 @@
 module
 
+import CasCompiler.NativeDeclarations
 import CasCompiler.SourceProof
 import CasTools.QuestionObservation
 public meta import Lean.Elab.Command
+meta import CasCompiler.NativeDeclarations
 meta import CasCompiler.SourceProof
 meta import CasTools.QuestionObservation
 
@@ -26,8 +28,8 @@ private def checkProof (proof : SourceTerm) : MetaM Unit :=
         (← inferType expression).isConstOf ``True do
       throwError "the retained proof changed its original native scope or proposition"
 
-/- Native match compilation creates checked local helper declarations. Retention must survive
-environment rollback while preserving the caller's later additions and callback additions. -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -55,7 +57,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "the retained native proof binding changed its proposition"
   setEnv original
   let beforeName ← mkAuxDeclName `retentionBefore
-  addDecl (.defnDecl { name := beforeName, levelParams := [], type := mkConst ``Nat,
+  addDecl (.defnDecl {
+    name := beforeName, levelParams := [], type := mkConst ``Nat,
     value := mkNatLit 17, hints := .abbrev, safety := .safe })
   let callbackName ← mkAuxDeclName `retentionCallback
   proof.source.withOpen fun _ expression => do
@@ -63,7 +66,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     checkWithKernel expression
     unless (← getEnv).contains beforeName do
       throwError "native source restoration replaced the caller's current environment"
-    addDecl (.defnDecl { name := callbackName, levelParams := [], type := mkConst ``Nat,
+    addDecl (.defnDecl {
+      name := callbackName, levelParams := [], type := mkConst ``Nat,
       value := mkNatLit 29, hints := .abbrev, safety := .safe })
   unless (← getEnv).contains beforeName && (← getEnv).contains callbackName do
     throwError "native source inspection discarded a caller or callback environment change"
@@ -71,7 +75,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let actual ← getConstInfo declaration.name
     unless nativeConstantExactlyMatches declaration actual && !actual.isAxiom do
       throwError "native source restoration changed a checked helper or introduced an axiom"
-  -- Serialization is inert, including after removal of the helpers from the active environment.
+
   setEnv original
   let document := CasTools.QuestionExport.observeConclusion conclusion
   let exported ← IO.ofExcept <| (document.getObjVal? "proof").mapError IO.userError
@@ -104,7 +108,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let afterSerialization ← getEnv
   unless declarations.all (fun info => !afterSerialization.contains info.name) do
     throwError "inert native proof serialization modified the active environment"
-  -- Replay the exported native payload through the kernel, without substituting a proof.
+
   for entry in stored do
     let declaration ← IO.ofExcept <|
       (CasTools.NativeExpression.valueDeclarationFromJson entry nodes).mapError IO.userError
@@ -122,8 +126,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless (← inferType expression).isConstOf ``True do
       throwError "the reconstructed native proof changed its original proposition"
 
-/- Imported primitives remain anchored in the fixed native source environment. They do not
-expand the declaration closure or change the existing empty-closure graph format. -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let session ← SourceSession.empty identities
@@ -144,13 +148,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   if (native.getObjVal? "declarations").isOk then
     throwError "an empty native declaration closure added a field to the original snapshot"
 
-/- A definitionally equal replacement is still a different checked declaration occurrence.
-Retained source restoration rejects it without replacing the current declaration. -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   let name ← mkAuxDeclName `retainedIdentity
   let value ← withLocalDeclD `n (mkConst ``Nat) fun n => mkLambdaFVars #[n] n
-  let first : DefinitionVal := { name, levelParams := [], type := ← inferType value,
+  let first : DefinitionVal := {
+    name, levelParams := [], type := ← inferType value,
     value, hints := .abbrev, safety := .safe }
   addDecl (.defnDecl first)
   let term ← withLCtx {} #[] do
@@ -168,3 +173,60 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "retained source accepted another body at the same native declaration name"
   unless nativeConstantExactlyMatches (.defnInfo replacement) (← getConstInfo first.name) do
     throwError "retained source overwrote the caller's conflicting native declaration"
+
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let originalEnvironment ← getEnv
+  try
+    let carrierName ← mkAuxDeclName `rootCarrier
+    let commonName ← mkAuxDeclName `rootCommon
+    let laterName ← mkAuxDeclName `rootLater
+    let firstName ← mkAuxDeclName `rootFirst
+    let carrier : DefinitionVal := {
+      name := carrierName, levelParams := [], type := mkSort (.succ .zero),
+      value := mkConst ``Nat, hints := .abbrev, safety := .safe }
+    let common : DefinitionVal := {
+      name := commonName, levelParams := [], type := mkConst carrierName,
+      value := mkNatLit 17, hints := .abbrev, safety := .safe }
+    let later : DefinitionVal := {
+      name := laterName, levelParams := [], type := mkConst carrierName,
+      value := mkApp (mkConst ``Nat.succ) (mkConst commonName),
+      hints := .abbrev, safety := .safe }
+    let first := { later with name := firstName }
+    for declaration in #[carrier, common, later, first] do
+      addDecl (.defnDecl declaration)
+    let pair ← mkAppM ``Prod.mk #[mkConst firstName, mkConst commonName]
+    let shared := mkProj ``Prod 0 pair
+    let suffix := mkApp2 (mkConst ``Nat.add) shared (mkConst laterName)
+    let roots := #[shared, pair, shared, suffix]
+    for expression in roots do
+      check expression
+      checkWithKernel expression
+    let expected : Array ConstantInfo :=
+      #[.defnInfo carrier, .defnInfo common, .defnInfo first, .defnInfo later]
+    let captured ← NativeDeclarations.capture roots
+    unless captured.constants.size == expected.size &&
+        (captured.constants.zip expected).all (fun (actual, original) =>
+          nativeConstantExactlyMatches actual original) do
+      throwError "shared native root fields changed complete payloads or dependency order"
+    let repeated ← NativeDeclarations.capture roots
+    unless repeated.exactlyMatches captured do
+      throwError "a later native capture lost declarations visited by an earlier capture"
+    let missing ← mkAuxDeclName `missingRootDependency
+    let laterMissing ← mkAuxDeclName `laterMissingRootDependency
+    unless !((← getEnv).contains missing) && !((← getEnv).contains laterMissing) do
+      throwError "the shared-root negative unexpectedly has its missing native declarations"
+    let failure : Option Exception ← try
+      discard <| NativeDeclarations.capture <| roots ++ #[
+        mkApp2 (mkConst ``Nat.add) suffix (mkConst missing), mkConst laterMissing]
+      pure none
+    catch failure => pure (some failure)
+    let some failure := failure
+      | throwError "native capture skipped a missing dependency after duplicated root fields"
+    let expectedMessage : MessageData :=
+      m!"a retained native source refers to missing declaration {missing}"
+    unless (← failure.toMessageData.toString) == (← expectedMessage.toString) do
+      throw failure
+  finally
+    setEnv originalEnvironment

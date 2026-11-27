@@ -68,8 +68,8 @@ private def checkOriginalProof (session : SourceSession) (obligation proof : Sou
     unless ← isDefEq (← inferType expression) expected do
       throwError "native proof completion changed the independently prepared proposition"
 
-/- The original standalone proof has a native recursive helper. Term synthesis alone leaves
-its let-rec placeholder unresolved; the proof owner must complete it before source closure. -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -89,8 +89,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless nativeConstantExactlyMatches declaration (← getConstInfo declaration.name) do
       throwError "reopening changed the completed native recursive helper"
 
-/- The shared formal-evidence owner also serves constrained-point proofs. Its recursive
-helper must retain rigid universe parameters, formal assumptions and native let definitions. -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -111,9 +111,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "native let-rec completion lost the source's rigid universe parameter"
   checkOriginalProof session obligation proof
 
-/- Native closure conversion handles nested and mutually recursive local proofs, rather
-than replacing them by another proof of the same proposition. Repeated user spellings in
-separate source proofs must receive distinct native declaration occurrences. -/
+
+  let supplied ← session.proof (← `(cas_term| proof($evidence:term))) obligation.source
+  unless supplied.source.universeParams.contains `nativeProofScope &&
+      supplied.source.nativeDeclarations.constants.any (fun declaration =>
+        declaration.levelParams.contains `nativeProofScope) do
+    throwError "source proof closure lost the original rigid universe or native helper"
+  checkOriginalProof session obligation supplied
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -136,8 +144,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         mutualDeclarations.all (fun second => first.name != second.name)) do
     throwError "separate source proofs reused a checked native helper occurrence"
 
-/- Native termination and evidence failures remain failures, even when an invalid local
-helper is unused by the final proof. Expected negative controls restore their test state. -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
