@@ -1,5 +1,8 @@
 module
 
+public import CasCompiler.SelectionData
+import all CasCompiler.SelectionData
+
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasCompiler.Layout
 public import CasCompiler.Declaration
@@ -20,37 +23,26 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- The accepted whole-family source, before specialization or executable selection. -/
-structure SourceProgram where
-  private mk ::
-  source : CheckedComputationDerivation
 
-/-- One formal callable slot. Its ordinal and published reference are independent of its type. -/
+
 structure PrerequisiteSlot where
   index : Nat
   source : CheckedComputationPrerequisite
   expression : Expr
 
-/-- The checked slot supplies its exact address before any substitution or native projection.
-Metadata retains the original whole family and its rigid universe application. -/
-private def selectedComputationFamily (source : CheckedComputationPrerequisite) : Expr :=
-  let (kind, id) := match source.reference with
-    | .operation id => (``OperationEntry, id.raw)
-    | .functor id => (``EdgeRef.functor, id.raw)
-    | .method id => (``MethodEntry, id.raw)
-    | .construction id => (``ConstructionEntry, id.raw)
-    | .morphism id => (``MorphismEntry, id.raw)
-  sourceReference kind id source.declaration source.family
 
-/-- Read every published alternative through the upstream safety and axiom checks.
-The upstream checked packet is retained intact, including rigid universes and equality.
-Source: LeanCategories/Catalogue/Registry/Computation.lean at
-8c35703b104aca1700b9fb40d1af4164ca31a55d. -/
+
+
+
 opaque SourceProgram.forTarget (target : ComputationRef) : MetaM (Array SourceProgram) := do
-  return (← checkedComputationDerivations target).map fun source => ⟨source⟩
+  let targetReference ← SelectedSourceReference.forComputation target
+  (← checkedComputationDerivations target).mapM fun source => do
+    let prerequisites ← source.prerequisites.mapM fun prerequisite =>
+      SelectedSourceReference.forComputation prerequisite.reference
+    return ⟨source, targetReference, prerequisites⟩
 
-/-- Open only the prerequisite prefix with fresh locals; keep the entire target family.
-Lean's telescope and application operations retain dependent binder types and slot order. -/
+
+
 def SourceProgram.withPrerequisites (program : SourceProgram)
     (action : Array PrerequisiteSlot → Expr → MetaM α) : MetaM α := do
   let source := program.source
@@ -62,53 +54,69 @@ def SourceProgram.withPrerequisites (program : SourceProgram)
       { index, source := prerequisite, expression := locals[index]! : PrerequisiteSlot }
     action slots (mkAppN source.template locals).headBeta
 
-/-- Instantiate the accepted template with its original ordered primitive families.
-Only the independently checked template supplies composition; each prerequisite keeps its
-own public reference. No declaration search or source equality selects a primitive. -/
-opaque SourceProgram.instantiate (program : SourceProgram) (universes : List Level) : MetaM Expr := do
+
+
+
+opaque SourceProgram.instantiate [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
+    (program : SourceProgram) (universes : List Level) (identities : CasRuntime.IdentitySupply)
+    (context : OpenContext) (selections : SourceSelectionScope Expr)
+    (action : OpenContext → SourceSelectionScope Expr → Expr → m α) : m α := do
   unless universes.length == program.source.universeParams.length do
-    throwError "the source program lost its complete universe substitution"
-  let family ← program.withPrerequisites fun slots body => do
-    return body.replaceFVars (slots.map (·.expression))
-      (slots.map (selectedComputationFamily ∘ PrerequisiteSlot.source))
-  return family.instantiateLevelParams program.source.universeParams universes
+    liftM (m := MetaM) <| throwError "the source program lost its complete universe substitution"
+  let template := program.source.template.instantiateLevelParams
+    program.source.universeParams universes
+  let rec visit (remaining : List (Fin program.source.prerequisites.size))
+      (context : OpenContext) (selections : SourceSelectionScope Expr)
+      (arguments : Array Expr) : m α := do
+    match remaining with
+    | [] =>
+      let value := (mkAppN template arguments).headBeta
+      liftM (m := MetaM) <| check value
+      action context selections value
+    | index :: remaining =>
+      let source := program.source.prerequisites[index.val]
+      let value := source.family.instantiateLevelParams program.source.universeParams universes
+      let some reference := program.prerequisiteReferences[index.val]?
+        | liftM (m := MetaM) <| throwError "the accepted program lost an original full prerequisite row"
+      let selected : SourceSelection Expr := { value, reference := some reference, application := some {
+        family := .prerequisite program index, universes, parameters := #[] } }
+      SourceSelectionScope.withBinding identities selections context selected
+        fun context selections value => visit remaining context selections (arguments.push value)
+  visit (List.finRange program.source.prerequisites.size) context selections #[]
 
-/-- A directly registered family, checked before any specialization or provider selection. -/
-structure SourceFamily where
-  private mk ::
-  source : CheckedComputationPrerequisite
-  universeParams : List Name
 
-/-- Resolve the exact public address and retain the entire rigid family.
-Reuse: ComputationRef.declaration, the release AxiomAudit.permitted budget and native context closure. -/
+
+
 opaque SourceFamily.forReference (reference : ComputationRef) : MetaM SourceFamily := do
-  let declaration ← reference.declaration (← semanticState)
+  let selectedReference ← SelectedSourceReference.forComputation reference
+  let some declaration := selectedReference.declaration
+    | throwError "the accepted source family lost its original declaration"
   let info ← checkedDeclaration declaration
   let family ← withLCtx {} #[] do
     let context ← ContextTelescope.capture #[]
     context.close (mkConst declaration (info.levelParams.map Level.param))
   let source : CheckedComputationPrerequisite :=
     { reference, declaration, family := family.expression, familyType := family.type }
-  return ⟨{ source with family := selectedComputationFamily source }, info.levelParams⟩
+  let pointFamily ← match selectedReference with
+    | .named (.registered (.inr entry) _) => PointFamily.forEntry? entry
+    | _ => pure none
+  return ⟨source, info.levelParams, selectedReference, pointFamily⟩
 
-/-- Apply the exact selected family while retaining its original marked source roles.
-Only native input routing receives the separate whole-family body. A nullary family keeps
-the same zero-argument application frame so later native projections retain this authority. -/
+
+
 opaque SourceFamily.applyIn (family : SourceFamily) (universes : List Level)
     (context : OpenContext) (arguments : Array ClosedTerm) :
     MetaM (SourceLayout × ApplicationLayout) := do
   unless universes.length == family.universeParams.length do
     throwError "the selected family lost its complete universe substitution"
-  let (original, native) ← withLCtx {} #[] do
+  let original ← withLCtx {} #[] do
     let empty ← ContextTelescope.capture #[]
     let original := family.source.family.instantiateLevelParams family.universeParams universes
-    let .mdata _ native := original
-      | throwError "the selected family lost its original source address"
-    return (← empty.close original, ← empty.close native)
-  ApplicationLayout.ofSource (← SourceLayout.ofTerm original) context arguments (some native)
+    empty.close original
+  ApplicationLayout.ofSource (← SourceLayout.ofTerm original) context arguments (some original)
 
-/-- A complete accepted source interface: a registered family, checked derivation target,
-ordered primitive slot, selected lift/presentation/method, or native property observation. -/
+
+
 inductive ProgramBoundary
   | registered (family : SourceFamily)
   | target (program : SourceProgram)
@@ -120,12 +128,12 @@ inductive ProgramBoundary
   | application (family : PointFamily)
   | point (family : CategoricalPointFamily)
   | objectAction (family : SourceActionFamily)
-  | limit (family : LimitFamily) (owner : ClosedTerm)
-  | limitUniversal (family : LimitUniversalFamily) (owner : ClosedTerm)
+  | limit (family : LimitFamily) (owner : SelectedLimitOwner ClosedTerm)
+  | limitUniversal (family : LimitUniversalFamily) (owner : SelectedLimitOwner ClosedTerm)
   | creation (family : PreparedCreationFamily)
 
-/-- A published computation-family address, when this boundary has one. Other accepted
-source interfaces retain their own exact registered address in the boundary witness. -/
+
+
 def ProgramBoundary.reference : ProgramBoundary → Option ComputationRef
   | .registered family => some family.source.reference
   | .target program => some program.source.entry.target
@@ -147,9 +155,9 @@ def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .limitUniversal family _ => family.universeParams
   | .creation family => family.family.universeParams
 
-/-- Open the accepted family in the caller's original complete source context. Global
-declarations retain their rigid universe substitution; a fixed creation request reopens its
-already captured native context and is never reinterpreted in an empty local context. -/
+
+
+
 def ProgramBoundary.familyIn (boundary : ProgramBoundary) (universes : List Level)
     (context : OpenContext) : MetaM Expr := do
   unless universes.length == boundary.universeParams.length do

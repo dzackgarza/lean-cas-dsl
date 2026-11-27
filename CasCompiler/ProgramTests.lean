@@ -3,12 +3,14 @@ module
 import CasCompiler.Program
 import CasCompiler.Context
 import CasRuntime.Environment
+import CasRuntime.PreparedRequest
 import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 import Mathlib.CategoryTheory.Limits.IsLimit
 public meta import Lean.Elab.Command
 meta import CasCompiler.Program
 meta import CasCompiler.Context
 meta import CasRuntime.Environment
+meta import CasRuntime.PreparedRequest
 meta import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 meta import Mathlib.CategoryTheory.Limits.IsLimit
 
@@ -23,15 +25,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     check source.correctness
     unless ← isDefEq (← inferType source.correctness) (← mkEq source.plan source.target) do
       throwError "source intake lost the checked whole-family equality"
-    let selected ← program.instantiate (source.universeParams.map Level.param)
-    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl selected) (← mkEq selected source.plan))
-    for prerequisite in source.prerequisites do
-      unless (selected.find? fun expression => match expression with
-          | .mdata data _ =>
-            data.getName `CasCompiler.source.declaration == prerequisite.declaration &&
-            data.contains `CasCompiler.source.id
-          | _ => false).isSome do
-        throwError "the source program erased an original prerequisite selection"
+    let owners ← liftM (m := IO) CasRuntime.OwnerRegistry.new
+    let context ← ContextTelescope.capture #[]
+    let universes := source.universeParams.map Level.param
+    program.instantiate universes owners.identities context {} fun context selections selected => do
+      context.withOriginalSources #[selected, source.plan] fun originals => do
+        checkWithKernel (← mkExpectedTypeHint (← mkEqRefl originals[0]!)
+          (← mkEq originals[0]! originals[1]!))
+      unless context.bindings.size == source.prerequisites.size &&
+          selections.size == source.prerequisites.size do
+        throwError "the source program changed its complete original prerequisite table"
+      for index in List.finRange source.prerequisites.size do
+        let binding := context.bindings[index.val]!
+        let some retained := selections[binding.id]?
+          | throwError "the source program erased an original prerequisite selection"
+        let some application := retained.application
+          | throwError "the source program erased an original prerequisite family"
+        unless application.family.exactlyMatches (.prerequisite program index) &&
+            application.universes == universes && application.parameters.isEmpty &&
+            retained.formalBindings.isEmpty &&
+            selected.containsFVar binding.expression.fvarId! do
+          throwError "the source program changed an original prerequisite selection"
     let previous ← program.withPrerequisites fun slots body => do
       unless slots.size == source.prerequisites.size do
         throwError "source intake changed the prerequisite arity"
@@ -52,32 +66,53 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let context ← ContextTelescope.capture #[]
   let family ← SourceFamily.forReference (.functor FunctorId.ringsMultiplicative)
   let universes := family.universeParams.map Level.param
-  let (source, application) ← family.applyIn universes context #[]
-  for original in #[source.source, application.result.source, application.resultTermFamily] do
-    unless (original.expression.find? fun expression => match expression with
-        | .mdata data _ =>
-          data.getString `CasCompiler.source.id == FunctorId.ringsMultiplicative.raw &&
-          data.getName `CasCompiler.source.declaration == family.source.declaration
-        | _ => false).isSome do
-      throwError "native input routing erased the original selected source family"
-  unless application.arguments.isEmpty do
-    throwError "the nullary source family invented an application argument"
-  let some (.projection route) ← application.inputProjectionThrough
-      #[(#[``CategoryTheory.Cat.Hom.toFunctor, ``CategoryTheory.Functor.obj], 1)]
-      #[``MonCat.carrier]
-    | throwError "the selected family lost its native input carrier route"
-  let .argument 0 := route.target
-    | throwError "the selected family changed its original argument slot"
-  unless route.path == #[``RingCat.carrier] do
-    throwError "the selected family changed the original input carrier reference"
-  let wrong ← context.close (family.source.family.instantiateLevelParams
-    family.universeParams universes)
-  let rejected ← try
-      discard <| ApplicationLayout.ofSource source context #[] (some wrong)
-      pure false
-    catch _ => pure true
-  unless rejected do
-    throwError "native input routing accepted a body other than the exact original declaration"
+  let native := family.source.family.instantiateLevelParams family.universeParams universes
+  let owners ← liftM (m := IO) CasRuntime.OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let selected : SourceSelection Expr := {
+    value := native, application := some {
+      family := .registered family, universes, parameters := #[] } }
+  SourceSelectionScope.withBinding owners.identities {} context selected fun context selections value => do
+    let some binding := context.bindings.find? (·.expression == value)
+      | throwError "the selected whole family lost its original typed binder"
+    let request ← CasRuntime.PreparedRequest.forBoundary owners.identities program occurrence
+      (.registered family) universes context #[] #[] #[] #[]
+      (selections := selections) (selectionBinding := some binding.id)
+    let source := request.source
+    let some application := request.application
+      | throwError "the selected whole family lost its original native application layout"
+    for layout in #[source, application.result] do
+      unless layout.selectionBinding == some binding.id do
+        throwError "native input routing changed the original selected family binding"
+      let some retained ← layout.selected? context
+        | throwError "native input routing erased the original selected source family"
+      unless retained.exactlyMatches Expr.equal selected do
+        throwError "native input routing changed the complete selected source family"
+    for original in #[source.source, application.result.source, application.resultTermFamily] do
+      let original ← original.inContext context
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl original) (← mkEq original native))
+    unless application.arguments.isEmpty do
+      throwError "the nullary source family invented an application argument"
+    let some (.projection route) ← application.inputProjectionThrough
+        #[(#[``CategoryTheory.Cat.Hom.toFunctor, ``CategoryTheory.Functor.obj], 1)]
+        #[``MonCat.carrier]
+      | throwError "the selected family lost its native input carrier route"
+    let .argument 0 := route.target
+      | throwError "the selected family changed its original argument slot"
+    unless route.path == #[``RingCat.carrier] do
+      throwError "the selected family changed the original input carrier reference"
+    let wrongNative ← mkAppM ``id #[native]
+    unless !(wrongNative.equal native) &&
+        (← isDefEq (← inferType wrongNative) (← inferType native)) do
+      throwError "the wrong-family control requires a distinct body with the original native type"
+    let wrong ← context.close wrongNative
+    let rejected ← try
+        discard <| ApplicationLayout.ofSource source context #[] (some wrong)
+        pure false
+      catch _ => pure true
+    unless rejected do
+      throwError "native input routing accepted a body other than the exact original declaration"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let info ← getConstInfo ``CategoryTheory.Limits.IsLimit
@@ -149,9 +184,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless ← isDefEq (← inferType expression) (mkConst ``Nat) do
       throwError "source application lost the record's accepted function coercion"
 
-/-- A constructor field depends on the earlier fields that its type names and, through their
-types, on the fields that those types name (data model: "Constructor fields retain their exact
-projections and transitive preceding dependencies"). -/
+
+
+
 structure ChainedFieldsFixture where
   bound : Nat
   family : Fin bound → Type
@@ -169,9 +204,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "the field `value : family index` has preceding dependencies \
       {value.precedingDependencies}; its type names `family` and `index`, whose types name `bound`"
 
--- A native inner prefix can hide an original index in the types of its family and point.
--- Neither the unresolved final type p x nor a later known product projection may drop that
--- index. All source terms here use existing Sigma/Pi constructors; no value is executed.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let empty ← ContextTelescope.capture #[]
   let source ← Elab.Term.elabTermAndSynthesize
@@ -219,8 +254,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throwError "introduced native prefixes changed the original dependency planes: \
             context={dependencies.context}, arguments={dependencies.arguments}; expected #[1], #[]"
 
--- The same original prefix remains necessary when its last type names earlier fields only
--- through their dependent domains. Direct source projections need no separate alias binder.
+
+
 open CasRuntime in
 run_cmd Lean.Elab.Command.liftTermElabM do
   withLocalDeclD `r (mkConst ``ChainedFieldsFixture) fun r => do
@@ -248,6 +283,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let mut graph := graph
       let mut record ← liftM (m := IO) <|
         RecordPrefix.begin owners.identities program occurrence layout
+          (parameters := some #[none])
       for field in fields do
         let (next, recordPrefix, _) ← liftM (m := IO) <| record.bind graph field
         graph := next
@@ -268,8 +304,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     discard <| environment.checkResult graph layout.source original
     let originalFields ← (Array.range 4).mapM fun index =>
       IO.ofExcept <| (graph.project original index).mapError IO.userError
-    -- A published lazy projection retains its captured baseline in the graph. The baseline
-    -- itself need not carry the fresh access view that published that exact relation.
+
+
     let (lazyGraph, lazyParent) ← liftM (m := IO) <| graph.stage owners.identities
       { program, occurrence, role := layout.source, parameters := #[none] } (.closure program #[])
     let .ok unresolvedParameter := RuntimeParameter.ofValue lazyGraph binding.id lazyParent
@@ -306,8 +342,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let (graph, replacement) ← liftM (m := IO) <| graph.stage owners.identities
         { program, occurrence, role := prepared.layout, parameters := #[none] }
         (.closure program #[])
-      -- A returned container must retain its own actual prefix, in addition to satisfying
-      -- the original external context. These stored views keep their original associations.
+
+
       let (mixedGraph, mixed) ← liftM (m := IO) <| graph.stage owners.identities
         { program, occurrence, role := layout.source, parameters := #[none] }
         (.product (originalFields.set! changed replacement))
