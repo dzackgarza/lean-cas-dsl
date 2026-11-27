@@ -205,3 +205,56 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let bindings ← authoredBindings
     unless ← originatesAt scope.context scope.selections expression bindings[2]!.expression false do
       liftM (m := TermElabM) <| throwError "a local domain annotation replaced the original source occurrence"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let types ← empty.assume `X (← nativeTerm "Type")
+  let session ← types.assume `i (← nativeTerm "X")
+  let file ← SourceFile.parse "source-morphism-consumers.cas"
+    "let H := X → X\nlet f : H := x ↦ x\n"
+  let mut session := session
+  for item in file.items do
+    let `(cas_item| $statement:cas_stmt) := item
+      | throwError "the retained morphism consumer control did not parse"
+    match ← file.withContext (session.readStatement statement) with
+    | .definition next _ => session := next
+    | _ => throwError "the retained morphism consumer control did not define its original inputs"
+  let session ← session.define `consume (← nativeTerm "fun (h : H) => h")
+  let term ← session.read (← sourceTerm "consume(f)")
+  checkSelected term fun expression => do
+    let scope ← get
+    let bindings ← authoredBindings
+    unless bindings.size == 5 do
+      liftM (m := MetaM) <| throwError "the strict morphism consumer changed its complete authored scope"
+    let nativeHom ← mkAppM ``TypeCat.Hom #[bindings[0]!.expression, bindings[0]!.expression]
+    if ← withoutModifyingState (isDefEq bindings[2]!.expression nativeHom) then
+      liftM (m := MetaM) <| throwError "the strict morphism consumer control lost its opaque Hom type"
+    unless ← isDefEq (← inferType expression) bindings[2]!.expression do
+      liftM (m := MetaM) <| throwError "the strict morphism consumer changed its actual native result type"
+    checkWithKernel expression
+    for binding in #[bindings[3]!, bindings[4]!] do
+      unless (← visitNativeData (fun term =>
+          originatesAt scope.context scope.selections term binding.expression false)
+          expression false) > 0 do
+        liftM (m := MetaM) <| throwError "the strict morphism consumer replaced its original callable or argument"
+    checkOriginal #[expression, bindings[3]!.expression] fun native => do
+      unless ← isDefEq native[0]! native[1]! do
+        throwError "the strict morphism consumer changed its original mathematical result"
+  let applied ← session.read (← sourceTerm "f(i)")
+  checkSelected applied fun expression => do
+    let scope ← get
+    let bindings ← authoredBindings
+    unless bindings.size == 5 do
+      liftM (m := MetaM) <| throwError "the annotated local morphism call changed its complete authored scope"
+    unless ← isDefEq (← inferType expression) bindings[0]!.expression do
+      liftM (m := MetaM) <| throwError "the annotated local morphism call changed its native result type"
+    checkWithKernel expression
+    for binding in #[bindings[1]!, bindings[3]!] do
+      unless (← visitNativeData (fun term =>
+          originatesAt scope.context scope.selections term binding.expression false)
+          expression false) > 0 do
+        liftM (m := MetaM) <| throwError "the annotated local morphism call replaced its original callable or argument"
+    checkOriginal #[expression, bindings[1]!.expression] fun native => do
+      unless ← isDefEq native[0]! native[1]! do
+        throwError "the annotated local morphism call changed its original mathematical result"

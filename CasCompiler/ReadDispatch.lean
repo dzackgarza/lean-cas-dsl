@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.ReadContext
 public import CasCompiler.SourceSubset
+public import CasCompiler.SourceTuple
 public import CasCompiler.SourceAdmission
 public import CasCompiler.SourcePropertyQualification
 import CasCompiler.SourceCarrier
@@ -30,12 +31,19 @@ def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSour
     | .ok value => pure value
     | .error message => return .error message
   else pure judgement
-  let retain := fun (judgement : NativeSourceJudgement) => do
-    let some category := judgement.category | return .ok judgement
+  let nativeMorphismType? := fun (judgement : NativeSourceJudgement) => do
+    let some category := judgement.category | return none
+    unless category.role == .morphism &&
+        category.expression.syntacticEq (.atom CasCatalogue.CategoryId.sets) do return none
+    let type ← inferType judgement.value
+    unless (← SourceReadM.selection? type).isSome do return none
+    return some (← nativeTypeView type)
+  let retain := fun (judgement : NativeSourceJudgement) (declaredType : Option Expr) => do
+    let some category := judgement.category | return judgement
     let selected := (← SourceReadM.selection? judgement.value).getD { value := judgement.value }
     let value ← SourceReadM.select {
-      selected with value := judgement.value, category := some category }
-    return .ok { judgement with value }
+      selected with value := judgement.value, category := some category } declaredType
+    return { judgement with value }
   if let some expected := expected then
 
 
@@ -49,7 +57,10 @@ def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSour
 
 
     let judgement ← if (← whnfR (← liftM (m := MetaM) <| instantiateMVars expected)).isForall &&
-        judgement.category.any (·.role == .morphism) then
+        judgement.category.any (·.role == .morphism) then do
+      let judgement ← match ← nativeMorphismType? judgement with
+        | some type => retain judgement (some type)
+        | none => pure judgement
       pure (⟨← sourceFunction judgement, none⟩ : NativeSourceJudgement)
     else pure judgement
     let actual ← inferType judgement.value
@@ -74,13 +85,13 @@ def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSour
         value={judgement.value}; category={(judgement.category.map (fun selected => (toJson selected.expression).compress)).getD "none"}")
     if nativeFits then
       discard <| isDefEq actual expected
-      return ← retain judgement
+      return .ok (← retain judgement none)
     let selected := (← SourceReadM.selection? judgement.value).getD {
       value := judgement.value, category := judgement.category }
     let value ← SourceReadM.select {
       selected with value := judgement.value, category := judgement.category } (some expected)
     return .ok { judgement with value }
-  retain judgement
+  return .ok (← retain judgement (← nativeMorphismType? judgement))
 
 
 

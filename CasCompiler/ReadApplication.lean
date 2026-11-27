@@ -67,19 +67,18 @@ private def applicationApplicableCore (context : ReadContext)
               qualification := none
               expectedCategory := none } original
       readArgument categoryOf argument type
-    let source ← if source.category.any (·.role == .morphism) then do
-      let selected := (← SourceReadM.selection? source.value).getD { value := source.value }
-      let declaredType ← if !arguments.isEmpty && source.category.any (fun category =>
-          category.expression.syntacticEq (.atom CasCatalogue.CategoryId.sets)) then do
-        let type ← inferType source.value
-        if (← SourceReadM.selection? type).isSome then
-          pure (some (← nativeTypeView type))
-        else pure none
-      else pure none
-      let value ← SourceReadM.select
-        { selected with value := source.value, category := source.category } declaredType
-      pure { source with value }
-    else pure source
+    let prepared ← if source.category.any (·.role == .morphism) then do
+      if arguments.isEmpty then
+        let selected := (← SourceReadM.selection? source.value).getD { value := source.value }
+        let value ← SourceReadM.select { selected with value := source.value, category := source.category }
+        pure (.ok { source with value })
+      else
+        checkReadJudgementApplicable
+          { context with expected := none, qualification := none, expectedCategory := none } source
+    else pure (.ok source)
+    let source ← match prepared with
+      | .ok source => pure source
+      | .error message => return .error message
 
 
     if let #[argument] := arguments then
