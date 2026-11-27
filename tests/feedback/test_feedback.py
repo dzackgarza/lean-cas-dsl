@@ -6,6 +6,7 @@ The probes retain their sources, reports and diagnostics under timing/logs/feedb
 """
 from __future__ import annotations
 
+import copy
 import datetime
 from decimal import Decimal
 import gzip
@@ -30,6 +31,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from application_log import dumps_exact_json, loads_application_event
 from acceptance_inputs import SOURCE_REVISION
 from feedback_checkout import retain_checkout, restore_checkout
+from source_occurrences import check_report
 
 
 TIMING_FIELDS = {
@@ -74,7 +76,7 @@ class FeedbackRecordTests(unittest.TestCase):
         self.addCleanup(self.retain_feedback_checkout)
         for name in [".gitignore", "justfile", "lean-toolchain", "scripts/feedback.sh",
                      "scripts/container.sh", "scripts/feedback_records.py",
-                     "scripts/application_log.py", "scripts/acceptance_inputs.py",
+                     "scripts/application_log.py", "scripts/source_occurrences.py", "scripts/acceptance_inputs.py",
                      "scripts/check_acceptance_permanent.py"]:
             target = self.checkout / name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -482,7 +484,7 @@ class FeedbackTests(unittest.TestCase):
         control = Path(tempfile.mkdtemp(prefix="native-preparation-failure-", dir=directory))
         checkout = control / "checkout"
         for name in ["justfile", "lean-toolchain", "scripts/feedback.sh", "scripts/container.sh",
-                     "scripts/feedback_records.py", "scripts/application_log.py",
+                     "scripts/feedback_records.py", "scripts/application_log.py", "scripts/source_occurrences.py",
                      "scripts/acceptance_inputs.py", "scripts/check_acceptance_permanent.py"]:
             target = checkout / name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -1020,7 +1022,7 @@ class FeedbackTests(unittest.TestCase):
                     ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
                 original = (ROOT / selected).read_bytes()
                 files = ["justfile", "scripts/feedback.sh", "scripts/container.sh",
-                         "scripts/feedback_records.py", "scripts/application_log.py",
+                         "scripts/feedback_records.py", "scripts/application_log.py", "scripts/source_occurrences.py",
                          "scripts/acceptance_inputs.py",
                          "scripts/check_acceptance_permanent.py",
                          str(checkpoint), str(selected)]
@@ -1178,8 +1180,242 @@ class FeedbackTests(unittest.TestCase):
         self.assertIn(" computing\n", (run / "worker0.lean").read_text())
         self.assertEqual((ROOT / source).read_bytes(), original)
         self.assertEqual(baseline.read_bytes(), admitted_before)
+        descriptor = recorded["source_occurrences"]
+        report_path = ROOT / descriptor["path"]
+        self.assertTrue(descriptor["complete"])
+        self.assertEqual(descriptor, recorded["computations"]["source_occurrences"])
+        self.assertEqual(hashlib.sha256(report_path.read_bytes()).hexdigest(), descriptor["sha256"])
+        complete_report = json.loads(report_path.read_text())
+        native_rows = [json.loads(line) for line in
+                       (ROOT / recorded["computations"]["record_file"]).read_text().splitlines()]
+        check_report(complete_report, file_records=recorded["computations"]["files"],
+                     rows=native_rows, stops=recorded["computations"]["scope_stops"])
+        self.assertEqual(len(complete_report["files"]), 1)
+        observed = complete_report["files"][0]
+        self.assertEqual(observed["source_sha256"], hashlib.sha256(original).hexdigest())
+        occurrences = observed["occurrences"]
+        definitions = [line for line in original.decode().splitlines() if line.startswith("let ")]
+        self.assertEqual([line.split()[1] for line in definitions],
+                         ["R", "indices", "Y", "constantOne", "impossibleAdmission"])
+        self.assertEqual(len(occurrences), len(definitions))
+        for ordinal, (occurrence, definition) in enumerate(zip(occurrences, definitions, strict=True)):
+            with self.subTest(definition=definition):
+                start = original.index(definition.encode())
+                self.assertEqual(occurrence["path"], [ordinal])
+                self.assertIsNone(occurrence["parent"])
+                self.assertEqual(occurrence["source_span"],
+                                 {"file": str(source), "startByte": start,
+                                  "stopByte": start + len(definition.encode())})
+                self.assertIsNotNone(occurrence["outcome"])
+                self.assertEqual(occurrence["status"],
+                                 "attempted" if occurrence["attempted"] else "not_attempted")
+                self.assertIs(type(occurrence["published"]), bool)
+        self.assertEqual(occurrences[1]["outcome"]["kind"], "holds")
+        self.assertTrue(occurrences[1]["attempted"])
+        self.assertTrue(occurrences[1]["published"])
+        self.assertEqual(observed["compact"],
+                         [{key: value for key, value in row.items()
+                           if key not in {"inputKind", "admitted", "computing"}} for row in rows])
 
 class AcceptanceRunTests(unittest.TestCase):
+    def test_source_occurrences_survive_reporting(self) -> None:
+        directory = ROOT / "timing/logs/feedback-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        control = Path(tempfile.mkdtemp(prefix="source-occurrences-", dir=directory))
+        flat_path = Path("tests/runtime/source_occurrences.cas")
+        nested_path = Path("tests/runtime/source_occurrences_nested.cas")
+        flat = (ROOT / flat_path).read_bytes()
+        nested = (ROOT / nested_path).read_bytes()
+        admitted = (ROOT / "CasAcceptance/Permanent/admitted.json").read_bytes()
+        original = (ROOT / "tests/acceptance/sets.cas").read_bytes()
+        assertions = [block for block in original.decode().split("\n\n")
+                      if block.startswith("test sets.implemented.card_fin ")]
+        self.assertEqual(len(assertions), 1)
+        self.assertEqual(flat, (assertions[0] + "\n\nlet indices := ℕ in Sets\n\n"
+                               "let loggingA := Fin(3)\n").encode())
+        self.assertEqual(nested, (
+            "context do\n  context do\n    let loggingA := Fin(3)\n  end\n"
+            "  assert implemented |Fin(3)|\n  context do\n"
+            "    let loggingB := Fin(3)\n  end\nend\n").encode())
+        log = control / "public-loop.log"
+        with log.open("w") as output:
+            result = subprocess.run(["just", "loop", "CasRuntime.SourceOccurrenceTests"],
+                                    cwd=ROOT, stdout=output, stderr=subprocess.STDOUT, check=False)
+        self.assertEqual(result.returncode, 0, log.read_text())
+        record = json.loads((ROOT / "timing/runs.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(record["targets"], ["CasRuntime.SourceOccurrenceTests"])
+        self.assertTrue(record["complete"])
+        self.assertTrue(record["within_loop_bound"])
+        summary = record["computations"]
+        self.assertTrue(summary["complete"], summary)
+        descriptor = record["source_occurrences"]
+        self.assertEqual(descriptor, summary["source_occurrences"])
+        report_path = ROOT / descriptor["path"]
+        self.assertTrue(descriptor["complete"])
+        self.assertEqual(hashlib.sha256(report_path.read_bytes()).hexdigest(), descriptor["sha256"])
+        report = json.loads(report_path.read_text())
+        native_rows = [json.loads(line) for line in
+                       (ROOT / summary["record_file"]).read_text().splitlines()]
+        evidence = {"file_records": summary["files"], "rows": native_rows,
+                    "stops": summary["scope_stops"]}
+        check_report(report, **evidence)
+        self.assertTrue(report["complete"])
+        self.assertEqual(len(report["files"]), 2)
+        files = {item["file"]: item for item in report["files"]}
+        self.assertEqual(set(files), {str(flat_path), str(nested_path)})
+        for source, content, compact_path in (
+                (flat_path, flat, ".tmp/source-occurrences-flat.json"),
+                (nested_path, nested, ".tmp/source-occurrences-nested.json")):
+            observed = files[str(source)]
+            self.assertTrue(observed["complete"])
+            self.assertEqual(observed["errors"], [])
+            self.assertEqual(observed["source_sha256"], hashlib.sha256(content).hexdigest())
+            self.assertEqual(observed["compact"], json.loads((ROOT / compact_path).read_text()))
+        flat_items = files[str(flat_path)]["occurrences"]
+        registration = {"operation": "meth.cardinality", "input": "obj.sets.fin",
+                        "backend": "kernel-session-peer"}
+        self.assertIn(registration,
+                      json.loads((ROOT / "scripts/probes/kernel_session_peer.json").read_text())["registrations"])
+        self.assertEqual(files[str(flat_path)]["compact"][0]["dispatches"], [registration])
+        self.assertEqual([item["path"] for item in flat_items], [[0], [1], [2]])
+        self.assertEqual([item["id"] for item in flat_items], ["sets.implemented.card_fin", None, None])
+        flat_spans = [(0, len(assertions[0].encode()))]
+        for text in ("let indices := ℕ in Sets", "let loggingA := Fin(3)"):
+            start = flat.index(text.encode())
+            flat_spans.append((start, start + len(text.encode())))
+        for index, (item, (start, stop)) in enumerate(zip(flat_items, flat_spans, strict=True)):
+            with self.subTest(flat=index):
+                self.assertEqual(item["ordinal"], index)
+                self.assertIsNone(item["parent"])
+                self.assertFalse(item["is_scope"])
+                self.assertEqual(item["source_span"],
+                                 {"file": str(flat_path), "startByte": start, "stopByte": stop})
+                execution_start = flat.index(b"assert implemented") if index == 0 else start
+                self.assertEqual(item["execution_span"],
+                                 {"file": str(flat_path), "startByte": execution_start, "stopByte": stop})
+                self.assertEqual(item["status"], "attempted")
+                self.assertTrue(item["attempted"])
+                self.assertEqual(item["outcome"]["kind"], "holds")
+                self.assertFalse(item["outcome"]["fails"])
+                self.assertIsNone(item["outcome"]["stratum"])
+                self.assertTrue(item["published"])
+                self.assertTrue(item["enclosing_published"])
+                self.assertIsNotNone(item["timing"])
+                self.assertIsNotNone(item["eventrefs"]["timing"])
+        nested_items = files[str(nested_path)]["occurrences"]
+        self.assertEqual([item["path"] for item in nested_items],
+                         [[0], [0, 0], [0, 0, 0], [0, 1], [0, 2], [0, 2, 0]])
+        first_scope = nested.index(b"context do", len(b"context do"))
+        last_scope = nested.rindex(b"context do")
+        first_end = nested.index(b"end") + len(b"end")
+        last_inner_end = nested.index(b"end", last_scope) + len(b"end")
+        definition_a = b"let loggingA := Fin(3)"
+        cardinality = b"assert implemented |Fin(3)|"
+        definition_b = b"let loggingB := Fin(3)"
+        nested_spans = [
+            (0, len(nested.rstrip())), (first_scope, first_end),
+            (nested.index(definition_a), nested.index(definition_a) + len(definition_a)),
+            (nested.index(cardinality), nested.index(cardinality) + len(cardinality)),
+            (last_scope, last_inner_end),
+            (nested.index(definition_b), nested.index(definition_b) + len(definition_b))]
+        for index, (item, (start, stop)) in enumerate(zip(nested_items, nested_spans, strict=True)):
+            with self.subTest(nested=index):
+                self.assertEqual(item["parent"], item["path"][:-1] or None)
+                self.assertEqual(item["ordinal"], item["path"][-1])
+                self.assertEqual(item["is_scope"], index in {0, 1, 4})
+                self.assertEqual(item["source_span"],
+                                 {"file": str(nested_path), "startByte": start, "stopByte": stop})
+                self.assertEqual(item["execution_span"], item["source_span"])
+                self.assertFalse(item["enclosing_published"])
+                self.assertFalse(item["published"])
+                if index < 4:
+                    self.assertEqual(item["status"], "attempted")
+                    self.assertTrue(item["attempted"])
+                    self.assertIsNotNone(item["timing"])
+                    self.assertFalse(item["outcome"]["fails"])
+                else:
+                    self.assertEqual(item["status"], "skipped")
+                    self.assertFalse(item["attempted"])
+                    self.assertIsNone(item["outcome"])
+                    self.assertIsNone(item["timing"])
+                    self.assertIsNone(item["staged"])
+                    self.assertIsNone(item["eventrefs"]["start"])
+                    self.assertIsNone(item["eventrefs"]["terminal"])
+                    self.assertIsNotNone(item["eventrefs"]["scope_stop"])
+        for index in (1, 2):
+            self.assertEqual(nested_items[index]["outcome"]["kind"], "holds")
+            self.assertTrue(nested_items[index]["staged"])
+        for index in (0, 3):
+            self.assertEqual(nested_items[index]["outcome"]["kind"], "gap")
+            self.assertEqual(nested_items[index]["outcome"]["stratum"], "noImplementation")
+        self.assertFalse(nested_items[3]["staged"])
+        for source, middle in ((str(flat_path), 1), (str(nested_path), 2)):
+            for mutation in ("drop", "duplicate", "substitute", "exchange"):
+                with self.subTest(source=source, mutation=mutation):
+                    changed = copy.deepcopy(report)
+                    occurrences = next(item for item in changed["files"]
+                                       if item["file"] == source)["occurrences"]
+                    if mutation == "drop":
+                        occurrences.pop(middle)
+                    elif mutation == "duplicate":
+                        occurrences.insert(middle, copy.deepcopy(occurrences[middle]))
+                    elif mutation == "substitute":
+                        occurrences[middle] = copy.deepcopy(occurrences[middle + 1])
+                    else:
+                        occurrences[middle], occurrences[middle + 1] = (
+                            occurrences[middle + 1], occurrences[middle])
+                    (control / f"{Path(source).stem}-{mutation}.json").write_text(
+                        dumps_exact_json(changed) + "\n")
+                    with self.assertRaises(ValueError):
+                        check_report(changed, **evidence)
+        run = (ROOT / record["context"]).parent
+        missing = control / "missing-timing"
+        copied_run = missing / "run"
+        copied_run.mkdir(parents=True)
+        shutil.copy2(run / "context.json", copied_run / "context.json")
+        shutil.copytree(run / "application", copied_run / "application")
+        flat_session = files[str(flat_path)]["session"]
+        source_log = next(path for path in (copied_run / "application").glob("*.jsonl")
+                          if loads_application_event(path.read_text().splitlines()[0])["session"] == flat_session)
+        events = [loads_application_event(line) for line in source_log.read_text().splitlines()]
+        removed = [event for event in events if event["event"] == "computation.timing"
+                   and event["data"]["file"] == str(flat_path) and event["data"]["ordinal"] == 1]
+        self.assertEqual(len(removed), 1)
+        removed_sequence = removed[0]["sequence"]
+        kept = [event for event in events if event["sequence"] != removed_sequence]
+        self.assertTrue(all(removed_sequence not in event["parents"] for event in kept))
+        renumbered = {event["sequence"]: index for index, event in enumerate(kept)}
+        for event in kept:
+            event["sequence"] = renumbered[event["sequence"]]
+            event["parents"] = [renumbered[parent] for parent in event["parents"]]
+            event["schema"] = 1
+        source_log.write_text("".join(dumps_exact_json(event) + "\n" for event in kept))
+        history = ROOT / "timing/computations.jsonl"
+        history_size = history.stat().st_size
+        status, damaged = FeedbackTests.collect_trace(
+            self, copied_run / "context.json",
+            record["preparation_seconds"] + record["phases"]["build"]["seconds"], missing)
+        self.assertNotEqual(status, 0)
+        self.assertFalse(damaged["complete"])
+        self.assertFalse(damaged["source_occurrences"]["complete"])
+        self.assertTrue(all("diagnostic sequence" not in error and "ancestry" not in error
+                            for error in damaged["malformed"]))
+        damaged_rows = [json.loads(line) for line in
+                        (copied_run / "computations.jsonl").read_text().splitlines()]
+        untimed = next(row for row in damaged_rows
+                       if row["computation"] == removed[0]["data"]["computation"])
+        self.assertIsNotNone(untimed["start"])
+        self.assertIsNone(untimed.get("completion"))
+        self.assertFalse(untimed["complete"])
+        with self.assertRaises(ValueError):
+            check_report(report, file_records=damaged["files"], rows=damaged_rows,
+                         stops=damaged["scope_stops"])
+        self.assertEqual(history.stat().st_size, history_size)
+        self.assertEqual((ROOT / flat_path).read_bytes(), flat)
+        self.assertEqual((ROOT / nested_path).read_bytes(), nested)
+        self.assertEqual((ROOT / "tests/acceptance/sets.cas").read_bytes(), original)
+        self.assertEqual((ROOT / "CasAcceptance/Permanent/admitted.json").read_bytes(), admitted)
+
     def test_unread_form_fails_and_peer_dispatches(self) -> None:
         directory = ROOT / "timing/logs/feedback-tests"
         directory.mkdir(parents=True, exist_ok=True)
@@ -1193,7 +1429,7 @@ class AcceptanceRunTests(unittest.TestCase):
                         ["tests/acceptance/sets.cas", "scripts/accept_files.sh"])
         for name in [".gitignore", "justfile", "lean-toolchain", "scripts/feedback.sh",
                      "scripts/accept_files.sh", "scripts/container.sh", "scripts/feedback_records.py",
-                     "scripts/application_log.py", "scripts/acceptance_inputs.py",
+                     "scripts/application_log.py", "scripts/source_occurrences.py", "scripts/acceptance_inputs.py",
                      "scripts/check_acceptance_permanent.py", "scripts/check_acceptance_regression.py",
                      "scripts/probes/kernel_session_peer.py", "scripts/probes/kernel_session_peer.json",
                      "CasAcceptance/Permanent/admitted.json"]:

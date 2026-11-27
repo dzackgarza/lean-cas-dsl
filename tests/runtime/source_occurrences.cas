@@ -1,0 +1,6 @@
+test sets.implemented.card_fin "a realization computes |Fin(3)|":
+  assert implemented |Fin(3)|
+
+let indices := ℕ in Sets
+
+let loggingA := Fin(3)

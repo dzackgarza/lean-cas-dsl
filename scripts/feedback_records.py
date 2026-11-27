@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 from application_log import dumps_exact_json, loads_application_event
+from source_occurrences import reconcile
 
 
 def read_json(path: Path) -> dict:
@@ -387,6 +388,7 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
     session_sources: dict[str, str | None] = {}
     preparations: dict[str, dict] = {}
     beginnings: dict[tuple[str, int], dict] = {}
+    scope_stops: list[dict] = []
     malformed: list[str] = []
     invalid_sessions: set[str] = set()
     logs = sorted((run / "application").glob("*.jsonl"))
@@ -564,6 +566,8 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                                              ("completion" in item or "interruption" in item)):
                             raise ValueError(f"duplicate nested {field} at {session}/{child_sequence}")
                         item[field] = event
+                    elif name == "statement.scope.stopped":
+                        scope_stops.append(event)
                     elif name in {"file.started", "file.finished", "file.failed"}:
                         fields = ("fileRun", "file") if name == "file.failed" else (
                             "fileRun", "file", "sourceSha256")
@@ -877,6 +881,12 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                                  "utc_start": utc_at(context, begin["monotonicMilliseconds"] * 1000000)})
 
 
+    source_report = reconcile(file_records, rows, scope_stops)
+    source_report_path = run / "source-occurrences.json"
+    atomic_json(source_report_path, source_report)
+    source_occurrences = {"path": str(source_report_path), "sha256": digest(source_report_path),
+                          "complete": source_report["complete"], "files": len(source_report["files"])}
+    complete = complete and source_report["complete"]
     with (run / "computations.jsonl").open("w") as output:
         for row in rows:
             output.write(dumps_exact_json(row) + "\n")
@@ -887,6 +897,7 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
               "top_level_records": sum(row["unit"] == "statement" for row in rows),
               "nested_records": sum(row["unit"] == "nested_statement" for row in rows),
               "files": file_records, "malformed": malformed, "logs": [str(log) for log in logs],
+              "scope_stops": scope_stops, "source_occurrences": source_occurrences,
               "record_file": str(run / "computations.jsonl")}
     atomic_json(run / "computation-summary.json", result)
     return result
@@ -949,12 +960,15 @@ def finish_feedback(argv: list[str]) -> int:
         "seconds": seconds, "status": result, "execution_status": execution_result,
         "over_limit": over, "within_loop_bound": seconds <= int(limit),
         "attempted": attempted == "true", "attempted_sources": attempted_sources,
-        "finished_utc": utc(), "complete": not interrupted, "computations": computations,
+        "finished_utc": utc(), "complete": not interrupted and computations["complete"],
+        "computations": computations, "source_occurrences": computations["source_occurrences"],
         "preparation_seconds": int(preparation) / 1e9,
         "phases": phases, "interruption_signal": signal or None,
     })
     summary = (f"{entry['kind']}: execution status {execution_result}; status {result} "
                f"in {seconds:.3f} s; log {entry['log']}.gz")
+    if computations["source_occurrences"]["files"]:
+        summary += f"; source occurrences {computations['source_occurrences']['path']}"
     if over:
         summary += (f"\nOVER THE LIMIT: the {limit}-second development loop needs repair. "
                     "The run was allowed to finish.")
@@ -1012,6 +1026,7 @@ def finalize_feedback(argv: list[str]) -> int:
     append_record(run / "events.jsonl",
                   {**identity(entry), "event": "run.finished", "status": entry["status"],
                    "seconds": entry["seconds"], "finished_utc": entry["finished_utc"],
+                    "source_occurrences": entry["source_occurrences"],
                    "interruption_signal": entry["interruption_signal"]})
     return entry["status"]
 

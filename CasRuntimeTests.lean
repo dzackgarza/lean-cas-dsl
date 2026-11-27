@@ -72,6 +72,7 @@ import CasRuntime.SessionPredicateTests
 import CasRuntime.SessionPreferenceTests
 import CasRuntime.SessionSuspensionTests
 import CasRuntime.SessionTests
+import CasRuntime.SourceOccurrenceTests
 import CasRuntime.TransactionTests
 import CasRuntime.TransportTests
 import CasRuntime.UnpublishedOperationTests

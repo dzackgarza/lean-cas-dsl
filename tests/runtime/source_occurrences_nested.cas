@@ -1,0 +1,9 @@
+context do
+  context do
+    let loggingA := Fin(3)
+  end
+  assert implemented |Fin(3)|
+  context do
+    let loggingB := Fin(3)
+  end
+end

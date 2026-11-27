@@ -22,6 +22,14 @@ if (not entry["complete"] or finished.get("event") != "run.finished"
         or any(finished.get(key) != entry[key] for key in ("context", "status", "complete", "log"))
         or entry["report_sha256"] != hashlib.sha256(report.read_bytes()).hexdigest()):
     raise SystemExit("the current report is not a complete recorded execution")
+source_report = entry["source_occurrences"]
+source_path = Path(source_report["path"])
+source_document = json.loads(source_path.read_text())
+if (not source_report["complete"] or not source_document["complete"]
+        or source_report != entry["computations"]["source_occurrences"]
+        or finished.get("source_occurrences") != source_report
+        or source_report["sha256"] != hashlib.sha256(source_path.read_bytes()).hexdigest()):
+    raise SystemExit("the current source-occurrence report is not a complete recorded execution")
 shutil.copyfile(report, ".tmp/accept-prev.json")
 print("The complete current observation is now the regression baseline; its failures remain failures.")
 PY
@@ -108,6 +116,7 @@ sys.path.insert(0, "scripts")
 from acceptance_inputs import parse_selection
 from check_acceptance_regression import outcomes, report_outcome
 from feedback_records import atomic_json, collect_computations, identity, read_json
+from source_occurrences import check_report
 
 run = Path(sys.argv[1])
 started, build_started, build_finished, status, workers = map(int, sys.argv[2:7])
@@ -154,6 +163,7 @@ except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
     metadata_errors.append(f"{run / 'inputs.json'}: {error}")
     inputs = {source: context.get("inputs", {}).get(source) for source in selected}
 results = []
+raw_reports = {}
 file_statuses = {source: "fail" for source in selected}
 input_metadata_complete = not metadata_errors
 worker_results = []
@@ -195,6 +205,7 @@ for item in selected_files:
         computing = item.get("computing", item["kind"] == "extension")
         if type(admitted) is not bool or type(computing) is not bool:
             raise ValueError("invalid selected-input admission or computation mode")
+        raw_reports[source] = rows
         results.extend({**row, "inputKind": item["kind"], "admitted": admitted,
                         "computing": computing} for row in rows)
         file_statuses[source] = "fail" if any(report_outcome(row).fails for row in rows) else "pass"
@@ -213,6 +224,26 @@ for item in selected_files:
 
 shared_setup = (build_finished - started) / 1e9
 computations = collect_computations(run / "context.json", shared_setup)
+source_report = computations["source_occurrences"]
+try:
+    source_path = Path(source_report["path"])
+    source_document = read_json(source_path)
+    if source_report["sha256"] != hashlib.sha256(source_path.read_bytes()).hexdigest():
+        raise ValueError("current source-occurrence report hash differs from its recorded identity")
+    native_rows = [json.loads(line) for line in Path(computations["record_file"]).read_text().splitlines()]
+    check_report(source_document, file_records=computations["files"], rows=native_rows,
+                 stops=computations["scope_stops"])
+    reported_files = source_document["files"]
+    if len(reported_files) != len(selected) or {item["file"] for item in reported_files} != selected:
+        raise ValueError("current source-occurrence report differs from the selected files")
+    for item in reported_files:
+        source = item["file"]
+        if item["source_sha256"] != inputs[source] or item["compact"] != raw_reports.get(source):
+            raise ValueError(f"{source}: compact projection or source identity differs from native execution")
+except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+    complete = False
+    status = status or 1
+    metadata_errors.append(f"current source-occurrence report: {error}")
 timed_files = {entry["file"] for entry in computations["files"]}
 timing_complete = computations["complete"] and selected == timed_files
 if not timing_complete:
@@ -269,6 +300,7 @@ entry = {
     "environment": context["environment"], "source": context.get("source"),
     "dependencies": context.get("dependencies", []), "resolution": context.get("resolution"),
     "computations": computations, "timing_complete": timing_complete,
+    "source_occurrences": source_report,
     "preparation_seconds": (build_started - started) / 1e9,
     "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     "revision": revision, "run": str(run), "files": [item["stem"] for item in selected_files],
@@ -291,7 +323,8 @@ entry = {
 }
 atomic_json(run / "result.json", entry)
 print(f"Current selected outcomes: {entry['outcomes']}; complete={complete}; "
-      f"status={status}; total={seconds:.3f}s; report={current}")
+      f"status={status}; total={seconds:.3f}s; report={current}; "
+      f"source-occurrences={source_report['path']}")
 raise SystemExit(status)
 PY
   local status=$?
@@ -344,6 +377,7 @@ for item in entry["selected_inputs"]:
         log_path=log_path, log_sha256=log_sha256))
 append_record(run / "events.jsonl", {**identity(context), "event": "run.finished",
     "status": entry["status"], "seconds": entry["seconds"], "complete": entry["complete"],
+    "source_occurrences": entry["source_occurrences"],
     "unfinished_phase": entry["unfinished_phase"], "interruption_signal": entry["interruption_signal"]})
 PY
   local record_status=$?

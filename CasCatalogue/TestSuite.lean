@@ -101,6 +101,31 @@ private partial def unexecutedScope (statement : TSyntax `cas_stmt) :
   let some items := sourceContextItems? statement | return #[]
   return items.flatMap unreadSourceItems
 
+private partial def sourceOccurrenceInventory (file : String)
+    (items : Array (TSyntax `cas_item)) (parent : Option (Array Nat) := none) :
+    Array Json := Id.run do
+  let mut inventory := #[]
+  for item in items, ordinal in [:items.size] do
+    let statement := (sourceItemStatement? item).getD ⟨item.raw⟩
+    let path := (parent.getD #[]).push ordinal
+    let id : Option String := match item with
+      | `(cas_item| test $name:ident $_:str : $_:cas_stmt) =>
+        some (name.getId.toString (escape := parent.isNone))
+      | _ => none
+    let children := sourceContextItems? statement
+    let execution := if parent.isNone then statement.raw else item.raw
+    inventory := inventory.push <| Json.mkObj [
+      ("path", toJson path), ("parent", toJson parent), ("ordinal", toJson ordinal),
+      ("syntaxKind", toJson (statement.raw.getKind.toString)), ("id", toJson id),
+      ("source", toJson (item.raw.reprint.getD "")),
+      ("position", SourceSnapshot.spanJson ⟨file, item.raw.getPos?, item.raw.getTailPos?⟩),
+      ("executionPosition", SourceSnapshot.spanJson
+        ⟨file, execution.getPos?, execution.getTailPos?⟩),
+      ("isScope", toJson children.isSome)]
+    if let some children := children then
+      inventory := inventory ++ sourceOccurrenceInventory file children (some path)
+  return inventory
+
 def runFile (session : KernelSession) (path : System.FilePath) :
     CommandElabM (Array TestResult × KernelSession) := do
   let file := path.toString
@@ -110,27 +135,33 @@ def runFile (session : KernelSession) (path : System.FilePath) :
   let fileRun := s!"{log.session}/{fileEntry}"
   let contents ← try IO.FS.readFile path
     catch error =>
+      let detail ← error.toMessageData.toString
+      let result : TestResult := {
+        file, id := "(statement) infrastructure", kind := "internal"
+        detail := s!"cannot read selected input: {detail}", fails := true }
       discard <| log.write #[fileEntry] "file.failed" <| Json.mkObj [
         ("fileRun", toJson fileRun), ("file", toJson file), ("stage", toJson "read"),
-        ("detail", toJson (← error.toMessageData.toString))]
-      return (#[{ file, id := "(statement) infrastructure", kind := "internal"
-                  detail := s!"cannot read selected input: {← error.toMessageData.toString}"
-                  fails := true }], session)
+        ("detail", toJson detail), ("compact", toJson #[result])]
+      return (#[result], session)
   let sourceSha256 ← sha256Hex contents
   let source ← try liftCoreM <| SourceFile.parse file contents
     catch error =>
+      let detail ← error.toMessageData.toString
+      let result : TestResult := {
+        file, id := "(statement) parse", kind := "invalid", stratum := some "invalid"
+        detail := s!"reader parser failure: {detail}", fails := true }
       discard <| log.write #[fileEntry] "file.failed" <| Json.mkObj [
         ("fileRun", toJson fileRun), ("file", toJson file), ("stage", toJson "parse"),
         ("sourceSha256", toJson sourceSha256),
-        ("detail", toJson (← error.toMessageData.toString))]
-
-      return (#[{ file, id := "(statement) parse", kind := "invalid", stratum := some "invalid"
-                  detail := s!"reader parser failure: {← error.toMessageData.toString}"
-                  fails := true }], session)
+        ("detail", toJson detail), ("compact", toJson #[result])]
+      return (#[result], session)
+  let inventory := sourceOccurrenceInventory file source.items
   let sharedFileSetupMilliseconds := (← IO.monoMsNow) - fileBegan
   discard <| log.write #[fileEntry] "file.started" <| Json.mkObj [
     ("fileRun", toJson fileRun), ("file", toJson file),
     ("sourceSha256", toJson sourceSha256), ("statements", toJson source.items.size),
+    ("sourceText", toJson contents),
+    ("inventory", toJson inventory),
     ("sharedFileSetupMilliseconds", toJson sharedFileSetupMilliseconds)]
   let mut session := session
   let mut results : Array TestResult := #[]
@@ -270,6 +301,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
   discard <| log.write #[fileEntry] "file.finished" <| Json.mkObj [
     ("fileRun", toJson fileRun), ("file", toJson file),
     ("sourceSha256", toJson sourceSha256), ("executed", toJson executed),
+    ("compact", toJson results),
     ("milliseconds", toJson ((← IO.monoMsNow) - fileBegan))]
   return (results, session.withSetupMilliseconds cumulativeSetupMilliseconds)
 

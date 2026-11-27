@@ -756,7 +756,7 @@ private partial def executePrepared (session : KernelSession)
                 | some (_, name, definition) => definition.withDetail
                     s!"{name} has no computed value: {definition.detail}"
                 | none => outcome
-              return (⟨{
+              pure (⟨{
                 outcome
                 session := current
                 conclusions := child.conclusions
@@ -764,6 +764,7 @@ private partial def executePrepared (session : KernelSession)
               }, false⟩ : StagedStatement)
           CasTools.Diagnostics.emit "statement.child.finished" <| Json.mkObj [
             ("kind", toJson result.run.outcome.kind),
+            ("fails", toJson result.run.outcome.fails),
             ("stratum", toJson result.run.outcome.stratum?),
             ("detail", toJson result.run.outcome.detail),
             ("attempted", toJson result.run.attempted),
@@ -791,6 +792,13 @@ private partial def executePrepared (session : KernelSession)
         else result.run.observations
       observations := observations ++ observed
       unless result.run.outcome matches .holds do
+        let file ← getFileName
+        CasTools.Diagnostics.emit "statement.scope.stopped" <| Json.mkObj [
+          ("failedChild", toJson entry), ("failedOrdinal", toJson index),
+          ("skipped", toJson <| (items.drop (index + 1)).mapIdx fun offset (item, _) =>
+            Json.mkObj [("ordinal", toJson (index + 1 + offset)),
+              ("position", SourceSnapshot.spanJson
+                ⟨file, item.raw.getPos?, item.raw.getTailPos?⟩)])]
         let rest := (items.drop (index + 1)).flatMap fun (item, child) => unobservedItems item child
         return ⟨{ result.run with
           session
