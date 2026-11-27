@@ -82,8 +82,8 @@ several modules and acceptance files whose medians add up to more than 300 s => 
 is written, sum the medians of the passing runs in `timing/runs.jsonl` of each test module and
 acceptance file that it runs, as [`specs/feedback-loop-performance.md`](specs/feedback-loop-performance.md)
 states, and write "expected about N s from M records" into the check. A check over 300 s is cut to
-the cases that the task owns. A target with no passing record is named in the check, and the check
-keeps to one small module or one statement.
+the cases that the task owns. For a new target, name one small module or one statement, preserve its exact assertions,
+and record the elapsed command on its first executable revision.
 
 ## Feedback loops
 
@@ -101,7 +101,7 @@ whole unchanged `tests/acceptance/ellipses.cas` file.
 
 | Command | Use | Bound and records |
 | --- | --- | --- |
-| `just loop "MODULES" [FILE …]` | After a change: freshly execute the test modules of the changed mechanism and the statements that the active task's check names. A complete acceptance file is the check of its kernel milestone (plan, "Kernel milestones"): a long run when the milestone's last task closes, not part of a task's 300 s loop. Put several modules in the quoted argument; file arguments are stems of `tests/acceptance/*.cas`. | 300 seconds for the whole command. A completed overrun returns nonzero and records both the execution outcome and the exceeded bound. There is no kill timer. |
+| `just loop "MODULES" [FILE …]` | After a change: freshly execute the test modules of the changed mechanism and the statements that the active task's check names. Use the selected-file long-run command below for complete kernel milestone files. Put several modules in the quoted argument; file arguments are stems of `tests/acceptance/*.cas`. | 300 seconds for the whole command. A completed overrun returns nonzero and records both the execution outcome and the exceeded bound. There is no kill timer. |
 | `just loop "+MODULE:FACET" [--manifest PATH] FILE …` | Build the named artifacts and run their selected public acceptance consumer. | The same ordinary-loop bound; an artifact build alone cannot supply the consumer result. |
 | `just slow "REASON" TARGET … [-- acceptance arguments …]` | Run the same selected workload explicitly when it needs longer. Use `--` before acceptance arguments, including an optional `--manifest PATH`. | Record a reason of at least 20 characters. The command is allowed to finish without the ordinary-loop bound. |
 | `just milestone "REASON"` | At milestone acceptance, build both test aggregates and the notebook targets, freshly execute their test modules, and run every acceptance file. | A stated reason and clean committed tree are required. Current costs belong in `timing/README.md`. |

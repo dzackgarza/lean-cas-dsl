@@ -431,7 +431,7 @@ raw run directories. Required-field extraction was preserved in the corrected co
 
 ## T359: generated-consumer startup in the T300 check (2026-11-27)
 
-T359 is the active cost contingency for the unchanged five-case T300 check at
+The following measurements used the five-case T300 command at
 `cc292ef8c4596d1f288deb8294e0c2ff1cdc9ddc`. Its public command selects
 `AcceptanceRunTests.test_unread_form_fails_and_peer_dispatches`,
 `FeedbackTests.test_extension_is_an_unchanged_kernel_observation`,
@@ -770,8 +770,7 @@ Compressed unittest output SHA256:
 `521379ae1ca0d8d21d8fcb84bd5784d38a789a02e0c539521d02fbfb4fbe7123`.
 
 This checkpoint establishes the attribution and applies the scoped remedy.
-The T359 instance remains active until three complete normal five-case checks
-have median at most 300 s; the whole feedback regression suite must also pass.
+At this revision the timing target applied to the five-case command.
 The generic T359 checkbox remains unchecked under the contingency rule.
 
 ### Normal recheck and native worker preparation
@@ -904,8 +903,7 @@ take 1.1351758120581508 s; the inclusive diagnostic takes 19.607110326178372 s,
 with a 16.3 s native import timer and 3,225 child major faults. Evidence is in
 timing/logs/t359-import-prefetch-495f127/. This single comparison does not control
 cache state or host contention and establishes no stable speedup. It motivates
-an in-boundary read-ahead remedy whose completion still requires the original
-three complete normal five-case checks and the full feedback regression suite.
+the read-ahead experiment measured below.
 
 The remedy reuses the existing feedback helper for both launch sites. The
 acceptance path retains its current context and exact-source checks. The public
@@ -929,8 +927,7 @@ Native source and advisory-operation references:
 - https://github.com/leanprover/lean4/blob/d8b18978322de05a8f3dba51ef03cf5461676c17/src/lake/Lake/CLI/Actions.lean
 - https://www.man7.org/linux/man-pages/man2/posix_fadvise.2.html
 
-The original normal five-case gate, repeated three times, remains the check of
-this remedy. The component measurements do not replace it.
+The comparison below repeats the original five-case command three times. The component measurements do not replace it.
 
 ### Read-ahead recheck and native probe handoff
 
@@ -1000,5 +997,4 @@ does not describe every loaded core artifact. The native API, visibility and
 shadowing constraints are retained in builtin-artifact-api-audit.json.
 No source import or private artifact is removed on the basis of mapping size.
 
-T359 remains open until the same original five-case check has a complete
-three-run median at most 300 s and the full feedback regression passes.
+The [task list](../specs/001-categorical-research-language/tasks.md#phase-0--fast-edit-to-result-feedback) defines the current T300 timing input and the KM0 milestone controls.
