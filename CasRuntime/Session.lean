@@ -127,6 +127,7 @@ opaque KernelSession.start (manifest : Option System.FilePath := none)
   let kernel ← Kernel.load owners manifest profile timeoutMs
   let source ← SourceSession.empty owners.identities
   discard <| kernel.log.write #[] "session.prepared" <| Json.mkObj [
+    ("sourceFile", toJson (← getFileName)),
     ("startedMonotonicMilliseconds", toJson started),
     ("milliseconds", toJson ((← IO.monoMsNow) - started))]
   return ⟨kernel, source, computationOnly, {}, {}, #[], #[], 0⟩

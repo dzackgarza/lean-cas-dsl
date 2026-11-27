@@ -423,6 +423,268 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(tracked.returncode, 1, f"timing records are ignored: {tracked.stdout}")
         return result
 
+    def test_build_statement_sources_keep_consumer_identity(self) -> None:
+        directory = ROOT / "timing/logs/feedback-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        control = Path(tempfile.mkdtemp(prefix="build-source-", dir=directory))
+        checkout = control / "checkout"
+        subprocess.run(["git", "clone", "--shared", "--no-checkout", "--quiet",
+                        str(ROOT), str(checkout)], check=True)
+        revision = subprocess.check_output(
+            ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
+        consumer, importer = "FeedbackSessionLog.lean", "FeedbackSourceIdentity.lean"
+        borrowed = "tests/acceptance/sets.cas"
+        self.addCleanup(retain_checkout, checkout, revision,
+                        ["CasRuntime/SessionLogTests.lean", borrowed, "scripts/feedback_records.py"])
+        for name in [".gitignore", "justfile", "lean-toolchain", "scripts/feedback.sh",
+                     "scripts/container.sh", "scripts/feedback_records.py", "scripts/application_log.py",
+                     "scripts/source_occurrences.py", "scripts/acceptance_inputs.py",
+                     "scripts/check_acceptance_permanent.py", "scripts/probes/kernel_session_peer.py",
+                     borrowed]:
+            target = checkout / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / name, target)
+        original_consumer = (ROOT / "CasRuntime/SessionLogTests.lean").read_bytes()
+        original_borrowed = (ROOT / borrowed).read_bytes()
+        (checkout / consumer).write_bytes(original_consumer)
+        (checkout / importer).write_text("module\n\nimport FeedbackSessionLog\n")
+        manifest = json.loads((ROOT / "lake-manifest.json").read_text())
+        root_package = manifest["name"]
+        manifest["packagesDir"] = str((ROOT / manifest.get("packagesDir", ".lake/packages")).resolve())
+        for package in manifest["packages"]:
+            package["inherited"] = True
+            if package["type"] == "path":
+                package["dir"] = str((ROOT / package["dir"]).resolve())
+        manifest["packages"].append({
+            "type": "path", "name": root_package, "dir": str(ROOT), "inherited": False,
+            "configFile": "lakefile.lean", "manifestFile": "lake-manifest.json"})
+        manifest["name"] = "feedback_source_identity"
+        (checkout / "lake-manifest.json").write_text(json.dumps(manifest) + "\n")
+        configuration = (ROOT / "lakefile.lean").read_text()
+        marker = "script «feedback-context» do\n"
+        self.assertEqual(configuration.count(marker), 1)
+        (checkout / "lakefile.lean").write_text(
+            "import Lake\nopen Lake DSL\npackage feedback_source_identity\n"
+            f"require «cas-dsl» from {json.dumps(str(ROOT))}\n"
+            "lean_lib FeedbackSessionLog\nlean_lib FeedbackSourceIdentity\n\n" +
+            marker + configuration.split(marker, 1)[1])
+        artifact = checkout / ".lake/build/lib/lean/FeedbackSessionLog.olean"
+        self.assertFalse(artifact.exists())
+        log = control / "public-loop.log"
+        with log.open("w") as output:
+            result = subprocess.run(
+                ["just", "loop", "FeedbackSessionLog FeedbackSourceIdentity"], cwd=checkout,
+                stdout=output, stderr=subprocess.STDOUT, check=False)
+        self.assertEqual(result.returncode, 0, log.read_text())
+        self.assertTrue(artifact.is_file(), "the original consumer was not built afresh")
+        record = json.loads((checkout / "timing/runs.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(record["targets"], ["FeedbackSessionLog", "FeedbackSourceIdentity"])
+        self.assertEqual(record["sources"], [consumer, importer])
+        self.assertEqual(record["status"], 0, record)
+        self.assertEqual(record["execution_status"], 0, record)
+        self.assertFalse(record["over_limit"], record)
+        self.assertEqual(record["context_status"], "complete")
+        for phase in ("build", "execution"):
+            self.assertEqual(record["phases"][phase]["status"], 0, record)
+        self.assertTrue(record["computations"]["complete"], record["computations"])
+        run = (checkout / record["context"]).parent
+        context_file = run / "context.json"
+        original_context = context_file.read_bytes()
+        context = json.loads(original_context)
+        source_hash = hashlib.sha256(original_consumer).hexdigest()
+        borrowed_hash = hashlib.sha256(original_borrowed).hexdigest()
+        self.assertEqual(context["source"]["path"], str(checkout.resolve()))
+        self.assertEqual(context["inputs"][consumer], source_hash)
+        self.assertNotIn(borrowed, context["inputs"])
+        self.assertNotEqual(source_hash, borrowed_hash)
+        roots = [package for package in context["resolution"]["packages"]
+                 if Path(package["path"]).resolve() == ROOT]
+        self.assertEqual(len(roots), 1)
+        steps = {}
+        for path in (run / "steps").glob("*.json"):
+            step = json.loads(path.read_text())
+            self.assertNotIn(step["step"], steps)
+            steps[step["step"]] = (path, step, path.read_bytes())
+        rows = [json.loads(line) for line in
+                (checkout / record["computations"]["record_file"]).read_text().splitlines()]
+        self.assertEqual(len(rows), 4, rows)
+        self.assertEqual(len({row["session"] for row in rows}), 4)
+        phases = {"build": [], "execution": []}
+        originals = {}
+        prepared_lines = {}
+        statement = b"assert implemented |Fin(3)|"
+        self.assertEqual(original_borrowed.count(statement), 1)
+        for row in rows:
+            step = steps[row["step"]][1]
+            self.assertIn(step["phase"], phases)
+            phases[step["phase"]].append(row)
+            self.assertEqual(row["unit"], "statement")
+            self.assertTrue(row["direct"])
+            self.assertTrue(row["complete"], row)
+            self.assertEqual(row["file"], consumer)
+            self.assertEqual(row["input_sha256"], source_hash)
+            self.assertEqual(row["revision"], record["revision"])
+            self.assertEqual(row["environment"], record["environment"])
+            self.assertEqual(row["start"]["data"]["source"].strip(), statement.decode())
+            position = row["start"]["data"]["position"]
+            self.assertEqual(position["file"], borrowed)
+            self.assertEqual(position["startByte"], original_borrowed.index(statement))
+            self.assertEqual(original_borrowed[position["startByte"]:position["stopByte"]].strip(),
+                             statement)
+            self.assertEqual(row["completion"]["data"]["position"], position)
+            self.assertEqual(row["statement_sha256"],
+                             hashlib.sha256(row["start"]["data"]["source"].encode()).hexdigest())
+            self.assertEqual(row["outcome"], row["completion"]["data"])
+            self.assertAlmostEqual(row["seconds"], row["execution_seconds"] + row["setup_seconds"])
+            self.assertAlmostEqual(
+                row["inclusive_seconds"], row["seconds"] + row["shared_setup_seconds"] +
+                row["shared_worker_setup_seconds"] + row["shared_session_setup_seconds"])
+            source_log = checkout / row["source_log"]
+            original_log = source_log.read_bytes()
+            originals[source_log] = original_log
+            lines = original_log.splitlines(keepends=True)
+            header = loads_application_event(lines[0])
+            self.assertEqual(header["event"], "session.started")
+            self.assertEqual(header["data"]["feedbackStep"], row["step"])
+            prepared = [(index, loads_application_event(line)) for index, line in enumerate(lines)
+                        if json.loads(line)["event"] == "session.prepared"]
+            self.assertEqual(len(prepared), 1)
+            index, event = prepared[0]
+            prepared_lines[row["session"]] = (source_log, lines, index, event, header)
+            self.assertEqual(row["session_preparation"], event)
+            self.assertEqual(row["shared_session_setup_seconds"], event["data"]["milliseconds"] / 1000)
+            self.assertEqual(row["start"], loads_application_event(lines[row["start"]["sequence"]]))
+            self.assertEqual(row["completion"],
+                             loads_application_event(lines[row["completion"]["sequence"]]))
+            self.assertLess(event["sequence"], row["start"]["sequence"])
+            if step["phase"] == "build":
+                self.assertEqual(header["data"]["feedbackSource"], "")
+                self.assertIsNone(step["source"])
+                self.assertIsNone(step["input_sha256"])
+                self.assertEqual(event["data"]["sourceFile"], str(checkout / consumer))
+            else:
+                self.assertEqual(header["data"]["feedbackSource"], consumer)
+                self.assertEqual(step["source"], consumer)
+                self.assertEqual(step["input_sha256"], source_hash)
+                self.assertEqual(step["final_input_sha256"], source_hash)
+                self.assertIn(event["data"]["sourceFile"], (consumer, str(checkout / consumer)))
+        for phase, observed in phases.items():
+            self.assertEqual(len(observed), 2, phase)
+            self.assertEqual(sum(row["outcome"]["kind"] == "holds" for row in observed), 1)
+            self.assertEqual(sum(row["outcome"]["stratum"] == "noImplementation"
+                                 for row in observed), 1)
+            self.assertTrue(all(row["outcome"]["attempted"] for row in observed))
+        self.assertEqual(
+            sorted((row["outcome"]["kind"], row["outcome"]["stratum"],
+                    row["outcome"]["attempted"], row["outcome"]["published"])
+                   for row in phases["build"]),
+            sorted((row["outcome"]["kind"], row["outcome"]["stratum"],
+                    row["outcome"]["attempted"], row["outcome"]["published"])
+                   for row in phases["execution"]))
+        expected = {row["computation"]: row for row in rows}
+        shared_setup = record["preparation_seconds"] + record["phases"]["build"]["seconds"]
+        global_record_size = (ROOT / "timing/computations.jsonl").stat().st_size
+        variants = ["intact", "missing-build-source", "missing-execution-source", "foreign-source",
+                    "escaped-source",
+                    "unrecorded-source", "mismatched-source", "mismatched-header", "foreign-header",
+                    "mismatched-step", "foreign-step",
+                    "missing-context-input", "null-context-input", "zero-context-input", "changed-final-input"]
+        for fault in variants:
+            with self.subTest(source_identity=fault):
+                selected = phases["build" if fault in
+                                  ("intact", "missing-build-source", "foreign-source", "escaped-source",
+                                   "unrecorded-source")
+                                  else "execution"][0]
+                source_log, lines, index, prepared, header = prepared_lines[selected["session"]]
+                copied = control / fault
+                copied_run = copied / "run"
+                shutil.copytree(run / "application", copied_run / "application",
+                                copy_function=lambda src, dst: shutil.copy2(src, dst)
+                                if Path(src).name == source_log.name else os.link(src, dst))
+                shutil.copytree(run / "steps", copied_run / "steps")
+                altered_context = copy.deepcopy(context)
+                replacement = None
+                if fault in ("missing-build-source", "missing-execution-source"):
+                    replacement = {**prepared, "schema": 1, "data": dict(prepared["data"])}
+                    del replacement["data"]["sourceFile"]
+                    altered_context["inputs"][borrowed] = borrowed_hash
+                elif fault == "foreign-source":
+                    foreign = str(checkout.parent / consumer)
+                    replacement = {**prepared, "schema": 1,
+                                   "data": {**prepared["data"], "sourceFile": foreign}}
+                    altered_context["inputs"][foreign] = source_hash
+                elif fault == "escaped-source":
+                    escaped = "../" + consumer
+                    replacement = {**prepared, "schema": 1,
+                                   "data": {**prepared["data"], "sourceFile": escaped}}
+                    altered_context["inputs"][escaped] = source_hash
+                elif fault == "unrecorded-source":
+                    replacement = {**prepared, "schema": 1,
+                                   "data": {**prepared["data"], "sourceFile": borrowed}}
+                elif fault == "mismatched-source":
+                    replacement = {**prepared, "schema": 1,
+                                   "data": {**prepared["data"], "sourceFile": importer}}
+                elif fault in ("mismatched-header", "foreign-header"):
+                    index = 0
+                    replacement = {**header, "schema": 1,
+                                   "data": {**header["data"], "feedbackSource": importer
+                                            if fault == "mismatched-header" else str(checkout.parent / consumer)}}
+                elif fault in ("mismatched-step", "foreign-step", "changed-final-input"):
+                    original_path, original_step, _ = steps[selected["step"]]
+                    altered_step = dict(original_step)
+                    if fault == "mismatched-step":
+                        altered_step.update(source=importer, input_sha256=context["inputs"][importer],
+                                            final_input_sha256=context["inputs"][importer])
+                    elif fault == "foreign-step":
+                        altered_step["source"] = str(checkout.parent / consumer)
+                    else:
+                        altered_step["final_input_sha256"] = "0" * 64
+                    (copied_run / "steps" / original_path.name).write_text(json.dumps(altered_step) + "\n")
+                elif fault == "missing-context-input":
+                    del altered_context["inputs"][consumer]
+                elif fault == "null-context-input":
+                    altered_context["inputs"][consumer] = None
+                elif fault == "zero-context-input":
+                    altered_context["inputs"][consumer] = "0" * 64
+                if replacement is not None:
+                    copied_lines = list(lines)
+                    copied_lines[index] = (dumps_exact_json(replacement) + "\n").encode()
+                    (copied_run / "application" / source_log.name).write_bytes(b"".join(copied_lines))
+                copied_context = copied_run / "context.json"
+                copied_context.write_text(json.dumps(altered_context) + "\n")
+                status, summary = self.collect_trace(copied_context, shared_setup, copied)
+                retained = {row["computation"]: row for row in
+                            (json.loads(line) for line in
+                             (copied_run / "computations.jsonl").read_text().splitlines())}
+                self.assertEqual(set(retained), set(expected))
+                for key, row in retained.items():
+                    for field in ("start", "completion", "outcome", "statement_sha256", "seconds",
+                                  "execution_seconds", "setup_seconds"):
+                        self.assertEqual(row[field], expected[key][field], (fault, key, field))
+                if fault == "intact":
+                    self.assertEqual(status, 0, summary)
+                    self.assertTrue(summary["complete"], summary)
+                    for key, row in retained.items():
+                        for field in ("file", "input_sha256", "session_preparation", "shared_setup_seconds",
+                                      "shared_worker_setup_seconds", "shared_session_setup_seconds",
+                                      "inclusive_seconds", "complete"):
+                            self.assertEqual(row[field], expected[key][field], field)
+                else:
+                    self.assertNotEqual(status, 0, summary)
+                    self.assertFalse(summary["complete"], summary)
+                    self.assertFalse(retained[selected["computation"]]["complete"], summary)
+                    self.assertTrue(any("source" in failure for failure in summary["malformed"]), summary)
+        self.assertEqual(context_file.read_bytes(), original_context)
+        for path, original_log in originals.items():
+            self.assertEqual(path.read_bytes(), original_log)
+        for path, _, original_step in steps.values():
+            self.assertEqual(path.read_bytes(), original_step)
+        self.assertEqual((checkout / consumer).read_bytes(), original_consumer)
+        self.assertEqual((checkout / borrowed).read_bytes(), original_borrowed)
+        self.assertEqual((ROOT / "CasRuntime/SessionLogTests.lean").read_bytes(), original_consumer)
+        self.assertEqual((ROOT / borrowed).read_bytes(), original_borrowed)
+        self.assertEqual((ROOT / "timing/computations.jsonl").stat().st_size, global_record_size)
+
     def test_argument_failures_have_current_durable_records(self) -> None:
 
 

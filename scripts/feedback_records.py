@@ -378,6 +378,18 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
     """Derive records only from the statement runner's durable events, never report rows."""
     context = read_json(context_file)
     run = context_file.parent
+
+    def recorded_source(value: str | None) -> str | None:
+        if not isinstance(value, str) or not value:
+            return None
+        path = Path(value)
+        if ".." in path.parts:
+            return None
+        root = Path(context["source"]["path"])
+        if path.is_absolute():
+            return str(path.relative_to(root)) if path.is_relative_to(root) else None
+        return str(path)
+
     computations: dict[str, dict] = {}
     statements: dict[tuple[str, int], dict] = {}
     parse_failures: dict[tuple[str, int], dict] = {}
@@ -450,6 +462,8 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                                 event["monotonicMilliseconds"]):
                             raise ValueError("session preparation ends before its measured work")
                         preparations[session] = event
+                        if not isinstance(data.get("sourceFile"), str) or not data["sourceFile"]:
+                            raise ValueError("session preparation lost its original native consumer source")
                     elif name == "file.begin":
                         if not isinstance(data["file"], str) or not data["file"]:
                             raise ValueError("invalid original file name")
@@ -653,6 +667,7 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
         data = (terminal or start)["data"]
         source_data = (start or terminal)["data"]
         session = item["session"]
+        preparation = preparations.get(session)
         direct = item.get("direct", False)
         setup = float(data["cumulativeSetupMilliseconds"] / 1000)
         agreed = completion is not None and (start is not None or item.get("parse_failure", False))
@@ -663,17 +678,26 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
         if direct:
             execution = float(data["milliseconds"] / 1000) if terminal else None
             seconds = execution + setup if execution is not None else None
-            file = session_sources.get(session) or source_data["position"].get("file")
-            source_hash = original_step.get("input_sha256") if original_step.get("source") == file else None
-            source_hash = source_hash or context["inputs"].get(file)
+            native_file = recorded_source(preparation["data"].get("sourceFile")) if preparation else None
+            declared = session_sources.get(session)
+            declared_file = recorded_source(declared)
+            step_source = recorded_source(original_step.get("source"))
+            file = declared_file if declared is not None else native_file
+            source_hash = context["inputs"].get(file)
             if not file or source_hash is None:
                 malformed.append(f"statement {key} has no recorded source input")
                 agreed = False
-            if (original_step.get("source") and session_sources.get(session) and
-                    original_step["source"] != session_sources[session]):
+            if native_file is None:
+                malformed.append(f"statement {key} has no recorded native consumer source")
+                agreed = False
+            if ((declared is not None and native_file != declared_file) or
+                    (original_step.get("source") not in (None, "") and step_source != file)):
                 malformed.append(f"statement {key} changed its declared module source")
                 agreed = False
-            if (original_step.get("source") == file and "final_input_sha256" in original_step and
+            if step_source == file and original_step.get("input_sha256") != source_hash:
+                malformed.append(f"statement {key} changed its recorded source input before execution")
+                agreed = False
+            if (step_source == file and "final_input_sha256" in original_step and
                     original_step["final_input_sha256"] != source_hash):
                 malformed.append(f"statement {key} changed its source input during execution")
                 agreed = False
@@ -700,7 +724,6 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
             malformed.append(f"computation {key} changed its original statement, input, or setup")
         worker = session_workers.get(session)
         shared_worker = process_setup.get(step)
-        preparation = preparations.get(session)
         shared_session = float(preparation["data"]["milliseconds"] / 1000) if preparation else None
         if preparation is None:
             malformed.append(f"session {session} has no recorded preparation boundary")

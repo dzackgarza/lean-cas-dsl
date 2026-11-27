@@ -89,7 +89,7 @@ Read the archives in filename order, followed by the live append file, to recove
 ordered history. For example:
 
 ```bash
-gzip -dc timing/history/computations-through-20261127T094924Z.jsonl.gz
+gzip -dc timing/history/computations-through-*.jsonl.gz
 cat timing/computations.jsonl
 ```
 
@@ -1417,3 +1417,52 @@ expanded bytes, are retained with their original paths, event counts and
 hashes in
 `timing/logs/km0-feedback-suite-4bf885e/completed-application-logs/retention.json`;
 restore their recorded canonical paths before historical replay.
+
+## Interrupted KM0 aggregate and consumer source identity, 2026-11-27
+
+The clean `fb5b47b` invocation of
+`just milestone "KM0 acceptance after complete source occurrence reporting"`
+selected 165 fresh module sources and 17 permanent acceptance files. Its build
+received SIGTERM after 2498.683751378 s. The retained run
+`timing/logs/20261127T143403Z-milestone.trTxyp/` records the interrupted build
+and 165 unrun modules; fresh execution and acceptance never started. It has no
+final result or `run.finished` event. The outer terminal status and cause of
+termination are unknown. Its five observed build-time source-occurrence files
+do not constitute the selected acceptance run. The previous current acceptance
+reports were invalidated before the build and remain preserved with this run.
+
+The computation collector also reported 142 source-identity diagnostics. Of
+72 direct rows with no input hash, 71 use absolute native filenames whose exact
+checkout-relative keys and original hashes already exist in the context. The
+remaining row borrows an RX08 statement through `SourceFile.withContext` after
+`SelectedEndpointTests` creates its session. The direct-row contract binds the
+owning Lean consumer separately from the original statement position. The
+producer must retain that consumer before the context switch; the collector
+must use its recorded input identity. The original evidence and source audit
+remain under `timing/logs/km0-broad-milestone-fb5b47b/`. A complete new
+milestone run is required after the repair.
+
+T369 now records the native consumer in `session.prepared.sourceFile` and binds
+direct rows to its original context input, with explicit/process-step source
+and initial/final hash checks. Its first named public regression took
+420.88225799473 s and failed the focused bound. The inner public loop completed
+all native work with execution status 0 and four complete direct rows, but
+returned status 1 after 402.23930234 s: preparation 45.880310386 s, build
+200.321232549 s, and fresh execution 155.160067428 s. The Python case stopped
+at that failed loop status; its later identity assertions and negative replays
+did not run. Source and pin hashes stayed unchanged during the measurement.
+The complete receipt is `timing/logs/t369-focused-18d4b59/gate-1-result.json`;
+the output SHA256 is
+`c007c3989fde7a15dcba2da625e4da6ac869754bbc82801e28d2f635a83008b3`.
+T369 remains open while the loop-performance procedure assesses this check.
+
+With the run finished, the 118 retained global computation rows from the
+interrupted aggregate were archived under the append lock in
+`timing/history/computations-through-20261127T155649Z.jsonl.gz`. All
+52823545 original bytes were verified byte for byte before clearing the live
+ledger. Their SHA256 is
+`98e2c09e4fed85098510c38c1e6ea24417e3829193cae620e23d86aa76580945`;
+the 1312744 compressed bytes have SHA256
+`5d68fe35dbdbfabb8fe0ba80d436617830a4c27dfd8bd6e4fa25c7043aa45fab`.
+The adjacent manifest records that lossless retention; it does not finalize
+or change the interrupted run.
