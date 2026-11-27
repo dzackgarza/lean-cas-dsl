@@ -33,7 +33,6 @@ def retrieve(repository, reference, expected, destination):
         if path.is_absolute() or '..' in path.parts or any(p.lower() == '.git' for p in path.parts) or '\\' in str(path):
             raise ValueError('candidate path escapes regular source tree')
         entries.append((path, mode, object_id.decode()))
-    # Validate the complete tree before exposing any candidate paths.
     for path, mode, object_id in entries:
         target = destination/path
         target.parent.mkdir(parents=True, exist_ok=True)

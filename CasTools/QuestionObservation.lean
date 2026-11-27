@@ -1,0 +1,289 @@
+module
+
+public import CasCompiler.Parse
+public import CasCompiler.Read
+public import CasCatalogue.QuestionIdentity
+public import CasTools.NativeExpression
+public import CasTools.Diagnostics
+public import CasCompiler.SourceSnapshot
+public import Lean.Elab.Command
+
+@[expose] public section
+
+namespace CasTools.QuestionExport
+
+open Lean Meta Elab Term Command CasCompiler CasCatalogue.Language
+
+structure Location where
+  id : String
+  file : String
+  sourceLine : Nat
+  source : String
+  deriving Inhabited, ToJson
+
+structure Reading where
+  id : String
+  file : String
+  sourceLine : Nat
+  source : String
+  provenance : String
+
+  question : String
+
+
+  proposition : String
+  prettyProposition : String
+
+
+
+  sourceContext : Json
+  deriving Inhabited, ToJson
+
+structure Failure where
+  id : String
+  file : String
+  sourceLine : Nat
+  source : String
+  stage : String
+  kind : String
+  detail : String
+  cause : Option Location
+  deriving Inhabited, ToJson
+
+structure Observation where
+  readings : Array Reading := #[]
+  failures : Array Failure := #[]
+
+private def snapshot (session : SourceContextObservation) (term : SourceTerm) : Json :=
+  SourceSnapshot.snapshot session term
+
+
+
+
+opaque observeConclusion (conclusion : SourceConclusion) : Json :=
+  Json.mkObj [("terms", toJson (conclusion.terms.map (snapshot conclusion.context))),
+    ("proof", toJson (conclusion.proof.map (snapshot conclusion.context)))]
+
+private def location (file : SourceFile) (id : String) (stx : Syntax) : TermElabM Location := do
+  let some start := stx.getPos? | throwError "an original source item has no start position"
+  let some stop := stx.getTailPos? | throwError "an original source item has no end position"
+  return ⟨id, file.context.fileName, (file.context.fileMap.toPosition start).line,
+    ({ str := file.context.inputString, startPos := start, stopPos := stop } :
+      Substring.Raw).toString⟩
+
+private def bindingName? (stx : TSyntax `cas_stmt) : Option Ident :=
+  match stx with
+  | `(cas_stmt| let $name:ident := $_:cas_term)
+  | `(cas_stmt| let $name:ident : $_:cas_term := $_:cas_term)
+  | `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term)
+  | `(cas_stmt| let $name:ident($_:ident, $_:ident,*) := $_:cas_term)
+  | `(cas_stmt| let $name:ident ∈ $_:cas_term)
+  | `(cas_stmt| let $name:ident in $_:cas_term)
+  | `(cas_stmt| assume $name:ident : $_:cas_term) => some name
+  | _ => none
+
+private def failure (where_ : Location) (stage : String) (error : Exception) :
+    TermElabM Failure := do
+  let kind := if CasCatalogue.Exception.isSemanticAmbiguity error then "ambiguous"
+    else if CasCatalogue.Exception.isUnsupportedSource error then "unsupported"
+    else if error.isInterrupt || error.isMaxHeartbeat || error.isMaxRecDepth then "interrupted"
+    else match error with | .internal .. => "internal" | .error .. => "invalid"
+  return ⟨where_.id, where_.file, where_.sourceLine, where_.source, stage, kind,
+    ← error.toMessageData.toString, none⟩
+
+private def blocked (where_ : Location) (stage : String) (cause : Failure) : Failure :=
+  ⟨where_.id, where_.file, where_.sourceLine, where_.source, stage, cause.kind, cause.detail,
+    some ⟨cause.id, cause.file, cause.sourceLine, cause.source⟩⟩
+
+private def unread (where_ : Location) (provenance : String) : Reading :=
+  ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance, "", "", "", Json.null⟩
+
+private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
+    (category : SourceCategoryBinding) : TermElabM Json := do
+  let bundle ← category.bundle.withOpen fun bindings value =>
+    mkLambdaFVars (bindings.map (·.expression)) value
+      (usedLetOnly := false) (generalizeNondepLet := false)
+  let encode := fun (term : ClosedTerm) => do
+    let value ← term.withOpen fun bindings value =>
+      mkLambdaFVars (bindings.map (·.expression)) value
+        (usedLetOnly := false) (generalizeNondepLet := false)
+    table.encode value
+  let carrier ← category.carrier.mapM fun carrier => do
+    let actions ← carrier.actions.mapM encode
+    let comparisons ← carrier.comparisons.mapM encode
+    return Json.mkObj [("refs", toJson (reprStr carrier.refs)),
+      ("target", toJson (reprStr carrier.target)),
+      ("identifications", toJson (carrier.identifications.map (·.toString (escape := false)))),
+      ("actions", toJson actions), ("comparisons", toJson comparisons)]
+  let limit ← category.limit.mapM fun limit => do
+    let cone ← encode limit.cone
+    let bundle ← encode limit.bundle
+    return Json.mkObj [("row", toJson limit.row),
+      ("declaration", NativeExpression.nameJson limit.declaration),
+      ("cone", toJson cone), ("colimit", toJson limit.colimit),
+      ("category", toJson (reprStr limit.category)), ("bundle", toJson bundle)]
+  let fields := [("role", toJson <| match category.role with
+      | .object => "object" | .morphism => "morphism"),
+    ("expression", toJson (reprStr category.expression)),
+    ("bundle", toJson (← table.encode bundle)),
+    ("carrier", toJson carrier)]
+  let nativeTerms := #[category.bundle] ++
+    category.carrier.toArray.flatMap (fun carrier => carrier.actions ++ carrier.comparisons) ++
+    category.limit.toArray.flatMap (fun limit => #[limit.cone, limit.bundle])
+  return Json.mkObj (fields ++ limit.toList.map ("limit", ·) ++
+    (← ContextSnapshot.declarationFields table.encode nativeTerms))
+
+private inductive ReadingJudgement where
+  | proposition
+  | settled
+  | implemented
+  deriving BEq
+
+
+
+
+
+private def reading (session : SourceContextObservation) (where_ : Location) (provenance : String)
+    (terms : Array SourceTerm) (judgement : ReadingJudgement) : TermElabM Reading := do
+  if terms.isEmpty then throwError "an exported question must retain its source terms"
+  unless judgement == .settled || terms.size == 1 do
+    throwError "a proposition or implementation request must retain exactly one source term"
+
+
+
+  let table ← CasCatalogue.Realize.TermTable.new
+  let retained ← terms.mapM fun term => do
+    let proposition ← term.source.withOpen fun bindings expression => do
+
+
+      if judgement != .proposition then
+        let typed ← mkExpectedTypeHint expression (← inferType expression)
+        return ← mkLambdaFVars (bindings.map (·.expression)) typed
+          (usedLetOnly := false) (generalizeNondepLet := false)
+      unless ← isProp expression do throwError "an exported question must be a proposition"
+      mkForallFVars (bindings.map (·.expression)) expression
+        (usedLetOnly := false) (generalizeNondepLet := false)
+    let root ← table.encode proposition
+    let categories ← term.source.context.entries.mapM fun entry =>
+      (session.categoryFor entry.id).mapM (canonicalCategory table)
+    let category ← term.category.mapM (canonicalCategory table)
+    let instances ← term.source.context.instances.mapM fun selected => do
+      let some index := term.source.context.entries.findIdx? (·.id == selected.binding)
+        | throwError "an exported instance is outside its actual source telescope"
+      return Json.mkObj [("class", toJson (selected.className.toString (escape := false))),
+        ("binding", toJson index)]
+    let fields := [("proposition", toJson root),
+      ("roles", toJson (term.source.context.entries.map (reprStr ·.role))),
+      ("instances", toJson instances), ("categories", toJson categories),
+      ("category", toJson category)]
+    return (proposition, fields ++ (← ContextSnapshot.declarationFields table.encode #[term.source]))
+
+  let judgement := match judgement with
+    | .proposition => []
+    | .settled => [("judgement", toJson "settled")]
+    | .implemented => [("judgement", toJson "implemented")]
+  let roots := match retained with
+    | #[(_, fields)] => fields
+    | _ => [("conjuncts", toJson (retained.map fun (_, fields) => Json.mkObj fields))]
+  let question ← table.finish <| Json.mkObj (judgement ++ roots)
+  let propositions := retained.map (·.1)
+  let shown ← propositions.mapM fun proposition => return (← ppExpr proposition).pretty
+  let sourceContext := match terms with
+    | #[term] => snapshot session term
+    | _ => Json.mkObj [("conjuncts", toJson (terms.map (snapshot session)))]
+  return ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance,
+    question, (NativeExpression.encodeWithDeclarations propositions
+      (ContextSnapshot.retainedDeclarations (terms.map (·.source)))).compress,
+    " and ".intercalate shown.toList, sourceContext⟩
+
+
+
+
+
+private partial def observeItems (file : SourceFile) (initial : SourceSession)
+    (items : Array (TSyntax `cas_item)) (initialFailure : Option Failure := none) :
+    TermElabM (SourceSession × Observation) := do
+  let mut session := initial
+  let mut observation : Observation := {}
+  let mut rootFailure := initialFailure
+  for item in items do
+    let (identity, provenance, statement) ← match item with
+      | `(cas_item| test $id:ident $label:str : $statement:cas_stmt) =>
+        pure (some (id.getId.toString (escape := false)), label.getString, statement)
+      | `(cas_item| $statement:cas_stmt) => pure (none, "", statement)
+      | _ => throwError "an original source item changed its syntax category"
+    if let some children := sourceContextItems? statement then
+      if identity.isSome then throwError "a labeled export item must be a question"
+      let (_, localObservation) ← observeItems file session children rootFailure
+      observation := {
+        readings := observation.readings ++ localObservation.readings
+        failures := observation.failures ++ localObservation.failures }
+      continue
+    if statement.raw.isOfKind ``CasCatalogue.Language.casAssumptionInspection then
+      if identity.isSome then throwError "a labeled export item must be a question"
+      continue
+    let name := bindingName? statement
+    if identity.isSome && name.isSome then
+      throwError "a labeled export item must be a question"
+    if identity.isNone && name.isNone then
+      throwError "question export requires each assertion's original identity"
+    let id ← match identity, name with
+      | some id, _ => pure id
+      | none, some name => pure (name.getId.toString (escape := false))
+      | none, none => throwError "the source item has no question or binding identity"
+    let where_ ← location file id item
+    let stage := if name.isSome then "binding" else "interpretation"
+    if let some cause := rootFailure then
+      observation := { observation with
+        failures := observation.failures.push (blocked where_ stage cause) }
+      if identity.isSome then
+        observation := { observation with
+          readings := observation.readings.push (unread where_ provenance) }
+      continue
+    let phaseData : TermElabM Json := do
+      let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+      return Json.mkObj [
+        ("id", toJson where_.id), ("file", toJson where_.file),
+        ("sourceLine", toJson where_.sourceLine), ("heartbeats", toJson heartbeats)]
+    try
+      CasTools.Diagnostics.emit "source.observation.started" (← phaseData)
+    catch _ => pure ()
+    let saved ← saveState
+    let result : Except Failure (SourceSession ⊕ Reading) ← try
+      let formed ← session.readStatement statement
+      try
+        CasTools.Diagnostics.emit "source.observation.read" (← phaseData)
+      catch _ => pure ()
+      match formed with
+      | .definition next _ | .assumption next => pure (.ok (Sum.inl next))
+      | .question term | .proved term _ =>
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance #[term] .proposition)))
+      | .implemented term =>
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance #[term] .implemented)))
+      | .settled terms =>
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance terms .settled)))
+      | .inspection _ | .contextBlock _ =>
+        throwError "a structural source item changed its original syntax"
+    catch error =>
+      saved.restore
+      pure (.error (← failure where_ stage error))
+    match result with
+    | .ok (.inl next) => session := next
+    | .ok (.inr row) =>
+      try
+        CasTools.Diagnostics.emit "source.observation.exported" (← phaseData)
+      catch _ => pure ()
+      observation := { observation with readings := observation.readings.push row }
+    | .error error =>
+      observation := { observation with failures := observation.failures.push error }
+      if name.isSome then rootFailure := some error
+      else observation := { observation with
+        readings := observation.readings.push (unread where_ provenance) }
+  return (session, observation)
+
+
+
+opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observation :=
+  file.withContext do return (← observeItems file initial file.items).2
+
+end CasTools.QuestionExport

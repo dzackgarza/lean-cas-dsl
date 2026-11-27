@@ -3,6 +3,7 @@ module
 public import CasCatalogue.Semantic
 public import CasCatalogue.Codec
 public import CasCatalogue.StructuredResult
+public import CasCatalogue.GraphData
 public import Mathlib.CategoryTheory.FintypeCat
 
 @[expose] public section
@@ -306,33 +307,15 @@ end
 published representation keys. The caller supplies keys from retained data;
 this function never enumerates the independent formal construction's carrier. -/
 def validateGraphDomain (domainKeys : Array Json) (graph : Json) : Except String Unit := do
-  let pairs ← graph.getArr?
-  unless pairs.size == domainKeys.size do
-    throw "the computational graph is not total at its declared data endpoint"
-  let mut keys : Array Json := #[]
-  for pair in pairs do
-    let #[input, _] ← pair.getArr?
-      | throw "a computational graph entry requires input and output"
-    if keys.contains input then throw "the computational graph repeats a domain key"
-    unless domainKeys.contains input do
-      throw "the computational graph uses a key outside its declared data endpoint"
-    keys := keys.push input
-  return ()
+  CasCatalogue.GraphData.validateDomain domainKeys (← CasCatalogue.GraphData.pairs graph)
 
 /-- Check finite callable completeness and range framing against keys from the
 actual declared computational endpoints. Infinite codomains retain their
 published point codec; `none` never substitutes the formal codomain's carrier. -/
 def validateGraphEndpoints (actualDomainKeys : Array Json)
     (actualCodomainKeys : Option (Array Json)) (graph : Json) : Except String Unit := do
-  validateGraphDomain actualDomainKeys graph
-  if let some codomainKeys := actualCodomainKeys then
-    let pairs ← graph.getArr?
-    for pair in pairs do
-      let #[_, output] ← pair.getArr?
-        | throw "a computational graph entry requires input and output"
-      unless codomainKeys.contains output do
-        throw "the computational graph value is outside its declared data codomain"
-  return ()
+  CasCatalogue.GraphData.validateEndpoints actualDomainKeys actualCodomainKeys
+    (← CasCatalogue.GraphData.pairs graph)
 
 /-- Validate one constructor port with its original binder-role provenance.
 Endpoint representations come only from earlier actual fields or retained input

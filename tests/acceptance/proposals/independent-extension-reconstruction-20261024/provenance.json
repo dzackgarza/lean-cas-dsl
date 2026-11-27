@@ -1,0 +1,406 @@
+{
+  "record_kind": "independent-reconstruction-source-provenance",
+  "date": "2026-10-24",
+  "status": "unadmitted proposal",
+  "exact_recovered_source": false,
+  "original_proposal_bytes_available": false,
+  "original_assertion_inventory_verified": false,
+  "independent_release_acceptance": false,
+  "baseline_migration_approval": false,
+  "proposal_base": "63f138d2e9fcd7ea7c0514b347f3cca92703b8ee",
+  "proposal_branch": "work/reconstruct-extension-assertions-20261024",
+  "write_boundary": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/",
+  "mathematics": {
+    "repository": "lean-categories",
+    "branch": "work/kernel-v1-extensions-integrated-20261024",
+    "checkout_revision": "a1e04b78b4c23b192d65ea87cb1447cb2d58a4bc",
+    "assigned_ancestors_verified": [
+      "8533af0599d37515cea581e45a65be1f6cc21224",
+      "03a6cc06c1aeca70001d03747928e582a3b98378"
+    ],
+    "files": [
+      {
+        "path": "Integration/IndependentScalarAndFormExtensions.md",
+        "source_labels": [
+          "I01"
+        ],
+        "sha256": "7599127082b06877dcc57a4feead3becfcb5484dcae84293f4757731df49ed8f",
+        "bytes": 15247
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Foundation/FiniteOrders.lean",
+        "source_labels": [
+          "M01"
+        ],
+        "sha256": "554de049324f04beb5ff69d74ea2abc686da4648cb07172328e22bed268ecc21",
+        "bytes": 3843
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Foundation/PowerSets.lean",
+        "source_labels": [
+          "M01"
+        ],
+        "sha256": "f43776eda4ad1b86b7cee3ce4486ce02eb5edd9b05a5e9e82c6073343c25a711",
+        "bytes": 14244
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Foundation/TwoSubsets.lean",
+        "source_labels": [
+          "M02"
+        ],
+        "sha256": "12929d788c782cc42bd022d1792652c4d1e872d53f07814d35444f2170f22607",
+        "bytes": 6139
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/CyclicQuotients.lean",
+        "source_labels": [
+          "M03"
+        ],
+        "sha256": "54d88dab835e12632f78172246a03a6cdad50b2fd1f5a9ee8bce799360d9953c",
+        "bytes": 10331
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/Automorphisms.lean",
+        "source_labels": [
+          "M04"
+        ],
+        "sha256": "ce372b5bd3d71a1d5fa7ce35a001233397a99076d6f0bf9dec82aa61f76a068f",
+        "bytes": 28216
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Foundation/IntegerSquareBounds.lean",
+        "source_labels": [
+          "M05"
+        ],
+        "sha256": "884b3f4e5cbfa52b22ab5ba5b709c67db2bedda1c8df8e7b21452646a2095af3",
+        "bytes": 6896
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/PrimeResidueFields.lean",
+        "source_labels": [
+          "M06"
+        ],
+        "sha256": "26bf3cfd9dd6aa95ab7493dd2299184f5137b5ebef784ff8aa282a55ce9c79c6",
+        "bytes": 3884
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/Fields.lean",
+        "source_labels": [
+          "M06"
+        ],
+        "sha256": "414d86e354cf89b3ea7cfdec9ad7524e9b436947fd82315eb8b109bfc070096d",
+        "bytes": 5657
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/Ports.lean",
+        "source_labels": [
+          "M07"
+        ],
+        "sha256": "2f5aa9ba205e87c72b571aa1bbc6872982125c791e1253e554de6761fd1c17cb",
+        "bytes": 6469
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/PortComparison.lean",
+        "source_labels": [
+          "M07"
+        ],
+        "sha256": "9aea18b362d32dbaebab1d0a8efec0e273091994a32ee3902c5d08c6a21b1014",
+        "bytes": 1713
+      },
+      {
+        "path": "LeanCategories/Algebra/Concrete/RingCarrierComparison.lean",
+        "source_labels": [
+          "M07"
+        ],
+        "sha256": "8bce6d8b47c9972c3b06e3b79feaabe6545150c521170e6612b093077735b4e3",
+        "bytes": 1970
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/IntegerResidueModules.lean",
+        "source_labels": [
+          "M08"
+        ],
+        "sha256": "598b48cfd00c48dd9ad0e90417440f3aff8c06927e809ccb0917d22875c3a6f1",
+        "bytes": 6151
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/NamedCommutativeRings.lean",
+        "source_labels": [
+          "M08"
+        ],
+        "sha256": "b4dd352d16b43e97002ed00a4a05476e7569d3b1b41282d9adab97a5f2f014b2",
+        "bytes": 10438
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/PolynomialPresentations.lean",
+        "source_labels": [
+          "M09"
+        ],
+        "sha256": "b7853c8286beff5c705e0fba3bc19e7c92884f288697c5f8fe0313c3e600f76d",
+        "bytes": 10959
+      },
+      {
+        "path": "LeanCategories/Algebra/Concrete/PolynomialPresentation.lean",
+        "source_labels": [
+          "M10"
+        ],
+        "sha256": "def5851b7d1c2d92c23d7b7a095cb36de7a2494fcb6bc2f01b7e13f461ad202a",
+        "bytes": 6257
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/ModuleKernelRestriction.lean",
+        "source_labels": [
+          "M11"
+        ],
+        "sha256": "7b0f8991abc717605f21703799a7ed6b63179b46527fa3df24f6e98d8cbfdad9",
+        "bytes": 9168
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/RectangularLinearAlgebra.lean",
+        "source_labels": [
+          "M12"
+        ],
+        "sha256": "7c8b48b9a408ed9afefc545fc5268fad10f38cb460319f250c8281000c0db6a0",
+        "bytes": 4597
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Foundation/Cardinality.lean",
+        "source_labels": [
+          "M13"
+        ],
+        "sha256": "68aff6a464703b39f4c124dc750e93d7c907ecce94add2097c350e73b8d65074",
+        "bytes": 4824
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/SuccessorSeries.lean",
+        "source_labels": [
+          "M14"
+        ],
+        "sha256": "0386e16f755cb2ffc67663ec81eba499c2a1790de04ca1fa4158f9d463a0597b",
+        "bytes": 4175
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/Series.lean",
+        "source_labels": [
+          "M15"
+        ],
+        "sha256": "4d52bdc7c807f762819a82c33e9589d20bc131074dcdf21c3109e4d4b502f24b",
+        "bytes": 25294
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/DegeneratePlaneLifts.lean",
+        "source_labels": [
+          "M16a"
+        ],
+        "sha256": "9abaff2d185cea897320f602f46376eb2151b76fafae6175d92e3dd18772f1fd",
+        "bytes": 18559
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/ChangeValueLifts.lean",
+        "source_labels": [
+          "M16b"
+        ],
+        "sha256": "1e85e3d65a1496cc8382303b355a981555130fbbd5bd68193fac6bab83712838",
+        "bytes": 7955
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/DegeneratePlaneFactorization.lean",
+        "source_labels": [
+          "M16c"
+        ],
+        "sha256": "258244cb217dc14ddb33c8b86a6c541106ddd43e019a3584e0f527daa3b7e772",
+        "bytes": 10058
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Algebra/Units.lean",
+        "source_labels": [
+          "public-surface-status"
+        ],
+        "sha256": "5535e56ad94342958123d9ece7cd04568923a6acf440df4a4ab7e27e492a357d",
+        "bytes": 29869
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/CatalogueRegistration.lean",
+        "source_labels": [
+          "public-surface-status"
+        ],
+        "sha256": "3bd34655283b531cb2c6f00e59295206d36e78f8895d7f3952ecb65d6f0a9d39",
+        "bytes": 28537
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/CatalogueRegistration.lean",
+        "source_labels": [
+          "M11",
+          "public-surface-status"
+        ],
+        "sha256": "5fc55039395fd5d066b9e402524301981d50e70b9438ec4bd9c96904c6e21e9c",
+        "bytes": 12019
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/Kernels.lean",
+        "source_labels": [
+          "M11",
+          "public-surface-status"
+        ],
+        "sha256": "72fffab4242c828ad273901ebab542f158392f5035a8ba6d40597be8c13d561e",
+        "bytes": 17070
+      },
+      {
+        "path": "LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/Constructions.lean",
+        "source_labels": [
+          "public-surface-status"
+        ],
+        "sha256": "95ef3b3a7da9f965a9954a457005230ac96fe7e283dc31e169fd43f6dbacb715",
+        "bytes": 13555
+      }
+    ]
+  },
+  "public_language_sources": [
+    {
+      "repository": "lean-cas-dsl",
+      "checkout_revision": "799c1ff47cd912ec8629a7dcf7f81463c6c1ad39",
+      "source": "root SPEC.md, including the explicitly permitted working-copy proof-argument paragraph",
+      "working_copy_input": true,
+      "file": {
+        "path": "SPEC.md",
+        "source_labels": [
+          "P01"
+        ],
+        "sha256": "a2ae31e81d39d0545fccd6cc8207e38e7dcfe2aaf778530fca7814079e52fedd",
+        "bytes": 7796
+      }
+    },
+    {
+      "repository": "lean-cas-dsl",
+      "source": "only SPEC.md in the separately supplied execution checkout",
+      "supplied_source_snapshot": "760ca888",
+      "supplied_published_document_revision": "88fce07f61a531553080fb1f3b337a9a0758f55c",
+      "publication_identifiers_supplied_by_parent": true,
+      "file": {
+        "path": "SPEC.md",
+        "source_labels": [
+          "P05"
+        ],
+        "sha256": "a62addaefab94c4c73269fc4d188d40af0aae426ec95dbcd518446571c8bcf3d",
+        "bytes": 11552
+      }
+    }
+  ],
+  "role_and_requirement_sources": {
+    "repository": "lean-cas-dsl",
+    "checkout_revision": "799c1ff47cd912ec8629a7dcf7f81463c6c1ad39",
+    "files": [
+      {
+        "path": "AGENTS.md",
+        "source_labels": [
+          "P02"
+        ],
+        "sha256": "6bdbb5528c1f2108411f41a7e4dcde53154b51be1d700a10b894d7eb370af3eb",
+        "bytes": 29274
+      },
+      {
+        "path": "CONTRIBUTING.md",
+        "source_labels": [
+          "P02"
+        ],
+        "sha256": "8a18aade8e197d9a45bf45d03ec709aac59c18b69a247142ee4aba0cec9e2e9c",
+        "bytes": 19126
+      },
+      {
+        "path": "INTENT.md",
+        "source_labels": [
+          "P02"
+        ],
+        "sha256": "a92d8299a42d9d05158eac9fdfafc1f38b0959028f60ed88377ebc9eff605981",
+        "bytes": 99616
+      },
+      {
+        "path": "specs/architecture.md",
+        "source_labels": [
+          "P02"
+        ],
+        "sha256": "c1c947aac3d865b216ed842d5ba384944dd4a5d9b1235ffce3c64b3aed3d93e9",
+        "bytes": 65009
+      }
+    ]
+  },
+  "public_contract_sources": {
+    "repository": "lean-cas-dsl-leaf-contracts",
+    "checkout_revision": "ace703c3fe1b786276da365b8259ca6be6320019",
+    "used_as_mathematical_expected_answer_authority": false,
+    "files": [
+      {
+        "path": "api/README.md",
+        "source_labels": [
+          "P03"
+        ],
+        "sha256": "1a8d51fd695c47b306cdc22031fcf47b7919e9a5369edff59be422e1c3d28c0b",
+        "bytes": 11692
+      },
+      {
+        "path": "api/manifest.md",
+        "source_labels": [
+          "P03"
+        ],
+        "sha256": "1f08e4039cbf2f831a1251c14bba46b3884c84ba7ea4994bfb36747d0bdd58ad",
+        "bytes": 8117
+      },
+      {
+        "path": "api/wire-examples.md",
+        "source_labels": [
+          "P03"
+        ],
+        "sha256": "54c39494d001fa57cbc512aa5c5b0b9096a4e1f891e45d59f0e002994a421814",
+        "bytes": 44273
+      },
+      {
+        "path": "api/declared-ports.json",
+        "source_labels": [
+          "P03"
+        ],
+        "sha256": "f3a17fd1d2fa98d72513fbe9ac333834f64b6b160a9ccd5206b97a5991802b19",
+        "bytes": 4982177
+      }
+    ]
+  },
+  "retained_scope": {
+    "trial_labels": [
+      "RX-01",
+      "RX-02",
+      "RX-03",
+      "RX-04",
+      "RX-05",
+      "RX-06",
+      "RX-07",
+      "RX-08",
+      "RX-09",
+      "RX-10"
+    ],
+    "separate_example": "RX-LIFT",
+    "labels_are_new_proposal_labels": true
+  },
+  "verification_boundary": {
+    "mathematical_declarations_and_proofs_read": true,
+    "expected_values_from_runtime": false,
+    "kernel_implementation_inspected": false,
+    "leaf_code_or_answers_inspected": false,
+    "lean_or_lake_invocations": 0,
+    "leaf_executions": 0,
+    "permanent_suite_runs": 0,
+    "authoritative_records_modified": false
+  },
+  "public_observer_source": {
+    "repository": "lean-cas-dsl",
+    "supplied_authored_snapshot": "2f5736e",
+    "publication_status_at_receipt": "publication upcoming, as supplied by parent",
+    "permitted_section": "Running a fixed question with selected implementations",
+    "file": {
+      "path": "specs/leaf-registration.md",
+      "source_labels": [
+        "P06"
+      ],
+      "sha256": "ca4b53efa412a9fdb893c30e2c70284e3ad8a403bd472df5f713fb5d8c1f6fae",
+      "bytes": 18801
+    }
+  }
+}

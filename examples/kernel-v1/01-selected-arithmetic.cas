@@ -1,0 +1,43 @@
+-- New independent pre-execution demo; not a permanent acceptance assertion.
+-- Exact expectations and public source provenance: mathematical-review.md.
+-- The arithmetic chain calls no registered gcd operation.
+
+let arithmetic_integer := 17 - 29 in ℤ
+
+test v1.additional.arithmetic.integer "17-29=-12 in the selected integer ring":
+  assert arithmetic_integer = -12 in ℤ
+
+let arithmetic_square := arithmetic_integer · arithmetic_integer in ℤ
+
+test v1.additional.arithmetic.integer_reuse "The retained integer -12 has square 144":
+  assert arithmetic_square = 144 in ℤ
+
+let arithmetic_quotient := arithmetic_square/35 in ℚ
+
+test v1.additional.arithmetic.quotient "The retained integer square gives the exact rational 144/35":
+  assert arithmetic_quotient = 144/35
+
+let arithmetic_shifted := arithmetic_quotient - 9/7 in ℚ
+
+test v1.additional.arithmetic.rational_reuse "144/35-9/7=(144-45)/35=99/35":
+  assert arithmetic_shifted = 99/35
+
+let arithmetic_rescaled := arithmetic_shifted · (35/33) in ℚ
+
+test v1.additional.arithmetic.exact_rescaling "(99/35)*(35/33)=3":
+  assert arithmetic_rescaled = 3 in ℚ
+
+let arithmetic_modular := 17 - 29 in ℤ/5
+
+test v1.additional.arithmetic.selected_modulus "17-29=-12 is the residue 3 modulo five":
+  assert arithmetic_modular = 3 in ℤ/5
+
+let arithmetic_modular_square := arithmetic_modular · arithmetic_modular in ℤ/5
+
+test v1.additional.arithmetic.modular_reuse "The retained residue 3 has square 4 modulo five":
+  assert arithmetic_modular_square = 4 in ℤ/5
+
+let arithmetic_modular_shifted := arithmetic_modular_square + 2 in ℤ/5
+
+test v1.additional.arithmetic.modular_rescaling "The retained residue 4 plus 2 is 1 modulo five":
+  assert arithmetic_modular_shifted = 1 in ℤ/5

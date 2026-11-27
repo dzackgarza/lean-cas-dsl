@@ -1,0 +1,74 @@
+-- RX-03 supplement. Actual group arrows of the selected Aut elements.
+-- Sources: [M03,M04], AutomorphismArrows and InterfaceCompletionTests.
+-- Group multiplication on these cyclic groups is addition of quotient classes;
+-- therefore square/cube below are doubling/tripling in residue coordinates.
+let quotientGroup := CyclicQuotient(5) in Groups
+let quotientSet := CyclicQuotient(5) in Sets
+let residueGroup := ZMod(5) in Groups
+let e := presentation(cyclic_quotient_residue(5))
+let eInverse := inverse_presentation(cyclic_quotient_residue(5))
+let conjugate := map e along Aut()
+let residueRing := ZMod(5) in Rings
+let residueMonoid := view residueRing along «fun.rings.multiplicative_monoid»()
+let unitGroup := Units(residueMonoid) in Groups
+let unitTwo := 2 in unitGroup
+let unitThree := 3 in unitGroup
+let automorphismByUnit := cyclic_quotient_aut_by_unit(5)
+let doubling := automorphismByUnit(unitTwo)
+let tripling := automorphismByUnit(unitThree)
+let doubleForward := automorphism_forward(quotientGroup, doubling)
+let doubleBackward := automorphism_backward(quotientGroup, doubling)
+let tripleForward := automorphism_forward(quotientGroup, tripling)
+let residueDouble := conjugate(doubling)
+let residueTriple := conjugate(tripling)
+let residueDoubleForward := automorphism_forward(residueGroup, residueDouble)
+let residueDoubleBackward := automorphism_backward(residueGroup, residueDouble)
+let residueTripleForward := automorphism_forward(residueGroup, residueTriple)
+let expectedDouble(z) := z^2 in residueGroup → residueGroup
+let expectedTriple(z) := z^3 in residueGroup → residueGroup
+
+test reconstructed_extensions_20261024.addition.rx03.actual_inverse_arrow "[M03] byUnit_two_inverse and AutomorphismArrows.forward_inv":
+  assert doubleBackward = tripleForward
+
+test reconstructed_extensions_20261024.addition.rx03.arrow_inverse_left "AutomorphismArrows.forward_backward for the same complete group automorphism":
+  assert doubleBackward ∘ doubleForward = id(quotientGroup)
+
+test reconstructed_extensions_20261024.addition.rx03.arrow_inverse_right "AutomorphismArrows.backward_forward, retaining the quotient group structure":
+  assert doubleForward ∘ doubleBackward = id(quotientGroup)
+
+test reconstructed_extensions_20261024.addition.rx03.complete_double_coordinates "[M03] byUnit_coordinate at unitTwo on every quotient element":
+  assert e ∘ doubleForward = expectedDouble ∘ e
+
+test reconstructed_extensions_20261024.addition.rx03.complete_triple_coordinates "[M03] byUnit_coordinate at unitThree on every quotient element":
+  assert e ∘ tripleForward = expectedTriple ∘ e
+
+test reconstructed_extensions_20261024.addition.rx03.complete_conjugation "AutomorphismArrows.forward_conjugate on the actual residue comparison, with all three complete arrows":
+  assert residueDoubleForward = e ∘ doubleForward ∘ eInverse
+
+test reconstructed_extensions_20261024.addition.rx03.complete_inverse_conjugation "AutomorphismArrows.backward_conjugate, retaining the same selected isomorphism":
+  assert residueDoubleBackward = e ∘ doubleBackward ∘ eInverse
+
+test reconstructed_extensions_20261024.addition.rx03.conjugated_double_action "[M03] byUnit_coordinate and the residueComparison inverse equations on the whole residue group":
+  assert residueDoubleForward = expectedDouble
+
+test reconstructed_extensions_20261024.addition.rx03.conjugated_triple_action "[M03] byUnit_coordinate at unitThree, reusing the actual Aut(e) result":
+  assert residueTripleForward = expectedTriple
+
+let quotientMap := cyclic_quotient_map(5)
+let expectedDoubleClasses(k) := quotientMap(2*k) in (ℤ in Sets) → quotientSet
+let expectedTripleClasses(k) := quotientMap(3*k) in (ℤ in Sets) → quotientSet
+
+test reconstructed_extensions_20261024.addition.rx03.all_integer_classes_double "[M03] residueComparison_quotient and byUnit_coordinate; original infinite integer domain":
+  assert doubleForward(quotientMap) = expectedDoubleClasses
+
+test reconstructed_extensions_20261024.addition.rx03.all_integer_classes_triple "[M03] residueComparison_quotient and byUnit_coordinate at unitThree":
+  assert tripleForward(quotientMap) = expectedTripleClasses
+
+test reconstructed_extensions_20261024.addition.rx03.double_class_one "[M03] doubling sends [1] to [2]; these are quotient classes, not multiplicative identity literals":
+  assert doubleForward(quotientMap(1)) = quotientMap(2)
+
+test reconstructed_extensions_20261024.addition.rx03.double_class_three "[M03] 2*3=1 modulo 5 at the actual returned forward arrow":
+  assert doubleForward(quotientMap(3)) = quotientMap(1)
+
+test reconstructed_extensions_20261024.addition.rx03.triple_class_two "[M03] 3*2=1 modulo 5 at the actual inverse arrow":
+  assert doubleBackward(quotientMap(2)) = quotientMap(1)

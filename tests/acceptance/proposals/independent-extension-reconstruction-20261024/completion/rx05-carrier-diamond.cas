@@ -1,0 +1,82 @@
+-- RX-05. [P07] SPEC.md at 0d546c5 supplies the selected actions below.
+-- All classifier steps consume already formed structure; they supply no proof.
+let primeFive := PrimeResidues(5, proof(by decide))
+let commutativeFive := view primeFive along «clf.commutative_rings.field»()
+let ringFive := view commutativeFive along «fun.commutative_rings.ring»()
+
+let multiplicativeMonoid := view ringFive along «fun.rings.multiplicative_monoid»()
+let multiplicativeSemigroup := view multiplicativeMonoid along «fun.monoids.semigroup»()
+let multiplicativeMagma := view multiplicativeSemigroup along «clf.magmas.associative»()
+let multiplicativeCarrier := view multiplicativeMagma along «clf.sets.binary_operation»()
+
+let additiveGroup := view ringFive along «fun.rings.additive_group»()
+let additiveMultiplicativeGroup := view additiveGroup along «fun.additive_groups.to_groups»()
+let additiveMonoid := view additiveMultiplicativeGroup along «fun.groups.monoid»()
+let additiveSemigroup := view additiveMonoid along «fun.monoids.semigroup»()
+let additiveMagma := view additiveSemigroup along «clf.magmas.associative»()
+let additiveCarrier := view additiveMagma along «clf.sets.binary_operation»()
+
+let comparison := component(«cmp.rings.carrier»(), ringFive, [])
+let comparisonInverse := inverse_component(«cmp.rings.carrier»(), ringFive, [])
+let expectedForward(z) := z in multiplicativeCarrier → additiveCarrier
+let expectedBackward(z) := z in additiveCarrier → multiplicativeCarrier
+
+test reconstructed_extensions_20261024.complete.rx05.inherited_cardinality "[M06,M07] both complete routes and the actual cell at the selected prime field":
+  assert primeFive.cardinality() = 5
+
+test reconstructed_extensions_20261024.complete.rx05.multiplicative_cardinality "[M06] five_multiplicative_cardinality":
+  assert multiplicativeCarrier.cardinality() = 5
+
+test reconstructed_extensions_20261024.complete.rx05.additive_cardinality "[M06] five_additive_cardinality":
+  assert additiveCarrier.cardinality() = 5
+
+test reconstructed_extensions_20261024.complete.rx05.complete_component "[M06,M07] carrier_comparison_apply for every residue at the selected receiver":
+  assert comparison = expectedForward
+
+test reconstructed_extensions_20261024.complete.rx05.complete_inverse_component "[M07] ringCarrierComparison inverse is identity on every residue with reversed endpoints":
+  assert comparisonInverse = expectedBackward
+
+test reconstructed_extensions_20261024.complete.rx05.component_left_inverse "[M07] actual invertible carrier cell, full multiplicative source route":
+  assert comparisonInverse ∘ comparison = id(multiplicativeCarrier)
+
+test reconstructed_extensions_20261024.complete.rx05.component_right_inverse "[M07] actual invertible carrier cell, full additive target route":
+  assert comparison ∘ comparisonInverse = id(additiveCarrier)
+
+test reconstructed_extensions_20261024.complete.rx05.addition "[M06] five_operations_separate, first conjunct":
+  assert 1 + 1 = 2 in primeFive
+
+test reconstructed_extensions_20261024.complete.rx05.multiplication "[M06] five_operations_separate, second conjunct":
+  assert 1 * 1 = 1 in primeFive
+
+test reconstructed_extensions_20261024.complete.rx05.operations_distinct "[M06] five_operations_separate, third conjunct; the cell compares only forgotten carriers":
+  assert (1 + 1 = 1 * 1 in primeFive) = false
+
+let integerCommutativeRing := ℤ in CommutativeRings
+let integerRing := view integerCommutativeRing along «fun.commutative_rings.ring»()
+let coefficientMap := integerCoefficients(commutativeFive)
+let q := map coefficientMap along «fun.commutative_rings.ring»()
+
+let qMultiplicativeMonoid := map q along «fun.rings.multiplicative_monoid»()
+let qMultiplicativeSemigroup := map qMultiplicativeMonoid along «fun.monoids.semigroup»()
+let qMultiplicativeMagma := map qMultiplicativeSemigroup along «clf.magmas.associative»()
+let qMultiplicative := map qMultiplicativeMagma along «clf.sets.binary_operation»()
+
+let qAdditiveGroup := map q along «fun.rings.additive_group»()
+let qAdditiveMultiplicativeGroup := map qAdditiveGroup along «fun.additive_groups.to_groups»()
+let qAdditiveMonoid := map qAdditiveMultiplicativeGroup along «fun.groups.monoid»()
+let qAdditiveSemigroup := map qAdditiveMonoid along «fun.monoids.semigroup»()
+let qAdditiveMagma := map qAdditiveSemigroup along «clf.magmas.associative»()
+let qAdditive := map qAdditiveMagma along «clf.sets.binary_operation»()
+let integerComparison := component(«cmp.rings.carrier»(), integerRing, [])
+
+test reconstructed_extensions_20261024.complete.rx05.whole_map_naturality "[M06,M07] both complete functor actions retain q(x), and the actual cell is natural":
+  assert comparison ∘ qMultiplicative = qAdditive ∘ integerComparison
+
+test reconstructed_extensions_20261024.complete.rx05.multiplicative_map_sample "[M06,M08] the actual integer coefficient map sends 7 to 2 modulo 5":
+  assert qMultiplicative(7) = 2 in multiplicativeCarrier
+
+test reconstructed_extensions_20261024.complete.rx05.additive_map_sample "[M06,M08] the same complete coefficient map on the full additive route":
+  assert qAdditive(7) = 2 in additiveCarrier
+
+-- Registration-order and cell-absent environments must run independently.
+-- Omitting a computation does not omit cmp.rings.carrier from mathematics.

@@ -5,9 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasAcceptance.Standard
-public import CasCatalogue.TestSuite
+public import CasCatalogue.Realize
 public meta import CasAcceptance.Standard
-public meta import CasCatalogue.TestSuite
+public meta import CasCatalogue.Realize
 
 @[expose] public section
 
@@ -77,9 +77,17 @@ meta def strata : System.FilePath := "CasAcceptance" / "Strata"
 /-- An outcome's kind, as the suite reports it. -/
 meta def kindOf (outcome : Outcome) : String := outcome.kind
 
+/-- Run one statement through the superseded interpreter that these probes observe. -/
+meta def runSuperseded (harness : Harness) (scope : Language.Scope) (text : String) :
+    CommandElabM (Outcome × Language.Scope) := do
+  let parsed ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+    | .ok statement => pure statement
+    | .error error => throwError "not a statement of the language: {error}\n{text}"
+  liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <| Realize.run harness scope parsed
+
 /-- Run `text` and require its outcome's kind. -/
 meta def expect (harness : Harness) (kind : String) (text : String) : CommandElabM Unit := do
-  let (outcome, _) ← runStatement harness {} text
+  let (outcome, _) ← runSuperseded harness {} text
   unless kindOf outcome == kind do
     throwError "`{text}` is {repr outcome}, not {kind}"
 
@@ -88,8 +96,8 @@ meta def expectIn (harness : Harness) (lets : List String) (kind : String) (text
     CommandElabM Unit := do
   let mut scope : Language.Scope := {}
   for binding in lets do
-    scope := (← runStatement harness scope binding).2
-  let (outcome, _) ← runStatement harness scope text
+    scope := (← runSuperseded harness scope binding).2
+  let (outcome, _) ← runSuperseded harness scope text
   unless kindOf outcome == kind do
     throwError "`{text}` is {repr outcome}, not {kind}"
 

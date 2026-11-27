@@ -1,0 +1,48 @@
+# Independent reconstruction, 2026-10-24. PROPOSAL EXCERPTS ONLY.
+# These new identifiers are not a recovered original inventory and are not admitted.
+# Full selected-map, classifier, cell, lift and observation obligations are in questions.md.
+# This file was not executed. No permanent suite file, baseline or record is edited.
+
+let ordinaryFive := FinOrder(5)
+
+test reconstructed_extensions_20261024.order_five_card "[M01] FiniteOrders.ordinary_carrier_card 5; [M13] existing Sets cardinality":
+  assert ordinaryFive.cardinality() = 5
+
+let reverseFive := ReverseFinOrder(5)
+
+test reconstructed_extensions_20261024.reverse_order_five_card "[M01] FiniteOrders.reverse_carrier_card 5; equal cardinality does not identify orders":
+  assert reverseFive.cardinality() = 5
+
+let existingFive := Fin(5) in FiniteSets
+let twoElementSubsets := existingFive.two_subsets()
+
+test reconstructed_extensions_20261024.two_subsets_five_card "[M02] TwoSubsets.fin_five_cardinal; unordered two-element subsets":
+  assert twoElementSubsets.cardinality() = 10
+
+let cyclicFive := CyclicQuotient(5) in Groups
+let cyclicFiveAutomorphisms := Aut(cyclicFive)
+
+test reconstructed_extensions_20261024.cyclic_five_automorphisms_card "[M03] CyclicQuotients.aut_five_cardinal; [M04] Aut in Groups; [P05] direct construction syntax":
+  assert cyclicFiveAutomorphisms.cardinality() = 4
+
+let finiteSquareBound := IntegerSquareBound(3) in FiniteSets
+
+test reconstructed_extensions_20261024.square_bound_three_card "[M05] IntegerSquareBounds.extent_three_card, extent_finite and finiteIdentification; [M13] finite cardinal":
+  assert finiteSquareBound.cardinality() = 7
+
+let primeFive := PrimeResidues(5, proof(by decide))
+
+test reconstructed_extensions_20261024.prime_residues_five_card "[M06] PrimeResidueFields.five_multiplicative_cardinality and five_additive_cardinality; [M07] actual cmp.rings.carrier":
+  assert primeFive.cardinality() = 5
+
+test reconstructed_extensions_20261024.prime_residues_addition "[M06] PrimeResidueFields.five_operations_separate":
+  assert 1 + 1 = 2 in primeFive
+
+test reconstructed_extensions_20261024.prime_residues_multiplication "[M06] PrimeResidueFields.five_operations_separate":
+  assert 1 * 1 = 1 in primeFive
+
+# The remaining RX-03 map/inverse observations, the complete RX-04/RX-05
+# map and classifier observations, RX-06,
+# RX-07 whole-map transport, RX-08, RX-09 admission, RX-10 controls, and RX-LIFT
+# remain specified as exact mathematical requirements in questions.md.
+# Their absent public spellings are not guessed here.

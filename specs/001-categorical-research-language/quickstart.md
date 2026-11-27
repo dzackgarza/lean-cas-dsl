@@ -1,14 +1,14 @@
 # Validation entrypoint — fast feedback, complete functionality and original acceptance
 
-**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-25 (Asia/Taipei).
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-27 (UTC).
 
 Use the [requirements](spec.md), the [plan](plan.md), the [task list](tasks.md), the [mathematical-input contract](contracts/mathematical-input.md) and the [runtime contract](contracts/computational-runtime.md). The [permanent constitution](https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md) and the [owner's current handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237) govern. This guide states how to validate a change and which inputs the final assessments keep fixed. Observed outcomes and acceptance records remain in the owning issues; this guide records no run.
 
 ## Current development feedback comes first
 
-T114/#84 uses the commands in the kernel implementation worktree; locate that checkout with
-`git worktree list` and inspect its actual `justfile` and dependency tuple. Documentation on
-`main` does not establish that implementation commands are present there. The
+T114/#84 and the current Spec Kit implement/converge cycle run directly on `main`. Locate the
+active `main` checkout with `git worktree list`, preserve its existing build and dependency
+workspace, and inspect its actual `justfile` and compatible dependency tuple. The
 [feedback command reference](../../CONTRIBUTING.md#feedback-loops) gives the full usage.
 
 A named local module is checked by building its `+Module:deps` and freshly executing its source
@@ -136,7 +136,7 @@ The original RX08 source and its seven-question ambiguity control remain separat
 
 ### Environment
 
-The environment is the research container `sage-research` (Linux x86_64). It holds SageMath 11.0.beta5 as a source build in `/sage`, with the interpreter `/sage/.venv/bin/python3` (Python 3.14.10), GAP 4.16.1 through Sage `libgap`, PARI 2.17.4, Singular 4.4.1, Maxima 5.49.0, SymPy 1.14.0, python-flint 0.9.0, Julia 1.12.7 with Oscar 1.8.2, and Macaulay2 1.24.11; it holds no passagemath. The interpreter imports pydantic 2.14.1, and the v2 SDK of the contract at `a0417b0` declares `pydantic>=2.14.3`: T326 pins it in the image. Lean and Lake come from `elan` with the toolchain of `lean-toolchain` (Lean 4.33.0 and Mathlib v4.33.0 at `db584cd6d46c92f209a44c0f1c829460d327499d` on the kernel branch until T352 ports them to the image toolchain, #90). Standard Bash, Git, Python 3, curl, tar, GNU time and `uv` are available. [Lean distribution documentation][lean] [uv commands][uv]
+The environment is the research container `sage-research` (Linux x86_64). It holds SageMath 11.0.beta5 as a source build in `/sage`, with the interpreter `/sage/.venv/bin/python3` (Python 3.14.10), GAP 4.16.1 through Sage `libgap`, PARI 2.17.4, Singular 4.4.1, Maxima 5.49.0, SymPy 1.14.0, python-flint 0.9.0, Julia 1.12.7 with Oscar 1.8.2, and Macaulay2 1.24.11; it holds no passagemath. The interpreter imports pydantic 2.14.1, and the v2 SDK of the contract at `a0417b0` declares `pydantic>=2.14.3`: T326 pins it in the image. Lean and Lake come from `elan` with the toolchain of `lean-toolchain` (Lean 4.33.0 and Mathlib v4.33.0 at `db584cd6d46c92f209a44c0f1c829460d327499d` on `main` until T352 ports them to the image toolchain, #90). Standard Bash, Git, Python 3, curl, tar, GNU time and `uv` are available. [Lean distribution documentation][lean] [uv commands][uv]
 
 ### RX-LIFT
 

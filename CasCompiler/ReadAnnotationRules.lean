@@ -1,0 +1,136 @@
+module
+
+public import CasCompiler.ReadContext
+public import CasCompiler.ReadAdmission
+public import CasCompiler.ReadOperation
+public import CasCompiler.SourcePropertyQualification
+import CasCompiler.SourceCarrier
+
+public section
+
+namespace CasCompiler
+
+open Lean Meta Elab Term
+
+namespace SourceReader
+
+def annotated (context : ReadContext) :
+    TSyntax `cas_term → TSyntax `cas_term → SourceReadM NativeSourceJudgement :=
+  let readExpression := @ReadContext.readExpression context
+  let categoryOf := context.categoryOf
+  let expected := context.expected
+  let admitted := admitted context
+  let elementOperation := elementOperation context
+  fun (body domain : TSyntax `cas_term) => do
+    let domain ← sourceCarrier (← readExpression categoryOf domain none)
+    discard <| getLevel domain.value
+    if let some entry ← sourceAdmissionDomain? domain.value then
+      let identifier := body.raw.isIdent &&
+        ((← liftM (m := MetaM) getLCtx).findFromUserName? body.raw.getId).isSome
+      let typed ← if identifier then do
+          let value ← readExpression categoryOf body none
+          isDefEq (← inferType value.value) domain.value
+        else pure false
+      unless typed do
+        let value ← admitted entry body domain.value
+        return (⟨← mkExpectedTypeHint value domain.value, none⟩ : NativeSourceJudgement)
+
+
+    match body with
+    | `(cas_term| $left:cas_term ≤ $right:cas_term) =>
+      return ← elementOperation "≤" #[left, right] #[] #[] (some domain.value)
+    | `(cas_term| $left:cas_term < $right:cas_term) =>
+      return ← elementOperation "<" #[left, right] #[] #[] (some domain.value)
+    | _ => pure ()
+    if let some expected := expected then checkRegisteredSourceDomains domain.value expected
+    readExpression categoryOf body (some domain.value)
+
+end SourceReader
+
+namespace ReadAnnotationRules
+
+open SourceReader
+
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
+  let annotated := SourceReader.annotated context
+  let readExpression := @ReadContext.readExpression context
+  let categoryOf := context.categoryOf
+  let source := context.source
+  let expected := context.expected
+  match source with
+  | `(cas_term| $body:cas_term in $domain:cas_term using ($evidence:cas_term,*)) => do
+    let domain ← sourceCarrier (← readExpression categoryOf domain none)
+    discard <| getLevel domain.value
+    SourceReader.constrained context body domain.value evidence.getElems
+  | `(cas_term| $body:cas_term in $category:ident / $base:cas_term) => do
+
+    let state ← CasCatalogue.semanticState
+    let name := category.getId.toString (escape := false)
+
+    let some entry := (state.categories.find? (·.name == name ++ "/")).orElse fun _ =>
+        state.categories.find? (·.name == name)
+      | annotated body (← liftM (m := TermElabM) `(cas_term| $category:ident / $base:cas_term))
+    let name := entry.name
+    discard <| checkedDeclaration entry.declaration
+    let previous ← liftM (m := MetaM) getMCtx
+    let family ← mkConstWithFreshMVarLevels entry.declaration
+    let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+    let current ← liftM (m := MetaM) getMCtx
+    let owned := current.decls.foldl (fun result identity _ =>
+      if previous.decls.contains identity then result else result.push identity) #[]
+    let some parameter := parameters.back?
+      | liftM (m := TermElabM) <| throwError "the category {name} has no base parameter"
+    let base ← readExpression categoryOf base
+      (some (← liftM (m := MetaM) <| instantiateMVars (← inferType parameter)))
+    extendSourceApplicationScope owned
+    unless ← isDefEq parameter base.value do
+      liftM (m := TermElabM) <| throwError "the base is not an object of the base category of {name}"
+
+
+    let object ← readExpression categoryOf body none
+    let judgement ← if object.category.any (·.expression.syntacticEq entry.expression) then
+        pure object
+      else do
+        let (value, originals) ← registeredSourceDomain object.value
+        let #[original] := originals
+          | liftM (m := TermElabM) <| throwError "the value does not name one registered object"
+        let rows := state.objects.filter fun row =>
+          row.category == entry.id && (row.refines.any (·.base == original.id) ||
+            original.refines.any (·.base == row.id))
+        let #[refinement] := rows
+          | liftM (m := TermElabM) <| CasCatalogue.throwStratum .invalid m!"{original.name} has no registered object in {name}"
+        let arguments ← sourceExplicitArguments value.consumeMData
+        let (bundle, refined) ← registeredExpressions (.inl refinement) entry
+          fun function expected =>
+            elabAppArgs function #[] (arguments.map Arg.expr) expected false false
+        pure (⟨refined, some ⟨.object, entry.expression, bundle, none, none⟩⟩ : NativeSourceJudgement)
+    let some selected := judgement.category
+      | liftM (m := TermElabM) <| throwError "the source value has no selected category"
+    extendSourceApplicationScope owned
+    unless ← isDefEq (mkAppN family parameters) selected.bundle do
+      liftM (m := TermElabM) <| CasCatalogue.throwStratum .invalid m!"the value is not an object of {name} over this base"
+    return judgement
+  | `(cas_term| $body:cas_term in $category:ident) => do
+    let name := category.getId.toString (escape := false)
+
+
+    if ((← liftM (m := MetaM) getLCtx).findFromUserName? category.getId).isSome then
+      annotated body (← liftM (m := TermElabM) `(cas_term| $category:ident))
+    else if (← CasCatalogue.semanticState).categories.any (·.name == name) then
+      let required ← selectCategory (← CasCatalogue.semanticState) name
+      if required.expression matches .classifierTotal _ then
+        if ← sourcePrincipal body then
+
+
+          return ← sourcePropertyQualification
+            (← readExpression categoryOf body none) required
+      readExpression categoryOf body expected (some name)
+    else
+      annotated body (← liftM (m := TermElabM) `(cas_term| $category:ident))
+  | `(cas_term| $body:cas_term in $domain:cas_term) =>
+    annotated body domain
+  | _ => throwReadRuleMismatch
+
+end ReadAnnotationRules
+
+end CasCompiler

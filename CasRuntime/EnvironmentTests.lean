@@ -1,0 +1,1022 @@
+module
+
+import CasRuntime.Environment
+import CasRuntime.Observation
+import CasCompiler.SourceTypeOrigin
+import LeanCategories.Foundation.Mathlib
+import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
+public meta import Lean.Elab.Command
+meta import CasRuntime.Environment
+meta import CasRuntime.Observation
+meta import CasCompiler.SourceTypeOrigin
+meta import LeanCategories.Foundation.Mathlib
+meta import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
+
+open Lean Meta CasCompiler CasRuntime
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let boolean ← SourceLayout.ofTerm (← empty.close (mkConst ``Bool.true))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, number) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, truthData) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := boolean, parameters := #[] } (.portable "true".toUTF8)
+  let .ok relabelled := graph.rebind truthData scalar
+    | throwError "the coarse storage role could not be prepared"
+  let .ok changedNumberRole := graph.rebind number boolean
+    | throwError "the original number's changed native role could not be prepared"
+  withLocalDeclD `n (mkConst ``Nat) fun n =>
+    withLocalDeclD `m (mkConst ``Nat) fun m => do
+      withLocalDeclD `h (← mkEq n n) fun h =>
+        withLetDecl `k (mkConst ``Nat) n fun k =>
+          withLocalDecl `chosen .instImplicit
+              (mkApp (mkConst ``Inhabited [Level.zero]) (mkConst ``Nat)) fun chosen => do
+            let bindings : Array LocalBinding := #[
+              { id := ⟨"runtime-context", 0⟩, role := .parameter, expression := n },
+              { id := ⟨"runtime-context", 1⟩, role := .parameter, expression := m },
+              { id := ⟨"runtime-context", 2⟩, role := .hypothesis, expression := h },
+              { id := ⟨"runtime-context", 3⟩, role := .definition, expression := k },
+              { id := ⟨"runtime-context", 4⟩, role := .instance, expression := chosen }]
+            let context ← ContextTelescope.capture bindings
+            let parameter (source : BindingId) (value : ValueBinding) : MetaM RuntimeParameter := do
+              let .ok result := RuntimeParameter.ofValue graph source value
+                | throwError "the actual parameter is outside its graph"
+              return result
+            let supplied : Array RuntimeParameter := #[
+              ← parameter bindings[1]!.id number,
+              ← parameter bindings[0]!.id number,
+              ← parameter bindings[3]!.id number]
+            let environment ← RuntimeEnvironment.capture owners.worker context supplied
+            let expected := #[number.value, number.value, number.value]
+            unless environment.values.size == bindings.size &&
+                environment.references.map (·.value) == expected do
+              throwError "runtime association changed the full source order or merged source slots"
+            let reused ← RuntimeEnvironment.capture owners.worker context supplied
+              (some graph) (some environment)
+            unless reused.context.exactlyMatches environment.context &&
+                reused.values.map (·.map (·.value)) ==
+                  environment.values.map (·.map (·.value)) &&
+                reused.bound.size == supplied.size &&
+                supplied.all (fun parameter =>
+                  (reused.bound[parameter.source]?).any (·.value == parameter.value.value)) do
+              throwError "same-context reuse changed an original typed source association"
+            let staleGraphRejected ← try
+              discard <| RuntimeEnvironment.capture owners.worker context supplied
+                (some (ValueGraph.empty owners.identities)) (some environment)
+              pure false
+            catch _ => pure true
+            unless staleGraphRejected do
+              throwError "same-context reuse accepted references outside the current graph"
+
+
+            environment.context.withOpen fun reopenedBindings => do
+              let reopenedContext ← ContextTelescope.capture reopenedBindings
+              let mut rebound := #[]
+              for entry in environment.context.entries, value in environment.values do
+                if let some value := value then
+                  rebound := rebound.push (← parameter entry.id value)
+              let reopened ← RuntimeEnvironment.capture owners.worker reopenedContext rebound
+                (some graph) (some environment)
+              unless reopened.context.exactlyMatches environment.context &&
+                  reopened.values.size == environment.values.size &&
+                  reopened.bound.size == rebound.size &&
+                  rebound.all (fun parameter =>
+                    (reopened.bound[parameter.source]?).any (·.value == parameter.value.value)) do
+                throwError "reopened context admission changed its complete typed source scope"
+              for actual in reopened.values, retained in environment.values do
+                match actual, retained with
+                | none, none => pure ()
+                | some actual, some retained =>
+                  unless actual.value == retained.value &&
+                      actual.associationIds == retained.associationIds &&
+                      actual.role.source.expression.equal retained.role.source.expression &&
+                      actual.role.source.type.equal retained.role.source.type do
+                    throwError "reopened context admission changed an exact retained binder view"
+                | _, _ => throwError "reopened context admission changed a formal-only source slot"
+              let some firstRebound := rebound[0]?
+                | throwError "reopened context admission lost its actual original bindings"
+              let invalid := #[
+                rebound.set! 1 firstRebound,
+                rebound.set! 0 (← parameter bindings[0]!.id changedNumberRole)]
+              for changed in invalid do
+                let rejected ← try
+                  discard <| RuntimeEnvironment.capture owners.worker reopenedContext changed
+                    (some graph) (some environment)
+                  pure false
+                catch _ => pure true
+                unless rejected do
+                  throwError "reopened admission reused a duplicate or changed native binder view"
+              let rejected ← try
+                discard <| RuntimeEnvironment.capture owners.worker reopenedContext rebound
+                  (some (ValueGraph.empty owners.identities)) (some environment)
+                pure false
+              catch _ => pure true
+              unless rejected do
+                throwError "reopened admission reused a binder outside the current graph"
+            for index in #[0, 1, 3] do
+              let .ok (some value) := environment.lookup bindings[index]!.id
+                | throwError "a captured source binding lost its actual runtime reference"
+              unless value.value == number.value do
+                throwError "runtime lookup reconstructed a value instead of retaining its node"
+            for index in #[2, 4] do
+              let .ok none := environment.lookup bindings[index]!.id
+                | throwError "a formal-only source binding acquired a runtime payload"
+            unless environment.context.entries[3]?.bind (·.value) == some (mkBVar 2) &&
+                environment.context.entries[4]?.map (·.binderInfo) == some .instImplicit do
+              throwError "runtime association changed a source definition or selected instance"
+            match environment.lookup ⟨"absent", 0⟩ with
+            | .error _ => pure ()
+            | .ok _ => throwError "runtime lookup accepted a source identity outside its telescope"
+            let invalid : Array (Array RuntimeParameter) := #[
+                #[← parameter bindings[1]!.id number, ← parameter bindings[1]!.id number],
+                #[← parameter ⟨"absent", 0⟩ number],
+                #[← parameter bindings[2]!.id number],
+                #[← parameter bindings[0]!.id truthData],
+                #[← parameter bindings[0]!.id relabelled],
+                #[← parameter bindings[1]!.id number,
+                  ← parameter bindings[0]!.id changedNumberRole,
+                  ← parameter bindings[3]!.id number]]
+            for parameters in invalid do
+              for validated in #[none, some environment] do
+                let rejected ← try
+                  discard <| RuntimeEnvironment.capture owners.worker context parameters
+                    (if validated.isSome then some graph else none) validated
+                  pure false
+                catch _ => pure true
+                unless rejected do
+                  throwError "runtime association accepted duplicate, absent, proof or mistyped input"
+            let rejected ← try
+              discard <| RuntimeEnvironment.capture "different-worker" context supplied
+              pure false
+            catch _ => pure true
+            unless rejected do throwError "runtime association accepted a foreign worker value"
+            let .ok dependencies := graph.requiredOwners environment.references
+              | throwError "a captured runtime reference left its actual graph"
+            unless dependencies.isEmpty do
+              throwError "runtime association added ownership to portable source parameters"
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  try
+    let token ← liftM (m := IO) do
+      child.child.stdin.putStr "actual context parameter\n"
+      child.child.stdin.flush
+      return (← child.child.stdout.getLine).trimAscii.toString
+    let older := ValueGraph.empty owners.identities
+    let (graph, number) ← liftM (m := IO) <| older.stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] }
+      (.ownedExport child token #[])
+    withLocalDeclD `n (mkConst ``Nat) fun n =>
+      withLocalDeclD `unused (mkConst ``Nat) fun unused =>
+        withLetDecl `k (mkConst ``Nat) n fun k =>
+          withLocalDeclD `point (mkApp (mkConst ``Fin) k) fun point => do
+            let bindings : Array LocalBinding := #[
+              { id := ⟨"producing-context", 0⟩, role := .parameter, expression := n },
+              { id := ⟨"producing-context", 1⟩, role := .parameter, expression := unused },
+              { id := ⟨"producing-context", 2⟩, role := .definition, expression := k },
+              { id := ⟨"producing-context", 3⟩, role := .parameter, expression := point }]
+            let context ← ContextTelescope.capture bindings
+            let .ok parameter := RuntimeParameter.ofValue graph bindings[0]!.id number
+              | throwError "the producing parameter is absent from its graph"
+            let environment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+            let dependent ← SourceLayout.ofTerm (← context.close point)
+            let independent ← SourceLayout.ofTerm (← context.close (mkNatLit 0))
+            unless dependent.contextDependencies == #[0, 2] &&
+                independent.contextDependencies.isEmpty do
+              throwError "result-type dependency closure changed a let-bound index or unused binder"
+            let origin ← environment.origin program occurrence dependent
+            let independentOrigin ← environment.origin program occurrence independent
+            unless origin.parameters.size == bindings.size &&
+                (origin.parameters[0]?.bind id).map (·.value) == some number.value &&
+                (origin.parameters[2]?.bind id).isNone do
+              throwError "the producing origin lost its complete separate runtime table"
+            let rejected ← liftM (m := IO) do
+              try
+                discard <| older.stage owners.identities origin (.portable "candidate".toUTF8)
+                pure false
+              catch _ => pure true
+            unless rejected do
+              throwError "staging recovered a producing parameter outside the visible graph"
+            let (graph, indexed) ← liftM (m := IO) <| graph.stage owners.identities origin
+              (.portable "candidate".toUTF8)
+            let (graph, anotherIndex) ← liftM (m := IO) <| graph.stage owners.identities
+              { program, occurrence, role := scalar, parameters := #[] }
+              (.portable "7".toUTF8)
+            let .ok indexedParameter := RuntimeParameter.ofValue graph bindings[3]!.id indexed
+              | throwError "the actual dependent value is absent"
+            let .ok originalIndex := RuntimeParameter.ofValue graph bindings[0]!.id number
+              | throwError "the original actual index is absent"
+            let .ok changedIndex := RuntimeParameter.ofValue graph bindings[0]!.id anotherIndex
+              | throwError "the other actual index is absent"
+            let retained ← RuntimeEnvironment.capture owners.worker context
+              #[indexedParameter, originalIndex]
+            unless ((retained.lookup bindings[3]!.id).toOption.bind id).map (·.value) ==
+                some indexed.value do
+              throwError "dependent runtime association replaced the original result"
+            let reject (parameters : Array RuntimeParameter) (expected : String) : MetaM Unit := do
+              for validated in #[none, some retained] do
+                let failure : Option Exception ← try
+                  discard <| RuntimeEnvironment.capture owners.worker context parameters
+                    (if validated.isSome then some graph else none) validated
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "dependent runtime association accepted a changed actual dependency"
+                unless (← failure.toMessageData.toString).startsWith expected do throw failure
+            reject #[indexedParameter, changedIndex]
+              "the runtime value has a different retained dependent reference"
+            reject #[indexedParameter]
+              "the runtime value is missing a retained dependent reference"
+            let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
+            let pairLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close pair))
+            let record ← RecordPrefix.prepare owners.identities program occurrence pairLayout
+              graph environment.bound
+            let (graph, record, firstRole) ← liftM (m := IO) <| record.bind graph number
+            let (graph, _, secondRole) ← liftM (m := IO) <| record.bind graph number
+            let .ok firstParameter := RuntimeParameter.ofValue graph bindings[0]!.id firstRole
+              | throwError "the original dependent index role is absent"
+            let .ok secondParameter := RuntimeParameter.ofValue graph bindings[0]!.id secondRole
+              | throwError "the second dependent index role is absent"
+            let qualified ← RuntimeEnvironment.capture owners.worker context #[firstParameter]
+            let qualifiedOrigin ← qualified.origin program occurrence dependent
+            let (graph, qualifiedValue) ← liftM (m := IO) <|
+              graph.stage owners.identities qualifiedOrigin (.portable "qualified".toUTF8)
+            let .ok qualifiedParameter :=
+                RuntimeParameter.ofValue graph bindings[3]!.id qualifiedValue
+              | throwError "the result at the original actual index role is absent"
+            discard <| RuntimeEnvironment.capture owners.worker context
+              #[qualifiedParameter, firstParameter]
+            reject #[qualifiedParameter, secondParameter]
+              "the runtime value has a different retained dependent reference"
+            let (graph, plain) ← liftM (m := IO) <| graph.stage owners.identities independentOrigin
+              (.portable "0".toUTF8)
+            let .ok plainParameter := RuntimeParameter.ofValue graph bindings[1]!.id plain
+              | throwError "the independent source value is absent"
+            discard <| RuntimeEnvironment.capture owners.worker context #[plainParameter, changedIndex]
+            let some plainNode := graph.find plain.value
+              | throwError "the independent node is absent"
+            unless plainNode.references.map (·.value) == #[number.value] &&
+                plainNode.owners.isEmpty do
+              throwError "retaining a full producing context changed independent owner requirements"
+            unless ← liftM (m := BaseIO) (graph.isAvailable owners indexed) do
+              throwError "a live producing parameter made its dependent result unavailable"
+            liftM (m := IO) <| owners.close child.generation
+            if ← liftM (m := BaseIO) (graph.isAvailable owners indexed) then
+              throwError "a dependent result survived loss of its actual index owner"
+            unless ← liftM (m := BaseIO) (graph.isAvailable owners plain) do
+              throwError "an unused producing parameter owner blocked an independent result"
+  finally liftM (m := IO) <| owners.close child.generation
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let family ← withLocalDeclD `n (mkConst ``Nat) fun n =>
+    mkLambdaFVars #[n] (mkApp (mkConst ``Fin) n)
+  let sigma := mkApp2 (mkConst ``Sigma [.zero, .zero]) (mkConst ``Nat) family
+  withLocalDeclD `r sigma fun r => do
+    let width ← mkProjection r `fst
+    let projected ← mkProjection r `snd
+    withLetDecl `n (mkConst ``Nat) width fun n =>
+      withLocalDeclD `point (mkApp (mkConst ``Fin) n) fun point => do
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"consuming-context", 0⟩, role := .result, expression := r },
+          { id := ⟨"consuming-context", 1⟩, role := .definition, expression := n },
+          { id := ⟨"consuming-context", 2⟩, role := .parameter, expression := point }]
+        let context ← ContextTelescope.capture bindings
+        let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close r))
+        let finite ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close projected))
+        let owners ← liftM (m := IO) OwnerRegistry.new
+        let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+        let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+        let (graph, firstIndex) ← liftM (m := IO) <|
+          (ValueGraph.empty owners.identities).stage owners.identities
+            { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+        let (graph, secondIndex) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+        let record ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence finite
+            (parameters := some (Array.replicate bindings.size none))
+        let (graph, record, _) ← liftM (m := IO) <| record.bind graph firstIndex
+        let .ok payload := record.finish | throwError "the finite value interface is incomplete"
+        let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := finite.source, parameters := #[none, none, none] } payload
+        let record ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence layout
+            (parameters := some (Array.replicate bindings.size none))
+        let (graph, record, originalIndex) ← liftM (m := IO) <| record.bind graph firstIndex
+        let (graph, _, projectedValue) ← liftM (m := IO) <| record.bind graph value
+        let record ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence layout
+            (parameters := some (Array.replicate bindings.size none))
+        let (graph, _, changedIndex) ← liftM (m := IO) <| record.bind graph secondIndex
+        let parameter (id : BindingId) (value : ValueBinding) : MetaM RuntimeParameter := do
+          let .ok parameter := RuntimeParameter.ofValue graph id value
+            | throwError "the actual consuming field is absent"
+          return parameter
+        let actual ← parameter bindings[2]!.id projectedValue
+        let captured ← RuntimeEnvironment.capture owners.worker context
+          #[actual, ← parameter bindings[1]!.id originalIndex]
+        let .ok argument := RuntimeArgument.ofValue graph 0 projectedValue
+          | throwError "the dependent source operand is absent"
+        let retained ← captured.checkArgument (← context.close point) argument
+        unless retained.value == projectedValue.value &&
+            retained.instantiations.map (·.id) == projectedValue.instantiations.map (·.id) &&
+            (← retained.role.source.inContext context) == point do
+          throwError "source operand preparation changed its node, field roles or native binder"
+        let environment ← RuntimeEnvironment.capture owners.worker context
+          #[← parameter bindings[1]!.id originalIndex]
+        let expected ← SourceLayout.ofTerm (← context.close point)
+        let candidate ← environment.checkResult graph expected projectedValue
+        unless candidate.root.value == projectedValue.value &&
+            candidate.root.instantiations.map (·.id) == projectedValue.instantiations.map (·.id) do
+          throwError "prepared result checking changed its actual node or dependent field role"
+        let changed ← RuntimeEnvironment.capture owners.worker context
+          #[← parameter bindings[1]!.id changedIndex]
+        let failure : Option Exception ← try
+          discard <| changed.checkResult graph expected projectedValue
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "prepared result checking changed its actual dependent index"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime value has a different consuming dependent reference" do
+          throw failure
+        let reused ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence layout
+            (parameters := some (Array.replicate bindings.size none))
+        let (graph, reused, reusedIndex) ← liftM (m := IO) <| reused.bind graph originalIndex
+        let (graph, _, reusedValue) ← liftM (m := IO) <| reused.bind graph projectedValue
+        let .ok reusedParameter := RuntimeParameter.ofValue graph bindings[1]!.id reusedIndex
+          | throwError "the reused actual index role is absent"
+        let reusedEnvironment ← RuntimeEnvironment.capture owners.worker context
+          #[reusedParameter]
+        let reusedResult ← reusedEnvironment.checkResult graph expected reusedValue
+        unless reusedResult.root.value == projectedValue.value &&
+            reusedResult.root.instantiations.size == projectedValue.instantiations.size + 1 do
+          throwError "dependent record reuse lost its actual value or original consuming roles"
+        let invalid := #[
+          (#[actual, ← parameter bindings[1]!.id changedIndex],
+            "the runtime value has a different consuming dependent reference"),
+          (#[actual], "the runtime value is missing a consuming dependent reference")]
+        for (parameters, expected) in invalid do
+          let failure : Option Exception ← try
+            discard <| RuntimeEnvironment.capture owners.worker context parameters
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "runtime association lost the actual preceding field of a dependent role"
+          unless (← failure.toMessageData.toString).startsWith expected do throw failure
+
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, firstIndex) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, secondIndex) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  unless firstIndex.value != secondIndex.value do
+    throwError "the distinct-let control merged its original runtime nodes"
+  withLetDecl `n (mkConst ``Nat) (mkNatLit 7) fun n =>
+    withLetDecl `m (mkConst ``Nat) (mkNatLit 7) fun m =>
+      withLetDecl `alias (mkConst ``Nat) n fun aliasBinding => do
+        let indexed := fun index => mkAppM ``Prod
+          #[mkApp (mkConst ``Fin) index, mkApp (mkConst ``Fin) m]
+        withLocalDeclD `point (← indexed n) fun point => do
+          withLocalDeclD `aliasPoint (← indexed aliasBinding) fun aliasPoint => do
+            withLocalDeclD `changedPoint (← indexed m) fun changedPoint => do
+              let bindings : Array LocalBinding := #[
+                { id := ⟨"distinct-consuming-context", 0⟩, role := .definition, expression := n },
+                { id := ⟨"distinct-consuming-context", 1⟩, role := .definition, expression := m },
+                { id := ⟨"distinct-consuming-context", 2⟩, role := .definition, expression := aliasBinding },
+                { id := ⟨"distinct-consuming-context", 3⟩, role := .parameter, expression := point },
+                { id := ⟨"distinct-consuming-context", 4⟩, role := .parameter, expression := aliasPoint },
+                { id := ⟨"distinct-consuming-context", 5⟩, role := .parameter, expression := changedPoint }]
+              let context ← ContextTelescope.capture bindings
+              unless ← isDefEq n m do
+                throwError "the distinct-let control lost its equal native definitions"
+              let family ← withLocalDeclD `width (mkConst ``Nat) fun width => do
+                mkLambdaFVars #[width] (← indexed width)
+              let pointRole ← SourceLayout.ofTerm (← context.close point)
+              let (graph, pointValue) ← liftM (m := IO) <| graph.stage owners.identities
+                { program, occurrence, role := pointRole,
+                  parameters := Array.replicate bindings.size none } (.closure program #[])
+              for formal in #[n, mkNatLit 7] do
+                let source := mkApp4 (mkConst ``Sigma.mk [.zero, .zero])
+                  (mkConst ``Nat) family formal point
+                let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close source))
+                let record ← liftM (m := IO) <|
+                  RecordPrefix.begin owners.identities program occurrence layout
+                    (parameters := some (Array.replicate bindings.size none))
+                let (graph, record, originalIndex) ← liftM (m := IO) <| record.bind graph firstIndex
+                let (graph, _, consumed) ← liftM (m := IO) <| record.bind graph pointValue
+                let parameter (index : Nat) (value : ValueBinding) : MetaM RuntimeParameter := do
+                  let .ok parameter := RuntimeParameter.ofValue graph bindings[index]!.id value
+                    | throwError "the distinct-let parameter is outside its graph"
+                  return parameter
+                let actual ← parameter 3 consumed
+                let first ← parameter 0 originalIndex
+                let second ← parameter 1 secondIndex
+                let accepted ← RuntimeEnvironment.capture owners.worker context #[actual, first, second]
+                unless ((accepted.lookup bindings[3]!.id).toOption.bind id).map (·.value) ==
+                    some consumed.value do
+                  throwError "the exact dependent position lost its original value"
+                let aliasEnvironment ← RuntimeEnvironment.capture owners.worker context
+                  #[first, second, ← parameter 2 originalIndex]
+                let aliasRole ← SourceLayout.ofTerm (← context.close aliasPoint)
+                let aliased ← aliasEnvironment.checkResult graph aliasRole consumed
+                unless aliased.root.value == consumed.value do
+                  throwError "a true dependent alias changed its original value"
+                let invalid := #[
+                  (#[actual, ← parameter 0 secondIndex, second],
+                    "the runtime value has a different consuming dependent reference"),
+                  (#[actual, second], "the runtime value is missing a consuming dependent reference")]
+                for (parameters, expected) in invalid do
+                  let failure : Option Exception ← try
+                    discard <| RuntimeEnvironment.capture owners.worker context parameters
+                    pure none
+                  catch error => pure (some error)
+                  let some failure := failure
+                    | throwError "an equal-valued unrelated binding replaced the required dependent reference"
+                  unless (← failure.toMessageData.toString).startsWith expected do throw failure
+                let changedRole ← SourceLayout.ofTerm (← context.close changedPoint)
+                let failure : Option Exception ← try
+                  discard <| accepted.checkResult graph changedRole consumed
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "native type conversion changed the retained dependent occurrence"
+                unless (← failure.toMessageData.toString).startsWith
+                    "the runtime value has a different consuming dependent reference" do throw failure
+
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let pairType ← mkAppM ``Prod #[mkConst ``Nat, mkConst ``Nat]
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, number) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  withLocalDeclD `r pairType fun r =>
+    withLetDecl `alias pairType r fun aliasBinding => do
+      let width ← mkProjection r `fst
+      let aliasWidth ← mkProjection aliasBinding `fst
+      let indexed := fun index => mkAppM ``Prod
+        #[mkApp (mkConst ``Fin) index, mkApp (mkConst ``Fin) aliasWidth]
+      withLocalDeclD `point (← indexed width) fun point => do
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"projected-alias-context", 0⟩, role := .parameter, expression := r },
+          { id := ⟨"projected-alias-context", 1⟩, role := .definition, expression := aliasBinding },
+          { id := ⟨"projected-alias-context", 2⟩, role := .parameter, expression := point }]
+        let context ← ContextTelescope.capture bindings
+        let pair ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close r))
+        let record ← liftM (m := IO) <| RecordPrefix.begin owners.identities program occurrence pair
+          (parameters := some (Array.replicate bindings.size none))
+        let (graph, record, index) ← liftM (m := IO) <| record.bind graph number
+        let (graph, record, _) ← liftM (m := IO) <| record.bind graph number
+        let .ok payload := record.finish | throwError "the alias control lost its source record"
+        let (graph, parent) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := pair.source, parameters := #[none, none, none] } payload
+        let pointRole ← SourceLayout.ofTerm (← context.close point)
+        let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := pointRole, parameters := #[none, none, none] }
+          (.closure program #[])
+        let family ← withLocalDeclD `bound (mkConst ``Nat) fun bound => do
+          mkLambdaFVars #[bound] (← indexed bound)
+        let source := mkApp4 (mkConst ``Sigma.mk [.zero, .zero])
+          (mkConst ``Nat) family width point
+        let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close source))
+        let record ← liftM (m := IO) <| RecordPrefix.begin owners.identities program occurrence layout
+          (parameters := some (Array.replicate bindings.size none))
+        let (graph, record, _) ← liftM (m := IO) <| record.bind graph index
+        let (graph, _, consumed) ← liftM (m := IO) <| record.bind graph value
+        let parameter (index : Nat) (value : ValueBinding) : MetaM RuntimeParameter := do
+          let .ok parameter := RuntimeParameter.ofValue graph bindings[index]!.id value
+            | throwError "the projected alias parameter is outside its graph"
+          return parameter
+        let actual ← parameter 2 consumed
+        let original ← parameter 0 parent
+        let aliased ← parameter 1 parent
+        discard <| RuntimeEnvironment.capture owners.worker context #[actual, original, aliased]
+        for (parameters, missing) in #[(#[actual, aliased], bindings[0]!.id),
+            (#[actual, original], bindings[1]!.id)] do
+          let failure : Option Exception ← try
+            discard <| RuntimeEnvironment.capture owners.worker context parameters
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "a whole-record alias replaced a missing dependent source root"
+          unless missingValueOf failure missing do throw failure
+
+
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let nativeObject := mkConst ``Nat
+  let objectType ← inferType nativeObject
+  let sourceRole ← SourceLayout.ofTerm (← empty.close nativeObject)
+  let categoryInfo ← getConstInfo ``LeanCategories.Foundation.Mathlib.Sets
+  let category : NativeSourceCategory :=
+    ⟨.object, .atom CasCatalogue.CategoryId.sets,
+      mkConst categoryInfo.name (categoryInfo.levelParams.map fun _ => Level.zero), none, none⟩
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let .ok payload := ValuePayload.descriptor
+      (Json.mkObj [("ctor", "lean:type"), ("args", .arr #[])]) #[]
+    | throwError "the object-origin control descriptor is malformed"
+  let (graph, firstValue) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := sourceRole, parameters := #[] } payload
+  let (graph, secondValue) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := sourceRole, parameters := #[] } payload
+  unless firstValue.value != secondValue.value do
+    throwError "the object-origin control merged distinct original objects"
+  let initial : SourceReadScope := { identities := owners.identities, context := empty, selections := {} }
+  (annotateSourceObject category nativeObject).runK initial fun selectedDefinition scope => do
+    withLetDecl `firstObject objectType selectedDefinition fun firstObject =>
+      withLetDecl `secondObject objectType selectedDefinition fun secondObject => do
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"object-origin-arguments", 0⟩, role := .definition, expression := firstObject },
+          { id := ⟨"object-origin-arguments", 1⟩, role := .definition, expression := secondObject }]
+        let context ← ContextTelescope.capture (scope.context.bindings ++ bindings)
+        let some selected := scope.selections.findAt? scope.context selectedDefinition
+          | throwError "the original object annotation lost its complete selected category"
+        let selections := (scope.selections.insert bindings[0]!.id selected).insert bindings[1]!.id selected
+        unless ← isDefEq firstObject secondObject do
+          throwError "the object-origin control lost its equal native definitions"
+        let .ok firstParameter := RuntimeParameter.ofValue graph bindings[0]!.id firstValue
+          | throwError "the first source object is outside its graph"
+        let .ok secondParameter := RuntimeParameter.ofValue graph bindings[1]!.id secondValue
+          | throwError "the second source object is outside its graph"
+        let environment ← RuntimeEnvironment.capture owners.worker context
+          #[firstParameter, secondParameter] (some graph) (selections := selections)
+        let .ok originalArgument := RuntimeArgument.ofValue graph 0 firstValue
+          | throwError "the original object argument is outside its graph"
+        let .ok otherArgument := RuntimeArgument.ofValue graph 0 secondValue
+          | throwError "the other object argument is outside its graph"
+        let initial : SourceReadScope := { identities := owners.identities, context, selections }
+        (annotateSourceObject category firstObject).runK initial fun wrapped scope => do
+          let context := scope.context
+          let some wrappedBinding := context.bindings.find? (·.expression == wrapped)
+            | throwError "the typed object annotation lost its original source binding"
+          let some original ← IO.ofExcept <|
+              (environment.lookup bindings[0]!.id).mapError IO.userError
+            | throwError "the typed object producer lost its original source occurrence"
+          let bound := environment.bound.insert wrappedBinding.id original
+          let environment ← RuntimeEnvironment.captureBound owners.worker context bound graph
+            (selections := scope.selections)
+          for specified in #[firstObject, wrapped] do
+            let source ← context.close specified
+            let accepted ← environment.checkArgument source originalArgument
+            unless accepted.value == firstValue.value &&
+                accepted.associationIds == firstValue.associationIds &&
+                (← accepted.role.source.inContext context) == specified do
+              throwError "object provenance changed the original value, associations or wrapped role"
+            let failure : Option Exception ← try
+              discard <| environment.checkArgument source otherArgument
+              pure none
+            catch error => pure (some error)
+            let some failure := failure
+              | throwError "object provenance admitted another equal-valued source argument"
+            unless failure.toMessageData.hasTag
+                (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
+            unless ← environment.hasRetainedSource context specified do
+              throwError "object provenance hid the original retained source binding"
+
+
+          environment.withContext context environment.bound fun _ bound => do
+            unless (bound[bindings[0]!.id]?).any (retainsReference firstValue) do
+              throwError "typed scope import lost the original source object"
+          let pair ← mkAppM ``Prod.mk #[nativeObject, nativeObject]
+          let pairLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← empty.close pair))
+          let record ← RecordPrefix.begin owners.identities program occurrence pairLayout
+          let (_, _, extendedFirst) ← record.bind graph firstValue
+          let extended := environment.bound.insert bindings[0]!.id extendedFirst
+          environment.withContext context extended fun _ bound => do
+            let some retained := bound[bindings[0]!.id]?
+              | throwError "typed scope import lost its extended original reference"
+            unless retained.value == extendedFirst.value &&
+                retained.associationIds == extendedFirst.associationIds do
+              throwError "typed scope import changed an original association extension"
+          let conflicting := environment.bound.insert bindings[0]!.id secondValue
+          let failure : Option Exception ← try
+            environment.withContext context conflicting fun current bound => do
+              let restored ← RuntimeEnvironment.captureBound owners.worker current bound graph
+                (selections := ← environment.selections.inContext current)
+              discard <| restored.checkArgument (← current.close wrapped) otherArgument
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "a conflicting typed occurrence bypassed the wrapped source object"
+          unless failure.toMessageData.hasTag
+              (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
+
+
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let natural := mkConst ``Nat
+  let seven := mkNatLit 7
+  let pairTerm ← mkAppM ``Prod.mk #[seven, seven]
+  let pairType ← inferType pairTerm
+  let scalarRole ← SourceLayout.ofTerm (← empty.close seven)
+  let pairRole ← SourceLayout.ofTerm (← empty.close pairTerm)
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, firstWidth) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, secondWidth) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, number) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, firstObject) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := pairRole, parameters := #[] }
+    (.product #[firstWidth, firstWidth])
+  let (graph, secondObject) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := pairRole, parameters := #[] }
+    (.product #[secondWidth, secondWidth])
+  unless firstObject.value != secondObject.value && firstWidth.value != secondWidth.value do
+    throwError "the ambient-parameter control merged its independent original nodes"
+  withLetDecl `Qfirst pairType pairTerm fun first =>
+    withLetDecl `Qsecond pairType pairTerm fun second =>
+      withLetDecl `n natural seven fun n =>
+        withLocalDeclD `typedObject pairType fun typedObject => do
+          unless typedObject.isFVar && !pairTerm.hasFVar do
+            throwError "the typed object control lost its opaque binder or closed original source"
+          let firstProjection ← mkProjection first `fst
+          let secondProjection ← mkProjection second `fst
+          let typedProjection ← mkProjection typedObject `fst
+          let indexed := fun fixed index => mkAppM ``Prod
+            #[mkApp (mkConst ``Fin) fixed, mkApp (mkConst ``Fin) index]
+          withLocalDeclD `point (← indexed firstProjection n) fun point => do
+            withLocalDeclD `closedPoint (← indexed seven n) fun closedPoint => do
+              withLocalDeclD `otherPoint (← indexed secondProjection n) fun otherPoint => do
+                withLocalDeclD `typedPoint (← indexed typedProjection n) fun typedPoint => do
+                  let bindings : Array LocalBinding := #[
+                    { id := ⟨"closed-dependent-fragment", 0⟩, role := .definition, expression := first },
+                    { id := ⟨"closed-dependent-fragment", 1⟩, role := .definition, expression := second },
+                    { id := ⟨"closed-dependent-fragment", 2⟩, role := .definition, expression := n },
+                    { id := ⟨"closed-dependent-fragment", 3⟩, role := .result,
+                      expression := typedObject, originalSource := some pairTerm },
+                    { id := ⟨"closed-dependent-fragment", 4⟩, role := .parameter, expression := point },
+                    { id := ⟨"closed-dependent-fragment", 5⟩, role := .parameter, expression := closedPoint },
+                    { id := ⟨"closed-dependent-fragment", 6⟩, role := .parameter, expression := otherPoint },
+                    { id := ⟨"closed-dependent-fragment", 7⟩, role := .parameter, expression := typedPoint }]
+                  let context ← ContextTelescope.capture bindings
+                  let family ← withLocalDeclD `width natural fun width => do
+                    mkLambdaFVars #[width] (← indexed firstProjection width)
+                  let pointRole ← SourceLayout.ofTerm (← context.close point)
+                  let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities
+                    { program, occurrence, role := pointRole,
+                      parameters := #[some firstObject, none, some number, none, none, none, none, none] }
+                    (.closure program #[firstObject, number])
+                  let source := mkApp4 (mkConst ``Sigma.mk [.zero, .zero]) natural family n point
+                  let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close source))
+                  let bound : Std.HashMap BindingId ValueBinding := {}
+                    |>.insert bindings[0]!.id firstObject
+                    |>.insert bindings[1]!.id secondObject
+                    |>.insert bindings[2]!.id number
+                    |>.insert bindings[3]!.id secondObject
+                  let record ← RecordPrefix.prepare owners.identities program occurrence layout graph bound
+                  let (graph, record, originalIndex) ← liftM (m := IO) <| record.bind graph number
+                  let (graph, _, consumed) ← liftM (m := IO) <| record.bind graph value
+                  let parameter (index : Nat) (actual : ValueBinding) : MetaM RuntimeParameter := do
+                    let .ok parameter := RuntimeParameter.ofValue graph bindings[index]!.id actual
+                      | throwError "the ambient-parameter control lost an original runtime reference"
+                    return parameter
+                  let original ← parameter 0 firstObject
+                  let unrelated ← parameter 1 secondObject
+                  let index ← parameter 2 originalIndex
+                  let typed ← parameter 3 secondObject
+                  let environment ← RuntimeEnvironment.capture owners.worker context
+                    #[original, unrelated, index, typed]
+                  let closedRole ← SourceLayout.ofTerm (← context.close closedPoint)
+                  let accepted ← environment.checkResult graph closedRole consumed
+                  unless accepted.root.value == consumed.value &&
+                      accepted.root.associationIds == consumed.associationIds &&
+                      accepted.root.instantiations.map (·.id) == consumed.instantiations.map (·.id) do
+                    throwError "closed native specialization changed the actual dependent field"
+                  for expected in #[otherPoint, typedPoint] do
+                    let role ← SourceLayout.ofTerm (← context.close expected)
+                    unless ← context.withOriginalSources #[← inferType point, ← inferType expected]
+                        (fun types => isDefEq types[0]! types[1]!) do
+                      throwError "the ambient-parameter negative is not natively convertible"
+                    let failure : Option Exception ← try
+                      discard <| environment.checkResult graph role consumed
+                      pure none
+                    catch error => pure (some error)
+                    let some failure := failure
+                      | throwError "closed native conversion substituted a different source occurrence"
+                    unless (← failure.toMessageData.toString).startsWith
+                        "the runtime value has an unresolved consuming dependent type" do throw failure
+                  let replacedOriginal ← parameter 0 secondObject
+                  for (parameters, missing) in #[(#[unrelated, index, typed], true),
+                      (#[replacedOriginal, unrelated, index, typed], false)] do
+                    let changed ← RuntimeEnvironment.capture owners.worker context parameters
+                    let failure : Option Exception ← try
+                      discard <| changed.checkResult graph closedRole consumed
+                      pure none
+                    catch error => pure (some error)
+                    let some failure := failure
+                      | throwError "closed native specialization discarded its captured original parameter"
+                    if missing then
+                      unless missingValueOf failure bindings[0]!.id do throw failure
+                    else
+                      unless (← failure.toMessageData.toString).startsWith
+                          "the runtime value has a different retained dependent reference" do throw failure
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let (graph, originalNumber) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, otherNumber) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let scalarId : BindingId := ⟨"origin-transport", 0⟩
+  let .ok supplied := RuntimeParameter.ofValue graph scalarId originalNumber
+    | throwError "the original transport parameter is absent"
+  let .ok originalArgument := RuntimeArgument.ofValue graph 0 originalNumber
+    | throwError "the original transport argument is absent"
+  let .ok otherArgument := RuntimeArgument.ofValue graph 0 otherNumber
+    | throwError "the equal other transport argument is absent"
+  let nat := mkConst ``Nat
+  let instanceType := mkApp (mkConst ``Inhabited [.zero]) nat
+  let functionType ← mkArrow nat nat
+  let prepare (typeMarker valueMarker : Nat) (binderName : Name)
+      (annotation : BinderInfo) (reverseInstances extended : Bool) :
+      MetaM (RuntimeEnvironment × SourceLayout) :=
+    withLCtx {} #[] <|
+      withLocalDeclD `n (.mdata (KVMap.empty.setNat `control.originType typeMarker) nat) fun n =>
+        withLocalDeclD `first instanceType fun first =>
+          withLocalDeclD `second instanceType fun second =>
+            withLetDecl `identity functionType
+                (.mdata (KVMap.empty.setNat `control.originValue valueMarker)
+                  (.lam binderName nat (mkBVar 0) annotation)) fun identity => do
+              let bindings : Array LocalBinding := #[
+                { id := scalarId, role := .parameter, expression := n },
+                { id := ⟨"origin-transport", 1⟩, role := .instance, expression := first },
+                { id := ⟨"origin-transport", 2⟩, role := .instance, expression := second },
+                { id := ⟨"origin-transport", 3⟩, role := .definition, expression := identity }]
+              let selected : LocalInstances := if reverseInstances then
+                  #[⟨``Inhabited, second⟩, ⟨``Inhabited, first⟩]
+                else #[⟨``Inhabited, first⟩, ⟨``Inhabited, second⟩]
+              let finish (bindings : Array LocalBinding) :
+                  MetaM (RuntimeEnvironment × SourceLayout) := do
+                let context ← ContextTelescope.capture bindings
+                let environment ← RuntimeEnvironment.capture owners.worker context #[supplied]
+                let role ← SourceLayout.ofTerm (← context.close n)
+                return (environment, role)
+              withLCtx (← getLCtx) selected do
+                if extended then
+                  withLocalDeclD `later nat fun later =>
+                    finish (bindings.push {
+                      id := ⟨"origin-transport", 4⟩, role := .parameter, expression := later })
+                else finish bindings
+  let (_, originalRole) ← prepare 0 0 `original .default false false
+  let cases : Array (Nat × Nat × Name × BinderInfo × Bool × Bool) := #[
+    (0, 0, `original, .default, false, false),
+    (1, 0, `original, .default, false, false),
+    (0, 1, `original, .default, false, false),
+    (0, 0, `renamed, .implicit, false, false),
+    (0, 0, `original, .default, true, false),
+    (0, 0, `original, .default, false, true)]
+  for (typeMarker, valueMarker, binderName, annotation, reverseInstances, extended) in cases do
+    let (environment, targetRole) ←
+      prepare typeMarker valueMarker binderName annotation reverseInstances extended
+    let produced ← environment.origin program occurrence originalRole
+    unless produced.role.source.expression.equal targetRole.source.expression &&
+        produced.role.source.type.equal targetRole.source.type &&
+        produced.parameters.size == (if extended then 5 else 4) do
+      throwError "origin preparation did not transport into the complete actual target scope"
+    let some (some original) := produced.parameters[0]?
+      | throwError "origin preparation dropped its original actual parameter"
+    unless original.value == originalNumber.value &&
+        original.associationIds == originalNumber.associationIds &&
+        (produced.parameters.extract 1 produced.parameters.size).all Option.isNone do
+      throwError "origin preparation replaced or invented a captured runtime argument"
+    produced.role.source.withOpen fun bindings expression => do
+      unless expression == bindings[0]!.expression && bindings[0]!.id == scalarId &&
+          bindings.size == (if extended then 5 else 4) do
+        throwError "origin transport changed the original source binding or declaration order"
+      let scalarDecl ← getFVarLocalDecl bindings[0]!.expression
+      unless scalarDecl.type.equal
+          (.mdata (KVMap.empty.setNat `control.originType typeMarker) nat) do
+        throwError "origin transport kept obsolete source type metadata"
+      let identityDecl ← getFVarLocalDecl bindings[3]!.expression
+      let some definition := identityDecl.value? true
+        | throwError "origin transport changed its original definition into a parameter"
+      unless definition.equal
+          (.mdata (KVMap.empty.setNat `control.originValue valueMarker)
+            (.lam binderName nat (mkBVar 0) annotation)) do
+        throwError "origin transport discarded source definition metadata or binder annotations"
+      let expectedInstances := if reverseInstances then
+          #[bindings[2]!.expression, bindings[1]!.expression]
+        else #[bindings[1]!.expression, bindings[2]!.expression]
+      unless (← getLocalInstances).map (·.fvar) == expectedInstances do
+        throwError "origin transport retained an obsolete local-instance selection"
+    discard <| environment.checkArgument produced.role.source originalArgument
+    let failure : Option Exception ← try
+      discard <| environment.checkArgument produced.role.source otherArgument
+      pure none
+    catch error => pure (some error)
+    let some failure := failure
+      | throwError "origin transport admitted the distinct equal-valued source argument"
+    unless failure.toMessageData.hasTag
+        (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
+
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let context ← ContextTelescope.capture #[]
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let written := mkNatLit 7
+  let scalar ← SourceLayout.ofTerm (← context.close written)
+  let (graph, first) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, second) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  unless first.value != second.value do
+    throwError "the marked type control did not retain two distinct actual suppliers"
+  let bind (context : OpenContext) (name : Name)
+      (action : OpenContext → LocalBinding → MetaM Unit) : MetaM Unit := do
+    let allocated ← owners.identities.fresh .sourceBinding
+    context.withLocalBinding ⟨allocated.worker, allocated.serial⟩ .result name
+      (mkConst ``Nat) action (originalSource := some written)
+  bind context `firstWidth fun context firstBinding =>
+    bind context `secondWidth fun context secondBinding =>
+      bind context `aliasWidth fun context aliasBinding => do
+        let firstMark := firstBinding.expression
+        let secondMark := secondBinding.expression
+        let aliasMark := aliasBinding.expression
+        unless firstBinding.id != secondBinding.id &&
+            (← context.withOriginalSources #[firstMark, secondMark]
+              (fun sources => isDefEq sources[0]! sources[1]!)) do
+          throwError "the typed source control lost its distinct equal-valued original binders"
+        let source := fun width => Expr.lam `x (mkApp (mkConst ``Fin) width) (mkBVar 0) .default
+        let original ← SourceLayout.ofTerm (← context.close (source firstMark))
+        let changed ← SourceLayout.ofTerm (← context.close (source secondMark))
+        let aliasRole ← SourceLayout.ofTerm (← context.close (source aliasMark))
+        let parameters ← #[(firstBinding.id, first), (secondBinding.id, second),
+            (aliasBinding.id, first)].mapM fun (id, value) =>
+          IO.ofExcept <| (RuntimeParameter.ofValue graph id value).mapError IO.userError
+        let producing ← RuntimeEnvironment.capture owners.worker context parameters (some graph)
+        for role in #[original, changed, aliasRole], expected in #[first, second, first] do
+          let references ← boundTypeReferences (some graph) role.source producing.bound
+          unless !references.isEmpty && references.all (·.value == expected.value) do
+            throwError "the typed source role lost its exact original type supplier"
+        let origin ← producing.origin program occurrence original
+        let (graph, value) ← liftM (m := IO) <|
+          graph.stage owners.identities origin (.closure program #[])
+        unless value.instantiations.isEmpty do
+          throwError "the direct marked type control unexpectedly acquired a field association"
+        let consuming ← RuntimeEnvironment.capture owners.worker context parameters (some graph)
+        for role in #[original, aliasRole] do
+          let accepted ← consuming.checkResult graph role value
+          unless accepted.root.value == value.value do
+            throwError "marked type admission changed the original actual value"
+        withLetDecl `width (mkConst ``Nat) written fun width => do
+          let binding : LocalBinding :=
+            { id := ⟨"marked-direct-alias", 0⟩, role := .definition, expression := width }
+          let aliased ← ContextTelescope.capture (context.bindings.push binding)
+          let .ok parameter := RuntimeParameter.ofValue graph binding.id first
+            | throwError "the same-supplier alias is outside its actual graph"
+          let environment ← RuntimeEnvironment.capture owners.worker aliased (parameters.push parameter)
+            (some graph)
+          let role ← SourceLayout.ofTerm (← aliased.close (source width))
+          discard <| environment.checkResult graph role value
+        let failure : Option Exception ← try
+          discard <| consuming.checkResult graph changed value
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "a direct native value accepted a different equal-valued marked type supplier"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime value has a different marked source type dependency" do throw failure
+
+
+        let plusZero := fun width => mkApp2 (mkConst ``Nat.add) (mkNatLit 0) width
+        let arithmetic ← SourceLayout.ofTerm (← context.close (source (plusZero firstMark)))
+        let arithmeticAlias ← SourceLayout.ofTerm (← context.close (source (plusZero aliasMark)))
+        let arithmeticChanged ← SourceLayout.ofTerm (← context.close (source (plusZero secondMark)))
+        let arithmeticOrigin ← consuming.origin program occurrence arithmetic
+        let (graph, arithmeticValue) ← liftM (m := IO) <|
+          graph.stage owners.identities arithmeticOrigin (.closure program #[])
+        let arithmeticEnvironment ←
+          RuntimeEnvironment.capture owners.worker context parameters (some graph)
+        discard <| arithmeticEnvironment.checkResult graph arithmeticAlias arithmeticValue
+        let failure : Option Exception ← try
+          discard <| arithmeticEnvironment.checkResult graph arithmeticChanged arithmeticValue
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "native Nat.add reduction erased a different marked type supplier"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime value has a different marked source type dependency" do throw failure
+
+
+        withLetDecl `firstWidth (mkConst ``Nat) firstMark fun firstWidth =>
+          withLetDecl `secondWidth (mkConst ``Nat) secondMark fun secondWidth =>
+            withLetDecl `sameWidth (mkConst ``Nat) aliasMark fun sameWidth => do
+              let bindings : Array LocalBinding := #[
+                { id := ⟨"formal-marked-widths", 0⟩, role := .definition, expression := firstWidth },
+                { id := ⟨"formal-marked-widths", 1⟩, role := .definition, expression := secondWidth },
+                { id := ⟨"formal-marked-widths", 2⟩, role := .definition, expression := sameWidth }]
+              let complete ← ContextTelescope.capture (context.bindings ++ bindings)
+              let firstRole ← SourceLayout.ofTerm (← complete.close (source firstWidth))
+              let secondRole ← SourceLayout.ofTerm (← complete.close (source secondWidth))
+              let sameRole ← SourceLayout.ofTerm (← complete.close (source sameWidth))
+              let producing ← RuntimeEnvironment.capture owners.worker complete parameters (some graph)
+              unless producing.values.size == context.bindings.size + bindings.size &&
+                  (producing.values.extract context.bindings.size producing.values.size).all
+                    (·.isNone) do
+                throwError "a formal source width acquired a runtime parameter"
+              let origin ← producing.origin program occurrence firstRole
+              let (graph, formalValue) ← liftM (m := IO) <|
+                graph.stage owners.identities origin (.closure program #[])
+              let environment ← RuntimeEnvironment.capture owners.worker complete parameters (some graph)
+              discard <| environment.checkResult graph firstRole formalValue
+              discard <| environment.checkResult graph sameRole formalValue
+              let failure : Option Exception ← try
+                discard <| environment.checkResult graph secondRole formalValue
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "formal source definitions erased a different marked type supplier"
+              unless (← failure.toMessageData.toString).startsWith
+                  "the runtime value has a different marked source type dependency" do throw failure
+
+
+
+        let plainRole ← SourceLayout.ofTerm (← context.close (source written))
+        let plainOrigin ← consuming.origin program occurrence plainRole
+        let (graph, plain) ← liftM (m := IO) <|
+          graph.stage owners.identities plainOrigin (.closure program #[])
+        withLetDecl `writtenFirst (mkConst ``Nat) firstMark fun writtenFirst =>
+          withLetDecl `writtenSecond (mkConst ``Nat) secondMark fun writtenSecond => do
+            let bindings : Array LocalBinding := #[
+              { id := ⟨"marked-role-context", 0⟩, role := .definition, expression := writtenFirst },
+              { id := ⟨"marked-role-context", 1⟩, role := .definition, expression := writtenSecond }]
+            let complete ← ContextTelescope.capture (context.bindings ++ bindings)
+            let firstRole ← SourceLayout.ofTerm (← complete.close (source firstMark))
+            let secondRole ← SourceLayout.ofTerm (← complete.close (source secondMark))
+            let environment ← RuntimeEnvironment.capture owners.worker complete parameters (some graph)
+            let admitted ← environment.checkResult graph firstRole plain
+            let (observed, _) := (Observation.valueReferenceJson admitted.root).run {}
+            let .ok dependencies := observed.getObjValAs? (Array Json) "sourceDependencies"
+              | throwError "the later role control lost its selected native type dependencies"
+            let .ok retainedParameters := observed.getObjValAs? (Array Json) "sourceParameters"
+              | throwError "the later role control lost its complete typed source parameters"
+            let (secondObserved, _) := (Observation.valueReferenceJson second).run {}
+            unless !dependencies.isEmpty &&
+                retainedParameters.size == complete.bindings.size &&
+                (admitted.root.role.source.context.entries[1]?).any
+                  (·.id == secondBinding.id) &&
+                (retainedParameters[1]?).any (fun parameter =>
+                  parameter.getObjValD "value" == secondObserved.getObjValD "value") do
+              throwError "the later role control lost its selected type or inert original parameter"
+            let .ok same := graph.rebind admitted.root firstRole
+              | throwError "the unchanged marked source role could not be retained"
+            discard <| environment.checkResult graph firstRole same
+            let .ok rebound := graph.rebind admitted.root secondRole
+              | throwError "the existing coarse role rebind could not be prepared"
+            let failure : Option Exception ← try
+              discard <| environment.checkResult graph secondRole rebound
+              pure none
+            catch error => pure (some error)
+            let some failure := failure
+              | throwError "a later role rebind erased an admitted marked type supplier"
+            unless (← failure.toMessageData.toString).startsWith
+                "the runtime value has a different marked source type dependency" do throw failure

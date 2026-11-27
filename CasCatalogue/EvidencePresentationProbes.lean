@@ -4,7 +4,7 @@ import CasCatalogue.Language
 meta import CasCatalogue.Language
 
 open Lean Meta Elab Command Term
-open CasCatalogue CasCatalogue.Language
+open CasCatalogue CasCatalogue.Language CasCatalogue.Evaluation
 
 /- The published evidence receives the supplied carrier, not a stuck categorical projection.
 Its result still inhabits the original admission target; a nonunit remains refused. -/
@@ -36,7 +36,7 @@ run_cmd liftTermElabM do
       let application := mkAppN declaration #[monoid, value]
       let .forallE _ original _ _ ← whnf (← inferType application)
         | throwError "the published admission lost its obligation"
-      let presented ← evidencePresentation state original
+      let presented ← evidencePresentation state.toSemanticState original
       unless presented.getAppFn == original.getAppFn && (← isTypeCorrect presented) &&
           (← withTransparency .all <| isDefEq presented original) do
         throwError "presenting the carrier changed the original predicate or chosen data"

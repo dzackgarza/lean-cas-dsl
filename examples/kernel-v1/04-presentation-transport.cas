@@ -1,0 +1,24 @@
+-- 6. Nonidentity presentation transport, then computation and reverse transport.
+let transport_X := F9x
+
+let transport_Y := F9y
+
+let transport_a := 1 + 2 · generator(transport_X)
+
+let transport_b := map transport_a along F9translation
+
+let transport_square := transport_b · transport_b
+
+let transport_return := map transport_square back along F9translation
+
+test v1.transport.forward "The selected map sends x to y+2, hence 1+2x to 2+2y in characteristic three":
+  assert transport_b = 2 + 2 · generator(transport_Y)
+
+test v1.transport.computed_square "In the target y^2=2y+1, so (2+2y)^2=y+2":
+  assert transport_square = generator(transport_Y) + 2
+
+test v1.transport.computed_return "The inverse of the selected comparison sends y+2 back to x":
+  assert transport_return = generator(transport_X)
+
+test v1.transport.source_square "In the source x^2=2, so (1+2x)^2=x":
+  assert transport_a · transport_a = generator(transport_X)

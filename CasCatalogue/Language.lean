@@ -6,6 +6,8 @@ module
 
 public import CasCatalogue.Semantic
 public import CasCatalogue.Admission
+public import CasCompiler.Syntax
+public import CasCatalogue.Evaluation
 -- The whole pinned semantic release: what the language can say never depends on which leaves are
 -- installed.
 public import LeanCategories.Catalogue
@@ -119,144 +121,6 @@ handles, denotations or decisions exists.
 open Lean Meta Elab Term
 
 namespace CasCatalogue.Language
-
-declare_syntax_cat cas_term
-syntax:max num : cas_term
-/-- A decimal `1.4142`: the fraction `14142/10⁴`. -/
-syntax:max scientific : cas_term
-syntax:max ident : cas_term
-syntax:max (name := casAtom) ("ℤ" <|> "ℕ" <|> "ℚ" <|> "ℝ" <|> "ℂ") : cas_term
-syntax:max "ℵ₀" : cas_term
-syntax:max ident noWs "(" cas_term,* ")" : cas_term
-syntax:max "(" cas_term ")" : cas_term
-syntax:max "|" cas_term "|" : cas_term
-syntax:max cas_term:max noWs "." ident noWs "(" ")" : cas_term
-/-- `f.m(a, …)`: the registered family `m` at `f` (a map, or an element), applied to `a, …`. -/
-syntax:max (name := casCallWith) cas_term:max noWs "." ident noWs "(" cas_term,+ ")" : cas_term
-syntax:75 cas_term:76 " ^ " cas_term:75 : cas_term
-syntax:70 cas_term:70 " / " cas_term:71 : cas_term
-syntax:65 cas_term:65 " × " cas_term:66 : cas_term
-syntax:65 cas_term:65 " ⊔ " cas_term:66 : cas_term
-syntax:80 cas_term:80 " ∘ " cas_term:81 : cas_term
-syntax:65 cas_term:65 " + " cas_term:66 : cas_term
-syntax:65 cas_term:65 " - " cas_term:66 : cas_term
-syntax:70 cas_term:70 " · " cas_term:71 : cas_term
-syntax:75 "-" cas_term:75 : cas_term
-syntax:50 cas_term:51 " in " cas_term:51 : cas_term
-syntax:45 cas_term:46 " ⊆ " cas_term:46 : cas_term
-syntax:45 cas_term:46 " ∈ " cas_term:46 : cas_term
-syntax:35 cas_term:36 " and " cas_term:35 : cas_term
-syntax:45 cas_term:46 " ∉ " cas_term:46 : cas_term
-/-- `a = b`: asserted, a comparison (`assert`); within a term, the predicate `=` into `Ω`. -/
-syntax:45 cas_term:46 " = " cas_term:46 : cas_term
-syntax:45 cas_term:46 " ≤ " cas_term:46 : cas_term
-syntax:45 cas_term:46 " < " cas_term:46 : cas_term
-syntax:65 cas_term:65 " ∪ " cas_term:66 : cas_term
-syntax:70 cas_term:70 " ∩ " cas_term:71 : cas_term
-syntax:65 cas_term:65 " \\ " cas_term:66 : cas_term
-syntax:65 cas_term:65 " △ " cas_term:66 : cas_term
-syntax:max cas_term:max noWs "²" : cas_term
-syntax:max cas_term:max noWs "³" : cas_term
-/-- `2n`, `3x²`: a numeral times a variable (or its square or cube). -/
-syntax:max (name := casScaled) num noWs ident (noWs ("²" <|> "³"))? : cas_term
-/-- `2√2`: a numeral times a square root. -/
-syntax:max (name := casScaledRoot) num noWs "√" noWs cas_term:max : cas_term
-syntax:max "𝒫" noWs "(" cas_term ")" : cas_term
-/-- The set of maps `X → Y`. -/
-syntax:55 cas_term:56 " → " cas_term:55 : cas_term
-/-- The map `t ↦ e`, of the maps `X → Y` of an enclosing `in X → Y`. -/
-syntax:51 ident " ↦ " cas_term:51 : cas_term
-/-- A set literal `{x₁, …, xₙ}`, a subset of an enclosing `𝒫(X)`, else of `𝒫(ℤ)`. -/
-syntax:max "{" cas_term,* "}" : cas_term
-/-- `{a₀, a₁, …, ...}`: the arithmetic progression its numerals begin, `{a₀ + d k | k ∈ ℕ}` with
-`d = a₁ - a₀`; the numerals must have that constant difference. -/
-syntax:max (name := casProgression) "{" sepBy1(cas_term, ", ", ", ", allowTrailingSep) "..." "}" :
-  cas_term
-/-- `2ℕ`: the multiples `{2k | k ∈ ℕ}` of a numeral in a named set. -/
-syntax:max (name := casMultiples) num noWs ("ℤ" <|> "ℕ" <|> "ℚ" <|> "ℝ" <|> "ℂ") : cas_term
-/-- The subset `{t ∈ X | P}` a predicate classifies. -/
-syntax:max "{" ident " ∈ " cas_term " | " cas_term "}" : cas_term
-/-- The image `{e | t ∈ X}` of `t ↦ e`. -/
-syntax:max "{" cas_term " | " ident " ∈ " cas_term "}" : cas_term
-/-- The application of a map to arguments. -/
-syntax:max "(" cas_term ")" noWs "(" cas_term,* ")" : cas_term
-/-- The polynomials `R[x]` over `R` in the variable `x`: `Poly(R)`, whose generator `x` names. -/
-syntax:max (name := casRing) cas_term:max noWs "[" ident "]" : cas_term
-/-- A variable of a polynomial ring in several variables, or `...` between two indexed ones. -/
-declare_syntax_cat cas_var
-syntax ident : cas_var
-syntax "..." : cas_var
-/-- `R[x, y]`, `R[x_0, x_1, ..., x_9]`: the polynomials over `R` in these variables, `MvPoly(n, R)`;
-`...` runs through the indices between its neighbours. -/
-syntax:max (name := casMvRing) cas_term:max noWs "[" ident "," sepBy1(cas_var, ",") "]" : cas_term
-/-- `Spec A`: the registered object `Spec N` of the algebra `A = N(…)`. -/
-syntax:max (name := casSpec) "Spec " cas_term:max : cas_term
-/-- `a is b`: `a = b`. -/
-syntax:45 (name := casIs) cas_term:46 " is " cas_term:46 : cas_term
-/-- `√x`: `sqrt(x)`. -/
-syntax:max "√" noWs cas_term:max : cas_term
-/-- `map p to S[x]`: the registered `map` landing in `S[x]`. (`map` is a keyword of the language:
-a module importing it does not use `map` as a bare identifier.) -/
-syntax:max (name := casMap) "map " cas_term:max " to " cas_term:max : cas_term
-syntax:max (name := casPresentationForward) "map " cas_term:max " along " ident : cas_term
-syntax:max (name := casPresentationBack) "map " cas_term:max " back " "along " ident : cas_term
-/-- Apply the exact registered functor, optionally supplying its declaration's explicit arguments. -/
-syntax:max (name := casFunctorView) "view " cas_term:max " along " ident : cas_term
-syntax:max (name := casFunctorViewArgs) "view " cas_term:max " along " ident
-  "(" sepBy(cas_term, ",") ")" : cas_term
-/-- `(a)x`, `(a)x²`: a parenthesized coefficient times a variable (or its square or cube). -/
-syntax:max (name := casCoefficient) "(" cas_term ")" noWs ident (noWs ("²" <|> "³"))? : cas_term
-/-- `a dx`, `f dx`: juxtaposition, the product in a set both are in, else the registered action
-`•` (a polynomial times a differential). -/
-syntax:70 (name := casActed) cas_term:71 ident : cas_term
-/-- `M * v`: juxtaposition written out. -/
-syntax:70 (name := casTimes) cas_term:70 " * " cas_term:71 : cas_term
-/-- A tuple `(x₁, …, xₙ)`, an element of `Xⁿ`. -/
-syntax:max (name := casTuple) "(" cas_term ", " cas_term,+ ")" : cas_term
-/-- A matrix `[a, b; c, d]`, by its rows. -/
-syntax:max (name := casMatrix) "[" sepBy1(sepBy1(cas_term, ", "), "; ") "]" : cas_term
-/-- `∑_{a ∈ A} e`, `∏_{a ∈ A} e`: over a finite subset `A`. -/
-syntax:60 (name := casBig) ("∑" <|> "∏") "_{" ident " ∈ " cas_term "} " cas_term:60 : cas_term
-/-- `lim_{t → a} e`, `lim_{t → ∞} e`. -/
-syntax:60 (name := casLimit) "lim_{" ident " → " cas_term "} " cas_term:60 : cas_term
-/-- `∞`, the end of `ℝ` a limit may be taken at. -/
-syntax:max (name := casInfinity) "∞" : cas_term
-/-- `∫_{a}^{b} e dt`: the definite integral of `t ↦ e`. -/
-syntax:60 (name := casDefinite) "∫_{" cas_term "}^{" cas_term "} " cas_term:71 ident : cas_term
-/-- The formal power series `R[[t]]` over `R` in the variable `t`. -/
-syntax:max (name := casSeries) cas_term:max noWs "[" noWs "[" ident "]" noWs "]" : cas_term
-/-- `M⁻¹`, and `M⁻¹(v)` applied. -/
-syntax:max (name := casInverse) cas_term:max noWs "⁻¹" (noWs "(" cas_term,* ")")? : cas_term
-/-- `Xˣ`: the units of `X` (the registered `Units`), `Matₙ(K)ˣ = GLₙ(K)`, `Kˣ = K ∖ {0}` for a field. -/
-syntax:max (name := casUnits) cas_term:max noWs "ˣ" : cas_term
-/-- `X ∖ 0`: the registered domain `N∖0` of the nonzero elements of `X = N(…)` (`ℚ[x] ∖ 0`). -/
-syntax:max (name := casNonzero) cas_term:max " ∖ " num : cas_term
-/-- `𝒫_fin(X)`: the finite subsets of `X`. -/
-syntax:max (name := casFiniteSubsets) "𝒫_fin" noWs "(" cas_term ")" : cas_term
-/-- Named domains whose names are not identifiers: `C^∞`, `ℕ⁺`, `ℙ`. -/
-syntax:max (name := casDomainAtom) ("C^∞" <|> "ℕ⁺" <|> "ℙ") : cas_term
-/-- `[tⁿ]f`, `[t^n]f`, `[t]f`: the coefficient of `tⁿ` in a power series. -/
-syntax:max (name := casCoefficientOf) "[" cas_term "]" noWs cas_term:max : cas_term
-/-- `∫ ω`: the primitives of a differential. -/
-syntax:60 (name := casIntegral) "∫ " cas_term:60 : cas_term
-
-/-- A pair `x ↦ y` of a graph literal. -/
-declare_syntax_cat cas_pair
-syntax cas_term:51 " ↦ " cas_term:51 : cas_pair
-syntax:40 "{" cas_pair,* "}" " : " cas_term:51 : cas_term
-
-declare_syntax_cat cas_stmt
-syntax "let " ident " := " cas_term : cas_stmt
-syntax "let " ident " : " cas_term " := " cas_term : cas_stmt
-/-- `let f(t) := e in X → Y`: `let f := t ↦ e in X → Y`. -/
-syntax "let " ident noWs "(" ident ")" " := " cas_term : cas_stmt
-syntax "assert " &"implemented " cas_term : cas_stmt
-syntax "assert " cas_term : cas_stmt
-
-/-- A test item: a statement with its id and the provenance of its expected value. -/
-declare_syntax_cat cas_item
-syntax "test " ident str ": " cas_stmt : cas_item
-syntax cas_stmt : cas_item
 
 /-- The reader's unreduced question tree. Atomic judgements retain their typed operands
 and upstream declarations; logical constructors are retained before any decision. -/
@@ -921,15 +785,6 @@ partial def looseIdentifiers (stx : Syntax) : Array Name :=
         looseIdentifiers domain ++ (looseIdentifiers body).filter (· != bound.getId)
     | _ => if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap looseIdentifiers
 
-/-- `N₂₃` as `N` and `23`. -/
-def subscripted? (s : String) : Option (String × Nat) :=
-  let digits := "₀₁₂₃₄₅₆₇₈₉".toList
-  let chars := s.toList
-  let suffix := (chars.reverse.takeWhile digits.contains).reverse
-  let base := chars.take (chars.length - suffix.length)
-  if suffix.isEmpty || base.isEmpty then none
-  else some (String.ofList base, suffix.foldl (fun n c => 10 * n + digits.idxOf c) 0)
-
 /-- A three-valued decision as a value. -/
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
 
@@ -1021,55 +876,6 @@ def synthesizeInstances (args : Array Expr) (infos : Array BinderInfo) : TermEla
     if let some inst ← synthInstance? type then
       discard <| isDefEq a inst
 
-/-- The heads whose unfolding is the categorical and representational plumbing the kernel builds
-values with (composites, identities, `ofHom`, limit presentations and their mediators, the
-catalogue's definitions, function application of maps), as opposed to the mathematics a value is
-made of (`Polynomial.X`, `Matrix.det`, `Real.exp`, a ring's operations). -/
-def plumbingRoots : List Name :=
-  [`CasCatalogue, `LeanCategories, `CategoryTheory, `TypeCat, `DFunLike, `FunLike, `Function,
-   `id, `Prod.fst, `Prod.snd, `Prod.map, `inferInstance, `inferInstanceAs]
-
-/-- Whether `e`, headed by a plumbing root, is plumbing to unfold. A coercion of a map to a
-function (`DFunLike.coe F x`) is the kernel's plumbing only when `F` is a morphism the kernel
-built (its type is a categorical hom); a ring homomorphism applied to a value (`Int.castRingHom R
-2`, the numeral row's image) is mathematics, kept so that evidence is stated of it rather than of
-`RingHom.toFun` (b0-domain-preservation). -/
-def plumbingApplication (e : Expr) : MetaM Bool := do
-  unless e.isAppOf ``DFunLike.coe do return true
-  let some F := e.getAppArgs[4]? | return true
-  let type ← whnfR (← inferType F)
-  return type.isAppOf ``Quiver.Hom || (type.getAppFn.constName?.map
-    (fun c => [`CategoryTheory, `TypeCat].any (·.isPrefixOf c))).getD false
-
-/-- A value with its plumbing unfolded (`plumbingRoots`), its mathematics kept: `!![1, 2; 3, 4]`
-for a matrix assembled from rows of tuples through product mediators, `X ^ 3 - 2 X + 1` for a
-polynomial assembled by the ring operations of `ℚ[x]`. Definitionally the value it was given
-(every step is an unfolding or a reduction); the caller checks that. -/
-partial def plumbingValue (e : Expr) : MetaM Expr := do
-  let e ← whnfCore e
-  match e with
-  | .lam .. => lambdaTelescope e fun xs body => do mkLambdaFVars xs (← plumbingValue body)
-  | .app .. | .const .. =>
-      let f := e.getAppFn
-      if let .const c _ := f then
-        if plumbingRoots.any (·.isPrefixOf c) && (← plumbingApplication e) then
-          if let some e' ← unfoldDefinition? e then return ← plumbingValue e'
-          if let some e' ← unfoldProjInst? e then return ← plumbingValue e'
-      let args ← e.getAppArgs.mapM fun a => do
-        if (← isProp (← inferType a)) || (← isType a) then pure a else plumbingValue a
-      let e' := mkAppN f args
-      -- A projection may now meet its constructor.
-      let r ← whnfCore e'
-      if r != e' then plumbingValue r else pure e'
-  | _ => pure e
-
-/-- `plumbingValue v`, checked to be `v`: what an obligation is stated of must be the value. -/
-def normalizedValue (v : Expr) : MetaM Expr := do
-  let v' ← plumbingValue v
-  unless ← withTransparency .default (isDefEq v' v) do
-    throwError "the kernel's normal form of {v} is not the value itself"
-  return v'
-
 /-- The function a map of sets built by the kernel is (definitionally): composites are composed
 functions, identities the identity, `ofHom f` is `f`, and a definition of the catalogue is unfolded
 to its value. Anything else is left as the map's action `ConcreteCategory.hom h`. It is what an
@@ -1103,145 +909,6 @@ where
     let .forallE _ domain codomain _ := type | return none
     return some (domain, codomain)
 
-/-- Expose the stored action of a supplied closed categorical map, while preserving registered
-comparison and operation declarations before any value reduction. -/
-def suppliedHomPresentation (state : RegistryState) (p : Expr) : MetaM Expr :=
-  Meta.transform p (post := fun e => do
-    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then
-      return .continue
-    -- Guard the complete supplied object before any value WHNF or projection reduction.
-    let protectedDeclarations := state.presentations.map (·.declaration) ++ state.operations.map (·.declaration)
-    if (e.find? fun part => part.constName?.any protectedDeclarations.contains).isSome then
-      return .continue
-    let originalType ← inferType e
-    let type ← withTransparency .all <| whnf originalType
-    unless type.isAppOf ``TypeCat.Hom do return .continue
-    let bundled ← mkAppM ``TypeCat.Hom.hom #[e]
-    let action ← mkAppM ``TypeCat.Fun.toFun #[bundled]
-    let action ← withTransparency .all <| whnf action
-    let normalized ← mkAppM ``TypeCat.ofHom #[action]
-    if normalized.hasMVar || normalized.hasLevelMVar || normalized.hasFVar || normalized.hasLooseBVars then
-      throwError "closed Hom action retained unresolved data"
-    unless ← isTypeCorrect normalized do throwError "closed Hom action is ill-typed"
-    unless ← withTransparency .all <| isDefEq (← inferType normalized) originalType do
-      throwError "closed Hom action changed its complete type"
-    unless ← withTransparency .all <| isDefEq normalized e do
-      throwError "closed Hom action changed its supplied value"
-    return .done normalized) (skipConstInApp := true)
-
-/-- Expose only supplied closed data presentations. A class dictionary may use the ordinary
-instance presentation only when its complete data are definitionally identical to the supplied
-package. Predicate heads, binders and chosen data remain the same original typed statement. -/
-def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
-  let objectTypes ← IO.mkRef ({} : Std.HashMap Expr Bool)
-  let expose (p : Expr) : MetaM Expr :=
-    Meta.transform p (post := fun e => do
-      if e.hasMVar || e.hasLevelMVar || e.hasFVar || (← isProof e) || (← isProp e) then
-        return .continue
-      let type ← inferType e
-      let classData := (← isClass? type).isSome
-      let carrierAlias := !e.isConst && (← isType e) && !(← isProp e)
-      let mut objectData := false
-      unless classData || carrierAlias do
-        if let some cached := (← objectTypes.get).get? type then
-          objectData := cached
-        else
-          for category in state.categories do
-            if ← withoutModifyingState do
-                try
-                  let family ← instantiateFresh category.declaration
-                  let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
-                  withTransparency .all <| isDefEq expected type
-                catch _ => pure false then
-              objectData := true
-              break
-          unless type.hasMVar || type.hasLevelMVar do
-            objectTypes.modify (·.insert type objectData)
-      if objectData || classData || carrierAlias then
-        let normalized ← if carrierAlias && !objectData && !classData then
-          whnfR e
-        else withTransparency .all <| whnf e
-        unless ← withTransparency .all <| isDefEq normalized e do
-          throwError "a supplied data presentation changed its complete object"
-        return .done normalized
-      return .continue) (skipConstInApp := true)
-  let presented ← expose (← expose p)
-  let presented ← Meta.transform presented (post := fun e => do
-    if e.hasMVar || e.hasLevelMVar || e.hasFVar || (← isProof e) then return .continue
-    let type ← inferType e
-    unless (← isClass? type).isSome do return .continue
-    let candidate? ← withoutModifyingState do
-      try
-        let candidate ← instantiateMVars (← synthInstance type)
-        if candidate.hasMVar || candidate.hasLevelMVar || candidate.hasSorry ||
-            !(← isTypeCorrect candidate) then return none
-        unless ← withTransparency .all <| isDefEq candidate e do return none
-        return some candidate
-      catch _ => return none
-    match candidate? with
-    | none => return .continue
-    | some candidate =>
-        unless ← withTransparency .all <| isDefEq (← inferType candidate) type do
-          throwError "a supplied dictionary presentation changed its complete type"
-        return .done candidate) (skipConstInApp := true)
-  let presented ← Core.betaReduce presented
-  let presented ← suppliedHomPresentation state presented
-  -- Finish only stuck, closed carrier projections after dictionary presentation. Expanding
-  -- all type expressions earlier would also expose the value's function-wrapper dictionaries.
-  let presented ← Meta.transform presented (post := fun e => do
-    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
-    unless (← isType e) && !(← isProp e) do return .continue
-    let reduced ← whnfR e
-    unless reduced.isProj do return .continue
-    -- Reducing a *closed type projection* is elaboration of a supplied carrier,
-    -- not a tactic or a proof procedure.  Do not invoke Lean.Meta.Tactic.Delta:
-    -- that machinery belongs exclusively to the registered evidence runner.
-    let normalized ← withTransparency .all <| whnf reduced
-    unless ← withTransparency .all <| isDefEq normalized e do
-      throwError "presenting the carrier changed its complete type"
-    return .done normalized) (skipConstInApp := true)
-  unless !presented.hasMVar && !presented.hasLevelMVar &&
-      (← isTypeCorrect presented) &&
-      (← withTransparency .all <| isDefEq presented p) do
-    throwError "the evidence presentation is not the original complete target"
-  return presented
-
-/-- The one place the kernel runs a proof procedure it did not write (`CasGates.KernelPurity`,
-`evidenceRunner`): `procedure`, a `meta` procedure `TacticM Unit` of `lean-categories` registered
-there and validated there, a domain's evidence registered with its admission (LC-18) or a literal
-form's evaluation registered with the form, run on the goal `goal`. The result is the goals it
-leaves, or, when it fails or logs an error, why. The kernel names no lemma and no tactic, and runs
-no proof search of its own (`specs/architecture.md`, "What must be impossible"). A failed
-procedure is not recovered into `sorry`, and its attempt leaves no message behind: its failure is
-reported once, by the caller. -/
-def runProcedure (procedure : Name) (goal : MVarId) :
-    TermElabM (Except String (List MVarId)) := do
-  let procedure ← unsafe evalConst (Lean.Elab.Tactic.TacticM Unit) procedure
-  let messages := (← getThe Core.State).messages
-  let restore : TermElabM Unit := modifyThe Core.State fun st => { st with messages }
-  let outcome ← withoutErrToSorry <| Term.withoutErrToSorry do
-    try
-      let remaining ← Term.withSynthesize (postpone := .no) <|
-        Lean.Elab.Tactic.run goal procedure
-      pure (Except.ok remaining : Except String (List MVarId))
-    -- A failed procedure is returned as its failure, which the caller reports.
-    -- not a reading fallback: the failure is returned, never retried
-    catch e => pure (Except.error (← e.toMessageData.toString))
-  let logged := (← getThe Core.State).messages.hasErrors && !messages.hasErrors
-  match outcome with
-  | .error message =>
-      restore
-      return .error message
-  | .ok remaining =>
-      if logged then
-        let errors := (← getThe Core.State).messages.toList.filter (·.severity == .error)
-        let detail ← match errors.getLast? with
-          | some msg => msg.data.toString
-          | none => pure ""
-        restore
-        return .error s!"its proof has a hole: {detail}"
-      return .ok remaining
-
 /-- The evidence of the hypothesis `p` of the admission of a domain (a proposition, `IsUnit x`,
 `Continuous f`, or data with at most one value, `Invertible x`, the inverse an admitted unit
 keeps), established when a statement is read (LC-14) by the domain's registered evidence and by
@@ -1254,9 +921,9 @@ def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr
   let p ← instantiateMVars p
   if p.hasMVar || p.hasLevelMVar then
     throwStratum .invalid m!"{what}: the hypothesis {p} is not determined"
-  let presented ← evidencePresentation (← registryState) p
+  let presented ← Evaluation.evidencePresentation (← semanticState) p
   let goal ← mkFreshExprMVar presented .syntheticOpaque
-  match ← runProcedure evidence goal.mvarId! with
+  match ← Evaluation.runProcedure evidence goal.mvarId! with
   | .error message =>
       let detail := if message.length ≤ 300 then message else
         s!"{message.take 300}\n{String.intercalate "\n" ((message.splitOn "\n").reverse.take 8).reverse}"
@@ -4807,7 +4474,7 @@ partial def admit (D : Value) (v : Value) : M Value := do
   let x ← elabTermEnsuringType carrier (← instantiateMVars (← inferType args[xi]!))
   synthesizeSyntheticMVarsNoPostponing
   -- The value itself, its plumbing unfolded: what its evidence is about.
-  let x ← normalizedValue (← instantiateMVars x)
+  let x ← Evaluation.normalizedValue (← instantiateMVars x)
   unless ← isDefEq args[xi]! x do
     throwStratum .invalid m!"the value is not in the set {entry.name} is included in"
   synthesizeInstances args infos

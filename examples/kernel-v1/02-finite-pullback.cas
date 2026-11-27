@@ -1,0 +1,15 @@
+-- 2. A nontrivial finite-set pullback, reused as a constructed object.
+let pb_f := {0 ↦ 0, 1 ↦ 1, 2 ↦ 1} : (Fin(3) in FiniteSets) → (Fin(2) in FiniteSets)
+
+let pb_g := {0 ↦ 1, 1 ↦ 0} : (Fin(2) in FiniteSets) → (Fin(2) in FiniteSets)
+
+let pb_P := pullback(pb_f, pb_g)
+
+test v1.finite.pullback "The pullback consists of (0,1),(1,0),(2,0), with both coordinate projections":
+  assert |pb_P| = 3
+
+let pb_square := pb_P × pb_P in Sets
+
+test v1.finite.result_reuse "The product of the retained three-element pullback with itself has nine elements":
+  assert |pb_square| = 9
+
