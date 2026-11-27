@@ -151,17 +151,30 @@ script «feedback-context» do
   return 0
 
 
+def feedbackCommandFields (command : IO.Process.SpawnArgs) :
+    IO (List (String × Lean.Json)) := do
+  match command.stdin, command.stdout, command.stderr with
+  | .inherit, .inherit, .inherit => pure ()
+  | _, _, _ => throw <| IO.userError "prepared Lean command requires inherited standard streams"
+  if command.cwd.isSome || !command.inheritEnv || command.setsid then
+    throw <| IO.userError
+      "prepared Lean command requires the current directory, environment and process group"
+  return [("cmd", Lean.toJson command.cmd), ("args", Lean.toJson command.args),
+    ("env", Lean.toJson command.env)]
+
+
 script «feedback-lean» args do
-  let source :: moreArgs := args
-    | throw <| IO.userError "usage: lake run feedback-lean SOURCE [LEAN-ARG ...]"
+  let [source, commandFile] := args
+    | throw <| IO.userError "usage: lake run feedback-lean SOURCE COMMAND-FILE"
   let workspace ← getWorkspace
   let command ← workspace.runBuild <|
-    Lake.prepareLeanCommand (System.FilePath.mk source) moreArgs.toArray
-  let helper := workspace.root.dir / "scripts" / "feedback_records.py"
-  let child ← IO.Process.spawn { command with
-    cmd := "python3"
-    args := #["-S", helper.toString, "execute-lean", command.cmd] ++ command.args }
-  return ← child.wait
+    Lake.prepareLeanCommand (System.FilePath.mk source) #[]
+  let output := System.FilePath.mk commandFile
+  let temporary := output.withExtension "pending.json"
+  IO.FS.writeFile temporary <|
+    (Lean.Json.mkObj (← feedbackCommandFields command)).compress ++ "\n"
+  IO.FS.rename temporary output
+  return 0
 
 
 target «feedback-worker-commands» _pkg : System.FilePath := do
@@ -185,18 +198,10 @@ target «feedback-worker-commands» _pkg : System.FilePath := do
     let contents ← IO.FS.readFile source
     let prepared ← Lake.prepareLeanCommand source #["-DstderrAsMessages=false"]
     prepared.mapM (sync := true) fun command => do
-      match command.stdin, command.stdout, command.stderr with
-      | .inherit, .inherit, .inherit => pure ()
-      | _, _, _ => error "prepared worker requires inherited standard streams"
-      if command.cwd.isSome || !command.inheritEnv || command.setsid then
-        error "prepared worker requires the current directory, environment and process group"
-      return Lean.Json.mkObj [
+      return Lean.Json.mkObj <| [
         ("worker", Lean.toJson worker),
         ("source", Lean.toJson source.toString),
-        ("contents", Lean.toJson contents),
-        ("cmd", Lean.toJson command.cmd),
-        ("args", Lean.toJson command.args),
-        ("env", Lean.toJson command.env)]
+        ("contents", Lean.toJson contents)] ++ (← feedbackCommandFields command)
   (Lake.Job.collectArray jobs).mapM (sync := true) fun commands => do
     let output := run / "prepared-workers.json"
     let temporary := run / "prepared-workers.pending.json"

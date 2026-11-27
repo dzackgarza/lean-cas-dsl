@@ -931,3 +931,74 @@ Native source and advisory-operation references:
 
 The original normal five-case gate, repeated three times, remains the check of
 this remedy. The component measurements do not replace it.
+
+### Read-ahead recheck and native probe handoff
+
+The original normal five-case command was repeated three times at
+e256b14908ba29d99cbb62815b46deec854acf4d. All assertions passed:
+
+| Run | Outer seconds | Unittest seconds | Result |
+| --- | ---: | ---: | --- |
+| 1 | 520.5485467547551 | 515.458 | 5/5 pass |
+| 2 | 418.8737179939635 | 413.851 | 5/5 pass |
+| 3 | 449.6257436098531 | 445.268 | 5/5 pass |
+
+The 449.6257436098531 s median is above 300 s and differs from the preceding
+451.8845957107842 s median by less than the observed spread. Read-ahead has
+not established a whole-check gain and is removed. The exact commands, outputs
+and results remain in timing/logs/t359-gates-e256b14/.
+
+The fresh Step 4 partition uses the complete third run, not the earlier
+first-run ordering. normal-gate3-phase-partition.json in that directory
+reconciles its disjoint intervals exactly; normal-gate1-phase-partition.json
+retains the different first-run partition. Rounded third-run values follow.
+
+| Operation or interval | Cost per call | Actual multiplier | Aggregate seconds | Priority and remedy | Remaining measured cost |
+| --- | --- | ---: | ---: | --- | --- |
+| Empty-selection and missing-input public probes | 107.979 / 110.613 s | Two complete cases | 218.592 | First, minutes, area E: prepare the exact native command once, then retire Lake before Lean runs. Whole cases include preparation and execution. | Pending unchanged normal trio |
+| Parent and child preparation | Aggregate / 4 | Four windows | 52.468 | Preserve current identity and dependency capture. | Unchanged |
+| Original file execution | Aggregate / 2 | Two files | 48.248 | Preserve original statements, dispatch, admission and outcomes. | Unchanged |
+| Explicit native builds | Aggregate / 4 | Four commands | 47.690 | Preserve current native jobs. | Unchanged |
+| Worker entry to Session setup | 14.328 / 25.953 s | Two workers | 40.281 | Already runs after the build Lake exits; preserve current source checks and native setup. | Unchanged |
+| Remaining wrapper, finalization and unassigned intervals | Not isolated | Disjoint residual | 27.275 | No causal assignment from this residual. | Unchanged |
+| Changed-extension rejection | 15.072 s | One whole case | 15.072 | Preserve its before-execution failure. | Unchanged |
+| **Complete check** | | | **449.626** | | |
+
+A read-only process observation during a probe found its live native Lake
+parent at 819,380 KiB RSS. This is not a measurement of exclusively reclaimable
+physical memory: mappings can be shared. The native prepare/spawn/wait path
+nevertheless retains that process while Lean executes. The one-use handoff
+removes this overlap; its timing benefit remains to be measured.
+
+The existing stdlib helper now invokes one prepare-only Lake script with
+inherited streams, directory, environment and process group. Lake uses the
+same runBuild/prepareLeanCommand job, validates the existing inherited
+SpawnArgs defaults, and atomically writes its exact executable, arguments and
+ordered environment overlay into a private temporary command transport. The
+helper waits for Lake to exit successfully before consuming that command.
+A signaled preparation child retains native wait-status convention, 128 plus
+the signal number. The transport directory is removed before the helper
+restores the existing signal defaults and execs the native command. The
+native setup file remains alive. No workspace, prepared command or execution
+result is cached across invocations.
+
+The worker target and probe share the same native command serialization and
+exec owner. Acceptance context, source-path and source-byte checks remain.
+The whole preparation and execution stays inside the unchanged public probe
+and unittest timing boundaries. Native setup contents, original consumers,
+tests, extension inputs, peer protocol and assertions are unchanged.
+
+The implicit-core investigation is retained separately and is not implemented
+by this remedy. Read-only mid-import mappings are summarized in
+implicit-core-mapping-summary.json; the last sample has 1,160,640 KiB of
+private interface mappings but only 60,512 KiB RSS in those mappings. These
+are not completed-import totals or per-file fault attribution. The observed
+PID's lifetime counters can also include its Python prelude before exec.
+Pinned Environment.lean eagerly maps all available interface parts when a
+module is absent from importArts; the explicit 3,941-entry setup therefore
+does not describe every loaded core artifact. The native API, visibility and
+shadowing constraints are retained in builtin-artifact-api-audit.json.
+No source import or private artifact is removed on the basis of mapping size.
+
+T359 remains open until the same original five-case check has a complete
+three-run median at most 300 s and the full feedback regression passes.

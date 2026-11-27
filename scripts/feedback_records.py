@@ -321,18 +321,28 @@ def step_start(argv: list[str]) -> None:
     append_record(run / "events.jsonl", record)
 
 
-def execute_lean(command: list[str], environment: dict[str, str]) -> None:
-    setup = read_json(Path(command[command.index("--setup") + 1]))
-    for parts in setup["importArts"].values():
-        for group in parts:
-            for path in group:
-                with open(path, "rb") as artifact:
-                    os.posix_fadvise(artifact.fileno(), 0, 0, os.POSIX_FADV_WILLNEED)
+def execute_lean(command: dict) -> None:
+    environment = os.environ.copy()
+    for key, value in command["env"]:
+        if value is None:
+            environment.pop(key, None)
+        else:
+            environment[key] = value
     for name in ("SIGPIPE", "SIGXFZ", "SIGXFSZ"):
         signum = getattr(signal, name, None)
         if signum is not None:
             signal.signal(signum, signal.SIG_DFL)
-    os.execvpe(command[0], command, environment)
+    os.execvpe(command["cmd"], [command["cmd"], *command["args"]], environment)
+
+
+def execute_probe(argv: list[str]) -> None:
+    with tempfile.TemporaryDirectory(prefix="lean-cas-probe-") as temporary:
+        output = Path(temporary) / "command.json"
+        result = subprocess.run(["lake", "run", "feedback-lean", argv[1], str(output)])
+        if result.returncode:
+            raise SystemExit(result.returncode if result.returncode > 0 else 128 - result.returncode)
+        command = read_json(output)
+    execute_lean(command)
 
 
 def execute_prepared(argv: list[str]) -> None:
@@ -345,13 +355,7 @@ def execute_prepared(argv: list[str]) -> None:
             or command["source"] != str(source)
             or command["contents"].encode("utf-8") != source.read_bytes()):
         raise ValueError("prepared worker does not match its current context and source")
-    environment = os.environ.copy()
-    for key, value in command["env"]:
-        if value is None:
-            environment.pop(key, None)
-        else:
-            environment[key] = value
-    execute_lean([command["cmd"], *command["args"]], environment)
+    execute_lean(command)
 
 
 def step_finish(argv: list[str]) -> None:
@@ -1025,8 +1029,8 @@ if __name__ == "__main__":
         step_start(arguments)
     elif command == "execute-prepared":
         execute_prepared(arguments)
-    elif command == "execute-lean":
-        execute_lean(arguments[1:], os.environ.copy())
+    elif command == "probe":
+        execute_probe(arguments)
     elif command == "step-finish":
         step_finish(arguments)
     elif command == "finish":
