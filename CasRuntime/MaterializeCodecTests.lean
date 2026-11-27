@@ -12,9 +12,9 @@ namespace CasRuntime.MaterializeCodecTests
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
--- The ordinary scope parser and native materializer consume exact complete packets.
--- The supplying process returns only a diagnostic handle; no mathematical implementation
--- or graph evaluator participates in these representation and ownership controls.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let owners ← OwnerRegistry.new
   let kernel ← Kernel.load owners none none 5000
@@ -47,28 +47,38 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let typedMap := fun left right callable => node "typedMap" #[left, right, callable]
     let makeRequest (actualTarget : ValueBinding) (plainFunction : Bool := false) :
         MetaM PreparedRequest := do
-      let sourceType ← markValue kernel.marks source native
-      let targetType ← markValue kernel.marks actualTarget native
-      let function := mkLambda `point .default sourceType (.bvar 0)
-      let arrow ← if plainFunction then
-          pure (mkLambda `point .default sourceType (mkNatLit 0))
-        else mkAppOptM ``TypeCat.ofHom #[some sourceType, some targetType, some function]
-      check arrow
-      let functionRole ← SourceLayout.ofTerm (← context.close
-        (mkLambda `ignored .default (mkConst ``Nat) arrow))
-      let scalarRole ← SourceLayout.ofTerm (← context.close (mkNatLit 0))
       let occurrence ← kernel.ledger.allocate
-      let sourceMarks := (← kernel.marks.get).mapIdx fun index value => (index, value)
+      let scalarRole ← SourceLayout.ofTerm (← context.close (mkNatLit 0))
       let dummy ← transaction.stage
         { program, occurrence, role := scalarRole, parameters := #[] } (.portable "0".toUTF8)
-      let function ← transaction.stage
-        { program, occurrence, role := functionRole, parameters := #[], sourceMarks }
-        (.closure program #[source, actualTarget])
+      let originalFunction := mkLambda `point .default native (.bvar 0)
+      let original ← if plainFunction then
+          pure (mkLambda `endpoint .default (mkSort (.succ .zero))
+            (mkLambda `point .default (.bvar 0) (mkNatLit 0)))
+        else pure (← mkAppOptM ``TypeCat.ofHom
+          #[some native, some native, some originalFunction]).getAppFn
+      let originalArguments := if plainFunction then #[native]
+        else #[native, native, originalFunction]
+      let functionRole ← SourceLayout.ofTerm (← context.close originalFunction)
+      let functionValue ← transaction.stage
+        { program, occurrence, role := functionRole, parameters := #[] } (.closure program #[])
+      let values := if plainFunction then #[some source]
+        else #[some source, some actualTarget, some functionValue]
       let graph ← transaction.view
-      let .ok argument := RuntimeArgument.ofValue graph 0 dummy (← kernel.marks.get)
-        | throwError "the materializer control lost its original source argument"
-      PreparedRequest.forApplication owners.identities program occurrence context function
-        #[scalarRole.source] #[argument] #[] (some graph) sourceMarks
+      withApplicationInputs owners.identities context {} original originalArguments values
+          fun context bound arguments => do
+        let arrow := (mkAppN original arguments).headBeta
+        check arrow
+        let functionRole ← SourceLayout.ofTerm (← context.close
+          (mkLambda `ignored .default (mkConst ``Nat) arrow))
+        let environment ← RuntimeEnvironment.captureBound owners.worker context bound graph
+        let function ← transaction.stage (← environment.origin program occurrence functionRole)
+          (.closure program (values.filterMap id))
+        let graph ← transaction.view
+        let .ok argument := RuntimeArgument.ofValue graph 0 dummy
+          | throwError "the materializer control lost its original source argument"
+        PreparedRequest.forApplication owners.identities program occurrence context function
+          #[scalarRole.source] #[argument] #[] (some graph)
     let runCase (label : String) (packet : Json) (valid : Bool)
         (owned : Bool := false) (identityTarget : Bool := false)
         (symbolicExpected : Option Bool := none)
@@ -93,7 +103,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let check : PreparedSymbolicCheck := fun graph nodes => do
         symbolicReached.set true
         preparedSymbolicCheck kernel request transaction graph nodes
-      let codec ← PreparedResultCodec.forMap request graph source actualTarget (← kernel.marks.get)
+      let codec ← PreparedResultCodec.forMap request graph source actualTarget
         none (some carrier) none #[] (some check)
       let selected : DispatchIdentity := {
         manifestDigest := "materialize-codec", profileDigest := "materialize-codec",
@@ -157,10 +167,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       finally
         scope.retire
         discard <| kernel.ledger.retire reservation
-    -- A plain function has the authenticated finite source but a closed scalar codomain
-    -- with no runtime object supplier. Its domain still constrains every finite graph.
-    -- Complete passive data re-encodes for the next declared consumer and receives no
-    -- graph evaluator or fabricated direct continuation. Owned data keeps the old export.
+
+
+
+
     let runNativeCase (packet : Json) (valid : Bool) (owned : Bool := false) : MetaM Unit := do
       let request ← makeRequest target true
       unless request.source.kind == .function do
@@ -237,8 +247,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     runCase "late middle inventory" (typedMap (scopeRef 0) (scopeRef 1)
       (node "compose" #[wrongMiddle, typedMap (scopeRef 0) (scopeRef 1) identityPoints])) false
     let opaqueCallable := (ComputationalValue.opaque token).encode
-    -- Repeated original references share an endpoint; equal opaque bytes at two fresh
-    -- reply positions do not. The negative must stop before the native symbolic checker.
+
+
     runCase "shared retained middle" (typedMap (scopeRef 0) (scopeRef 1)
       (node "compose" #[
         typedMap (scopeRef 0) (scopeRef 0) opaqueCallable,

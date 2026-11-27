@@ -4,11 +4,13 @@ import CasRuntime.Materialize
 import CasRuntime.Transport
 import CasRuntime.Execute
 import CasRuntime.Encode
+import CasRuntime.ExecutionContext
 public meta import Lean.Elab.Command
 meta import CasRuntime.Materialize
 meta import CasRuntime.Transport
 meta import CasRuntime.Execute
 meta import CasRuntime.Encode
+meta import CasRuntime.ExecutionContext
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
@@ -33,7 +35,7 @@ private def checkStoredProjection (ledger : OccurrenceLedger) (transaction : Cel
     throwError "stateful projection changed the reused field or its consuming associations"
   return projected.root
 
--- The public SDK echoes packets and exports a stored diagnostic callable; it computes no mathematics.
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -175,15 +177,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       reuseWhole response.root
       let productOccurrence ← liftM (m := BaseIO) ledger.allocate
       let product ← liftM (m := IO) <| transaction.stage
-        { program, occurrence := productOccurrence, role := request.source, parameters := #[] }
+        { request.origin with occurrence := productOccurrence }
         (.product #[first, second])
       reuseWhole product
-      let (selectedField, selectedSource, retainedMarks) ← do
-        let projected ← checkStoredProjection ledger transaction program context response.root 0 selectedField
-        let marks ← liftM (m := IO) <| IO.mkRef (#[] : Array ValueBinding)
-        let parent ← markValue marks response.root (← request.source.source.inContext context)
-        let source ← context.close (← mkAppM ``Prod.fst #[parent])
-        pure (projected, source, ← liftM (m := IO) marks.get)
+      let selectedField ← checkStoredProjection ledger transaction program context
+        response.root 0 selectedField
       let aliasOccurrence ← liftM (m := BaseIO) ledger.allocate
       let identity ← mkAppOptM ``id #[some (mkConst ``Nat)]
       let identityRole ← SourceLayout.ofTerm (← context.close identity)
@@ -191,10 +189,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence := aliasOccurrence, role := identityRole, parameters := #[] }
         (.closure program #[])
       let graph ← liftM (m := IO) transaction.view
-      let .ok actualAlias := RuntimeArgument.ofValue graph 0 selectedField retainedMarks
+      let .ok actualAlias := RuntimeArgument.ofValue graph 0 selectedField
         | throwError "the existing scalar input is outside its graph"
-      let aliasRequest ← PreparedRequest.forApplication owners.identities program aliasOccurrence context identity
-        #[selectedSource] #[actualAlias] #[]
+      let aliasRequest ← withBindingContext graph context {} response.root fun context bound => do
+        let parent ← request.source.source.inContext context
+        withBoundValue owners.identities context bound parent response.root fun context bound parent => do
+          let selectedSource ← context.close (← mkAppM ``Prod.fst #[parent])
+          let parameters ← bound.toArray.mapM fun (id, value) =>
+            IO.ofExcept <| (RuntimeParameter.ofValue graph id value).mapError IO.userError
+          PreparedRequest.forApplication owners.identities program aliasOccurrence context identity
+            #[selectedSource] #[actualAlias] parameters (some graph)
       let .ok aliasReservation ← liftM (m := BaseIO) <|
         transaction.reserve aliasOccurrence selected wire.connection #[selectedField]
         | throwError "the returned-reference control could not reserve"
@@ -217,10 +221,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         fun _ _ => throwError "a completed reference-only reply reached external execution"
       let retained ← Execute.run retainAlias
         (PFunctor.FreeM.lift (P := OperationalSignature) aliasRequest) transaction
-      unless retained.root.value == scalar.value &&
-          (← retained.root.role.source.inContext context) ==
-            (← aliasRequest.source.source.inContext context) do
-        throwError "native execution changed the returned reference or its consuming source role"
+      aliasRequest.environment.withContext context {} fun context _ => do
+        unless retained.root.value == scalar.value &&
+            (← retained.root.role.source.inContext context) ==
+              (← aliasRequest.source.source.inContext context) do
+          throwError "native execution changed the returned reference or its consuming source role"
       let badOccurrence ← liftM (m := BaseIO) ledger.allocate
       let badRequest ← prepare pair badOccurrence
       let boolRole ← SourceLayout.ofTerm (← context.close (mkConst ``Bool.true))

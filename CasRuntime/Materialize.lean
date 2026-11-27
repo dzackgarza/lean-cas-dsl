@@ -16,7 +16,7 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue.Backend
 
-/-- The released complete record packet, including single-data-field collapse. -/
+
 private def recordReplyPositions (count : Nat) (value : Json) :
     MetaM (Array (Array InputPathStep × Json)) := do
   if count == 1 then return #[(#[], value)]
@@ -26,9 +26,9 @@ private def recordReplyPositions (count : Nat) (value : Json) :
     throwError "the reply record has a different prepared data-field arity"
   return values.mapIdx fun index value => (#[.index index], value)
 
-/-- Resolve fixed source inputs before taking an isolated draft. Inline positions follow the
-same record/envelope grammar as materialization; references reuse stored-field preflight.
-Reuse: resolveFixedResults, fixedInputFor and prepared native result projection paths. -/
+
+
+
 private partial def preflightFixedResults (reply : ImmediateReply) (request : PreparedRequest)
     (transaction : CellTransaction) (resolve : Option (FixedInput → MetaM ValueBinding))
     (source : SourceLayout) (value : Json) (path : Array InputPathStep)
@@ -62,8 +62,8 @@ private partial def preflightFixedResults (reply : ImmediateReply) (request : Pr
       position.2 (path ++ position.1))
   return fixed
 
-/-- Original packet positions are joined only by an explicit callable relationship.
-Equal packets never select an existing value or a different native endpoint. -/
+
+
 private structure CallableEndpoint where
   parent : Nat
   binding : Option ValueBinding := none
@@ -84,10 +84,9 @@ private structure CallableTree where
 private structure CallableFrame where
   native : SourceLayout
   environment : RuntimeEnvironment
-  marks : Array ValueBinding := #[]
   operands : Array PreparedMapOperand := #[]
   fieldPrefix : Option NativeFieldPrefix := none
-  /-- Structured maps require their actual source object's supplied inventory. -/
+
   structured : Bool := false
 
 private def callableRoot (tree : CallableTree) (index : Nat) : Except String Nat := do
@@ -129,9 +128,9 @@ private def requireCallableEndpoint (reply : ImmediateReply) (graph : ValueGraph
       (reply.retainsValue graph connection value path expected).mapError IO.userError do
     throwError "the map changed its independently retained complete endpoint data"
 
-/-- Compare two explicitly corresponding endpoint positions. References preserve exact
-node/view identity even when their portable data happen to be equal. A literal counterpart
-is checked only after the original referenced endpoint has already been selected. -/
+
+
+
 private partial def sameCallableEndpointPacket (reply : ImmediateReply) (graph : ValueGraph)
     (connection : Connection) (first : Json) (firstPath : Array InputPathStep)
     (second : Json) (secondPath : Array InputPathStep) : MetaM Unit := do
@@ -244,8 +243,8 @@ private def readCallableEndpoint (tree : CallableTree)
     | throwError "the symbolic callable lost an original endpoint position"
   return endpoint.binding.map PreparedSymbolicEndpoint.value |>.getD (.inline position)
 
-/-- A composition may expose the middle endpoint's inventory after its first graph was
-parsed. Recheck every finite packet against the final explicit endpoint relationships. -/
+
+
 private def checkFiniteCallableTree (reply : ImmediateReply) (tree : IO.Ref CallableTree)
     (graph : ValueGraph) : MetaM Unit := do
   for retained in (← tree.get).finite do
@@ -256,8 +255,8 @@ private def checkFiniteCallableTree (reply : ImmediateReply) (tree : IO.Ref Call
     discard <| IO.ofExcept <| (CallablePacket.finiteWith retained.value domain target
       fun value relative => reply.callableDatum graph value (retained.path ++ relative)).mapError IO.userError
 
-/-- One source check sees the complete tree, including nested action routes, and the final
-isolated draft graph. No partial symbolic subtree is independently installed or trusted. -/
+
+
 private def checkCallableTree (tree : IO.Ref CallableTree) (graph : ValueGraph)
     (check : Option PreparedSymbolicCheck) : MetaM Unit := do
   let tree ← tree.get
@@ -284,16 +283,17 @@ private def callableReferenceEndpoints (request : PreparedRequest) (frame : Call
       original.binding.value == binding.value &&
         original.binding.associationIds == binding.associationIds) then
     return (draft, original.source, original.target)
-  let some node := draft.view.find binding.value
-    | throwError "a symbolic map operand is outside its actual draft graph"
-  let environment ← frame.environment.withSourceMarks binding.sourceMarks (some draft.view)
-  let environment ← environment.withSourceMarks node.origin.sourceMarks (some draft.view)
-  let (draft, prepared) ← PreparedMapResult.fromNative request environment binding.role supply
-    draft frame.marks
-  return (draft, prepared.source, prepared.target)
+  frame.environment.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    withNativeInterface supply draft.view context frame.environment.bound
+        (← frame.environment.selections.inContext context) binding fun context bound selections _ => do
+      let environment ← RuntimeEnvironment.captureBound frame.environment.worker context bound
+        draft.view (some frame.environment) selections
+      let (draft, prepared) ← PreparedMapResult.fromNative request environment binding.nativeRole supply draft
+      return (draft, prepared.source, prepared.target)
 
-/-- Parse only released callable framing. The tree retains original scoped operands and
-typed endpoint positions; finite tables and symbolic maps are never applied here. -/
+
+
 private partial def collectCallable (reply : ImmediateReply) (request : PreparedRequest)
     (connection : Connection) (supply : IdentitySupply) (frame : CallableFrame)
     (tree : IO.Ref CallableTree) (value : Json) (path : Array InputPathStep)
@@ -301,7 +301,7 @@ private partial def collectCallable (reply : ImmediateReply) (request : Prepared
     (draft : CellDraft) (current : Option (SourceLayout × Option NativeFieldPrefix) := none) :
     MetaM (CellDraft × CallablePacket × Nat × Nat × Option ValueBinding) := do
   if let some reference := reply.references.find? (·.path == path) then
-    if reference.binding.role.kind == .function then
+    if reference.binding.nativeRole.kind == .function then
       if let some (current, nativePrefix) := current then
         let retained ← match nativePrefix with
           | some nativePrefix => do
@@ -440,8 +440,8 @@ private def stageNativeResult (source : SourceLayout) (environment : RuntimeEnvi
       pure candidate.root
   return (draft, binding)
 
-/-- Native slots replace only their own packet subtree. Endpoint and parameter references
-outside those slots remain exact original references, including their owning exports. -/
+
+
 private def completeNativeContainer (original : ValueContainer)
     (slots : Array ContainerSlot) (fields : Array ValueBinding) : MetaM ValuePayload := do
   let retained := original.slots.filter fun original =>
@@ -463,8 +463,8 @@ private partial def atomicCallableExport? (value : Json) : MetaM (Option String)
     return some token
   | _ => pure none
 
-/-- Stage admitted callable data at this exact native function/map position. Optional native
-code receives the original complete map and the current draft graph; no graph is evaluated. -/
+
+
 private def materializeCallable (reply : ImmediateReply) (request : PreparedRequest)
     (connection : Connection) (supply : IdentitySupply) (tree : IO.Ref CallableTree)
     (source : SourceLayout) (environment : RuntimeEnvironment) (origin : ValueOrigin)
@@ -489,7 +489,7 @@ private def materializeCallable (reply : ImmediateReply) (request : PreparedRequ
     callable := some binding
   else if source.kind == .function then
     if let some retained := retained then
-      if retained.role.kind == .function then
+      if retained.nativeRole.kind == .function then
         let retained ← match fieldPrefix with
           | some nativePrefix => do
             let candidate ← nativePrefix.checkResult environment draft.view retained
@@ -517,21 +517,21 @@ private structure NativeCallableCarrier where
   original : ValueContainer
   endpoints : Nat × Nat
 
-/-- Each independently supplied endpoint constrains this function even when the other
-endpoint has no runtime supplier. The source helper distinguishes genuine absence from
-an invalid retained supplier; a failed native check never enables self-inventory fallback. -/
+
+
+
 private def materializeNativeFunction (reply : ImmediateReply) (request : PreparedRequest)
     (connection : Connection) (supply : IdentitySupply) (tree : IO.Ref CallableTree)
     (source : SourceLayout) (environment : RuntimeEnvironment) (origin : ValueOrigin)
     (value : Json) (path : Array InputPathStep) (draft : CellDraft)
-    (marks : Array ValueBinding) (fieldPrefix : Option NativeFieldPrefix) :
+    (fieldPrefix : Option NativeFieldPrefix) :
     MetaM (CellDraft × ValueBinding) := do
-  let (draft, domain, target) ← nativeFunctionEndpoints? request environment source supply draft marks
+  let (draft, domain, target) ← nativeFunctionEndpoints? request environment source supply draft
     (fieldPrefix := fieldPrefix)
   let sourceEndpoint ← newCallableEndpoint tree domain
   let targetEndpoint ← newCallableEndpoint tree target
   let frame : CallableFrame := {
-    native := source, environment := environment, marks := marks,
+    native := source, environment := environment,
     fieldPrefix := fieldPrefix, structured := domain.isSome }
   materializeCallable reply request connection supply tree source environment origin frame
     (some (sourceEndpoint, targetEndpoint)) value path draft none none fieldPrefix
@@ -552,29 +552,28 @@ private def sourceHasMapInterface (source : SourceLayout) : MetaM Bool :=
 
 private def fieldMapCodec (request : PreparedRequest) (source : SourceLayout)
     (environment : RuntimeEnvironment) (supply : IdentitySupply) (draft : CellDraft)
-    (marks : Array ValueBinding) (check : Option PreparedSymbolicCheck)
+    (check : Option PreparedSymbolicCheck)
     (category : Option (CasCatalogue.CategoryExpr × ClosedTerm))
     (fieldPrefix : Option NativeFieldPrefix) :
     MetaM (CellDraft × PreparedMapResult) := do
-  let (draft, codec) ← PreparedMapResult.fromNative request environment source supply draft marks check
+  let (draft, codec) ← PreparedMapResult.fromNative request environment source supply draft check
     (fieldPrefix := fieldPrefix)
   let some (category, bundle) := category | return (draft, codec)
   let path ← NativePointPath.prepare source category bundle
   let codec ← PreparedMapResult.forSource environment source draft.view codec.source codec.target
-    marks none (some path) none #[] check (fieldPrefix := fieldPrefix)
+    none (some path) none #[] check (fieldPrefix := fieldPrefix)
   return (draft, codec)
 
 mutual
 
-/-- The original native role and complete environment control every recursive field. The
-optional carrier is restricted to its sealed exact path; all other Hom fields obtain their
-own independently supplied endpoints, and plain functions cannot borrow the root inventory. -/
+
+
+
 private partial def materializeNativeValue (reply : ImmediateReply) (request : PreparedRequest)
     (connection : Connection) (supply : IdentitySupply) (tree : IO.Ref CallableTree)
     (source : SourceLayout) (environment : RuntimeEnvironment) (origin : ValueOrigin)
     (value : Json) (path : Array InputPathStep) (draft : CellDraft)
     (fixed : Option (Array FixedResult)) (check : Option PreparedSymbolicCheck)
-    (marks : Array ValueBinding := #[])
     (category : Option (CasCatalogue.CategoryExpr × ClosedTerm) := none)
     (carrier : Option NativeCallableCarrier := none)
     (originalRoot : Option (ValueContainer × Array InputPathStep) := none)
@@ -597,13 +596,13 @@ private partial def materializeNativeValue (reply : ImmediateReply) (request : P
         throwError "the selected native carrier ceased to be a function"
       let frame : CallableFrame := {
         native := carrier.codec.native, environment := carrier.codec.environment,
-        marks := carrier.codec.marks, operands := carrier.codec.operands, structured := true,
+        operands := carrier.codec.operands, structured := true,
         fieldPrefix := carrier.codec.fieldPrefix }
       return ← materializeCallable reply request connection supply tree source environment origin
         frame (some carrier.endpoints) value path draft carrier.codec.makeCallable
           (some carrier.original) fieldPrefix
-  -- A selected carrier's data belong at that function field. Its native record ancestors
-  -- still retain their complete packet, even when the callable itself is a token or reference.
+
+
   if carrier.isNone then
     if let some reference := reply.references.find? (·.path == path) then
       let retained ← match fieldPrefix with
@@ -619,14 +618,14 @@ private partial def materializeNativeValue (reply : ImmediateReply) (request : P
   let tag := (value.getObjValAs? String "ctor").toOption
   if source.kind == .function && tag != some "opaqueData" then
     return ← materializeNativeFunction reply request connection supply tree source environment origin
-      value path draft marks fieldPrefix
+      value path draft fieldPrefix
   if tag == some "valueData" || (tag == some "opaqueData" && carrier.isNone) then
     let .ok envelope := ComputationalValue.decode value
       | throwError "the parsed native result lost its computational value envelope"
     match envelope with
     | .inline data =>
       return ← materializeNativeValue reply request connection supply tree source environment origin
-        data (path ++ #[.field "args", .index 0]) draft fixed check marks category carrier originalRoot fieldPrefix
+        data (path ++ #[.field "args", .index 0]) draft fixed check category carrier originalRoot fieldPrefix
     | .opaque token =>
       let some declaration := reply.exports.find? (·.token == token)
         | throwError "the parsed native result lost its original export declaration"
@@ -636,7 +635,7 @@ private partial def materializeNativeValue (reply : ImmediateReply) (request : P
         (.ownedExport connection token declaration.captures) fieldPrefix
   let nativeHom ← if carrier.isNone then sourceHasMapInterface source else pure false
   if carrier.isNone && nativeHom then
-    let (draft, codec) ← fieldMapCodec request source environment supply draft marks check
+    let (draft, codec) ← fieldMapCodec request source environment supply draft check
       category fieldPrefix
     return ← materializeNativeMap reply request connection supply tree source environment origin
       codec value path draft fixed check fieldPrefix
@@ -645,7 +644,7 @@ private partial def materializeNativeValue (reply : ImmediateReply) (request : P
   | .proof => throwError "a source proof has no computational reply position"
   | .function =>
     materializeNativeFunction reply request connection supply tree source environment origin
-      value path draft marks fieldPrefix
+      value path draft fieldPrefix
   | .record =>
     let (original, rootPath) ← match originalRoot with
       | some selected => pure selected
@@ -661,11 +660,11 @@ private partial def materializeNativeValue (reply : ImmediateReply) (request : P
     let positions ← recordReplyPositions fields.size value
     let mut draft := draft
     let mut record ← RecordPrefix.prepare supply origin.program origin.occurrence layout
-      draft.view environment.sourceMarks
+      draft.view environment.bound
     let mut slots : Array ContainerSlot := #[]
     let mut selected : Array ValueBinding := #[]
     for prepared in fields, position in positions do
-      let current ← environment.withSourceMarks #[] (some draft.view)
+      let current ← environment.withGraph (some draft.view)
       let immediate ← record.currentField
       let nativePrefix ← match fieldPrefix with
         | none => pure immediate
@@ -679,7 +678,7 @@ private partial def materializeNativeValue (reply : ImmediateReply) (request : P
         (prepared.layout.address.toList.isPrefixOf
           (carrier.codec.native.address ++ carrier.codec.callablePath.getD #[]).toList)
       let (next, binding) ← materializeNativeValue reply request connection supply tree prepared.layout
-        current childOrigin position.2 (path ++ position.1) draft fixed check marks none nextCarrier none
+        current childOrigin position.2 (path ++ position.1) draft fixed check none nextCarrier none
           (some nativePrefix)
       let (next, nextRecord, binding) ← liftM (m := IO) <| next.bindField record binding
       draft := next
@@ -720,20 +719,20 @@ private partial def materializeNativeMap (reply : ImmediateReply) (request : Pre
   let sourceEndpoint ← newCallableEndpoint tree (some codec.source)
   let targetEndpoint ← newCallableEndpoint tree (some codec.target)
   let frame : CallableFrame := {
-    native := codec.native, environment := codec.environment, marks := codec.marks,
+    native := codec.native, environment := codec.environment,
     operands := codec.operands, structured := true, fieldPrefix := codec.fieldPrefix }
   let (body, bodyPath) ← unwrapCallable value path
   if reply.references.any (·.path == bodyPath) ||
       (body.getObjValAs? String "ctor").toOption == some "opaqueData" then
     return ← materializeNativeValue reply request connection supply tree source environment origin
-      body bodyPath draft fixed check codec.marks none none none fieldPrefix
+      body bodyPath draft fixed check none none none fieldPrefix
   let some carrierPath := codec.callablePath
     | return ← materializeCallable reply request connection supply tree source environment origin frame
         (some (sourceEndpoint, targetEndpoint)) value path draft none none fieldPrefix
   let carrier : NativeCallableCarrier := ⟨codec, original, (sourceEndpoint, targetEndpoint)⟩
   if carrierPath.isEmpty then
     return ← materializeNativeValue reply request connection supply tree source environment origin
-      value path draft fixed check codec.marks none (some carrier) none fieldPrefix
+      value path draft fixed check none (some carrier) none fieldPrefix
   let (body, bodyPath) ← if (body.getObjValAs? String "ctor").toOption == some "typedMap" then do
       IO.ofExcept <| (checkServiceFields #["ctor", "args"] body).mapError IO.userError
       let map ← IO.ofExcept <| (TypedMap.decode body).mapError IO.userError
@@ -744,12 +743,12 @@ private partial def materializeNativeMap (reply : ImmediateReply) (request : Pre
       pure (map.callable, bodyPath ++ #[.field "args", .index 2])
     else pure (body, bodyPath)
   materializeNativeValue reply request connection supply tree source environment origin
-    body bodyPath draft fixed check codec.marks none (some carrier) (some (original, path)) fieldPrefix
+    body bodyPath draft fixed check none (some carrier) (some (original, path)) fieldPrefix
 
 end
 
-/-- Consume only the exact non-Prop ports of the accepted constructor, in its full declared
-order. Each complete actual port enters the next port's context; proof slots stay empty. -/
+
+
 private def materializeConstruction (reply : ImmediateReply) (request : PreparedRequest)
     (connection : Connection) (supply : IdentitySupply) (tree : IO.Ref CallableTree)
     (construction : PreparedConstructionResult) (draft : CellDraft) :
@@ -768,7 +767,7 @@ private def materializeConstruction (reply : ImmediateReply) (request : Prepared
       | throwError "a construction reference requires its original complete stored data ports"
     let some fields := stored.fields
       | throwError "a construction reference has no complete stored native fields"
-    unless fields.size == (reference.binding.role.fields.filter (·.wireIndex.isSome)).size do
+    unless fields.size == (reference.binding.nativeRole.fields.filter (·.wireIndex.isSome)).size do
       throwError "a construction reference lost its complete native field ports"
     let some packet := stored.originalPacket
       | throwError "a construction reference lost its original complete constructor-port packet"
@@ -781,7 +780,7 @@ private def materializeConstruction (reply : ImmediateReply) (request : Prepared
       throwError "a construction reference changed its complete declared native port arity"
     let origin ← request.originFor request.source (some draft.view)
     return ← materializeNativeValue reply request connection supply tree request.source
-      request.environment origin value path draft (some #[]) construction.checkSymbolic construction.marks
+      request.environment origin value path draft (some #[]) construction.checkSymbolic
   IO.ofExcept <| (checkServiceFields #["ctor", "args"] value).mapError IO.userError
   unless (value.getObjValAs? String "ctor").toOption == some expected do
     throwError "the construction reply changed its original cone/cocone interface"
@@ -789,7 +788,7 @@ private def materializeConstruction (reply : ImmediateReply) (request : Prepared
   unless arguments.size == ports.size do
     throwError "the construction reply changed its complete native data-port arity"
   let mut draft := draft
-  let mut nativePrefix ← ConstructorPortPrefix.prepare request draft.view construction.plan construction.marks
+  let mut nativePrefix ← ConstructorPortPrefix.prepare request draft.view construction.plan
   for value in arguments, index in [:arguments.size] do
     let some port := nativePrefix.current?
       | throwError "the construction reply supplied an extra native data port"
@@ -797,18 +796,18 @@ private def materializeConstruction (reply : ImmediateReply) (request : Prepared
       throwError "the construction reply changed its native computational port order"
     let position := path ++ #[.field "args", .index index]
     let origin ← nativePrefix.origin request draft.view
-    let environment ← nativePrefix.environment.withSourceMarks #[] (some draft.view)
+    let environment ← nativePrefix.environment.withGraph (some draft.view)
     let (next, binding) ← materializeNativeValue reply request connection supply tree port.argument.source
-      environment origin value position draft none construction.checkSymbolic construction.marks
+      environment origin value position draft none construction.checkSymbolic
       (some (construction.category, construction.bundle))
     draft := next
     nativePrefix ← nativePrefix.bind draft.view binding
   let values ← IO.ofExcept <| nativePrefix.finish.mapError IO.userError
   construction.assemble request.source original path values draft
 
-/-- Materialize a parsed immediate reply into an isolated draft with native prepared roles.
-The original scope/reservation gate precedes every codec, and whole native admission follows
-complete finite/symbolic framing. No intermediate port or field enters the transaction. -/
+
+
+
 opaque ImmediateReply.materialize (reply : ImmediateReply) (request : PreparedRequest)
     (transaction : CellTransaction) (scope : RequestScope) (connection : Connection)
     (resolveFixed : Option (FixedInput → MetaM ValueBinding) := none)
@@ -856,8 +855,8 @@ opaque ImmediateReply.materialize (reply : ImmediateReply) (request : PreparedRe
   checkCallableTree tree draft.view check
   return (draft, ← request.admitResult draft.view binding)
 
-/-- Admit and install a complete immediate reply with its exact transaction-local completion.
-Publication remains the whole-cell commit transition. -/
+
+
 opaque ImmediateReply.stageCompletion (reply : ImmediateReply) (request : PreparedRequest)
     (transaction : CellTransaction) (scope : RequestScope) (connection : Connection)
     (resolveFixed : Option (FixedInput → MetaM ValueBinding) := none)
