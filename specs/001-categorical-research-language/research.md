@@ -22,7 +22,7 @@
 
 **Decision** (owner instruction of 2026-11-25; spec clarification of that date). Kernel readiness F is the kernel with DSL scripts through the public session; it needs no notebook. The notebook (US7, US8) is one functional unit after the category implementations of M4 and before the functional work of M5 and all evidence-only work. Installation (#34) stays in M5.
 
-**Rationale.** The owner's judgment is that the kernel is the hard part. The notebook tasks need the worker of lean-jupyter-kernel on the toolchain of the research image (its T004), and the kernel moves to that toolchain only at T105; with the unit after T105, the worker and its consumers change toolchain together. M5 consumes the unit: the client of #68 runs over the worker.
+**Rationale.** The owner's judgment is that the kernel is the hard part. The notebook tasks need the worker of lean-jupyter-kernel on the toolchain of the research image (its T004), and the kernel moves to that toolchain only at T352; with the unit after T352 and T105, the worker and its consumers change toolchain together. M5 consumes the unit: the client of #68 runs over the worker.
 
 **Alternatives considered.**
 
@@ -141,7 +141,7 @@ normalizations and ordering remain binding.
 under the owner's explicit request. T114 establishes current fast feedback immediately and
 maintains it; T028 publishes the generated category interface; T061 completes generic actions
 and later use; the category tasks deliver actual category implementations and their focused build/public
-consumer boundaries after F. T105 publishes the compatible tuple, including #90's image port.
+consumer boundaries after F. T105 publishes the compatible tuple on the image port of T352 (#90).
 Independent extension/substitution assessment and final mathematical budgets retain their
 existing later owners. These are requirements to implement, not claims that the current system
 already satisfies them.

@@ -1168,9 +1168,9 @@ irreplaceable or accept its own replacement.
 
 Implementation freedom does not include changing the mathematical obligation, manufacturing
 independent approval, narrowing completion or turning a downstream failure into an
-implementation-shaped upstream theorem. An unavailable capability blocks the operation that
-needs it; it does not invent a new mathematical requirement or invalidate already authorized
-independent work.
+implementation-shaped upstream theorem. An unavailable capability is the result of the task that
+supplies it, which comes first (C16); it does not invent a new mathematical requirement or
+invalidate already authorized independent work.
 
 **Source basis:** [October 1 archived review/construction directive][S20]; [October
 means/outcomes distinction][S5]; [October 10 authority ruling][S21]; [later construction
@@ -1206,12 +1206,19 @@ describing the remaining implementation is not completion of an implementation a
 research assignment is judged by its own requested research outcome; it must not be silently
 expanded into implementation either.
 
-Work selection must follow actual input dependencies and the authorized priorities. A missing
-input or capability blocks the operation that needs it; the contributor must identify that
-operation and continue authorized work that does not depend on it. A review outage, publication
-failure or absent optional infrastructure must not become a global stop or a reason to request
-permission already granted. Existing role boundaries and genuinely required independent
-acceptance remain binding.
+Work selection must follow actual input dependencies and the authorized priorities. A plan never
+states that work waits, is blocked or is held until something else exists. An input that a task
+needs is the result of another task: the plan names that task by repository and identifier, and
+the workstream that needs the input does it first, in the role that the task names, and then
+returns. A missing mathematical declaration is a task of the formal development, done by a
+formalization author (authorship rule); a form of the released contract is a task of the contract
+repository, done in its contract role; an environment gap is a task of the repository that owns
+the environment. When no task produces the input, the change that finds the need adds the task,
+with its issue in the owning repository. An input that only an independent role may author is
+done first by that role; the dependency then orders the work and does not change the role. A
+review outage, publication failure or absent optional infrastructure must not become a global
+stop or a reason to request permission already granted. Existing role boundaries and genuinely
+required independent acceptance remain binding.
 
 When task substitution has occurred, the required correction is to restore the omitted
 obligation, perform the missing integration or other substantive work, and complete the assigned
@@ -1420,10 +1427,10 @@ unchecked task is active, and other work must serve it. A task that needs a math
 declaration which **M** does not have is preceded in `tasks.md` by a task that supplies it. That
 task names the issue of the formal development. The contributor does it there, under the
 [authorship rule](#independent-authorship-and-permitted-inputs-c1-c9-c10), and then returns. [S53]
-A wait on an environment that is not available blocks only the work that needs it (C16): the
-contributor completes the other parts and continues with the next unchecked task whose inputs
-are present, and the waiting task keeps its position. A change of order is a committed edit
-of `tasks.md` that states its reason. [S51] The November 17 promotion of T016 / #84 includes focused commands,
+An environment that a task needs and that is not available is supplied by a task of the
+repository that owns the environment (for the research image, dzackgarza/sage); the contributor
+does that task first, there, and then returns to the task that needs it (C16). [S55] A change of
+order is a committed edit of `tasks.md` that states its reason. [S51] The November 17 promotion of T016 / #84 includes focused commands,
 explicit SDK setup, production/test separation and justified dependency cuts insofar as they
 serve the measured loop. This exception does not mark T012 or any other functional task complete.
 
@@ -1545,6 +1552,7 @@ Spec Kit constitutions][S51].
 | 3.1.0 | 2026-11-22 | Elaborate C0, C9, C21, C23 and C24 under the owner's explicit November 22 direction to incorporate the supplied comparative analyses, make fast feedback a critical roadmap priority and constitutionally preserve the durable principles, recorded in the [completion roadmap][S52]. Old obligations: categorical public interoperability, independently fixed questions, the measured November 17 feedback correction and short test tiers. New explicit obligations: derive the complete category implementation interface from accepted mathematics; distinguish mathematical, public computational and actual software dependencies; require real implementation/build locality; maintain current-source fast feedback and truthful current-run results; assess the complete result relation and actual permitted choices under provider substitution. Correct the overbroad tier-1 wording to the tested-outcome claim already required by C10. This compatible elaboration is a minor version. It preserves C22's computational ownership and private code reuse, independent authorship, all original positive workloads, final budgets and the functional-before-final-evidence ordering. |
 | 4.0.0 | 2026-11-25 | Amend C21 and the authorship rule, and elaborate C22 and C23, under the [owner instructions of 2026-11-25][S53]. Old obligations: a task that waited on a missing mathematical input kept its position while the contributor recorded the input at its owner and continued; a kernel worker could not author or commission the upstream work; no article separated the acceptance of kernel work from the acceptance of computed results; the order of leaf work was not stated. New obligations: a missing mathematical declaration is a task of the formal development, named in `tasks.md` before its consumer, and the workstream does it there as a formalization author, from the mathematics and not shaped to an implementation; a check of kernel work observes kernel behaviour and requires no computed mathematical result, which belongs to leaf work on the whole structural route (example `2 * 3 = 6 in ℤ`); computational work has its own milestones in the order of the structural scaffolding, each vertical, each connecting mature existing computation after an open-ended survey. Reasons: on 2026-11-25 the first unchecked task had waited since 2026-11-20 on an input with no assigned author, and 63 of the 69 unchecked kernel tasks named that task as an input; kernel checks required results that need category implementations which do not exist. This is a major version because it changes an authority boundary and the written scheduling obligation. It changes no mathematical question, acceptance authorship rule or final budget. |
 | 4.0.1 | 2026-11-25 | Clarify the policy "Established computational implementations" under the [owner decision of 2026-11-25][S54]. Old wording: neither general implementation freedom nor the constitution supplies authorization for new algorithm work, which contributors read as a ban on any algorithm that no engine exposes. New wording: a leaf does not reimplement what an engine provides; a computation of known mathematics that no surveyed engine provides is ordinary leaf work with a cited reference; new algorithm work is mathematically new work, nontrivial mathematics for which no method exists anywhere, and only it needs a separately authorized assignment. Reason: the plan held an owner question on finite and $\aleph_0$ cardinal arithmetic for three statements of T213. This is a patch version: it states the intended obligation and changes no mathematical question, authority boundary or acceptance rule. |
+| 5.0.0 | 2026-11-27 | Amend C14, C16 and C21 under the owner instruction of 2026-11-27, carried by the [execution-order rule of the task list][S55]. Old obligations: a missing input or capability blocked the operation that needed it, and the contributor continued with other work while the waiting task kept its position; a wait on an unavailable environment did the same. New obligations: a plan never states that work waits or is blocked; an input is the result of a named task of a named repository, and the workstream that needs it does that task first, in the role that the task names (formalization author in the formal development, the contract role in the contract repository, the repository that owns an environment for an environment gap), then returns; when no task produces the input, the change that finds the need adds the task and its issue. Reason: tasks that waited on inputs of other repositories had no workstream that supplied the inputs. This is a major version because it changes the written scheduling obligation. It changes no mathematical question, role boundary, acceptance authorship rule or final budget. |
 
 ### Provenance
 
@@ -1622,5 +1630,6 @@ evidence of an authorized amendment.
 [S52]: https://github.com/dzackgarza/lean-cas-dsl/issues/10
 [S53]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7155201731
 [S54]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7166317890
+[S55]: https://github.com/dzackgarza/lean-cas-dsl/blob/main/specs/001-categorical-research-language/tasks.md#execution-order
 
-**Version**: 4.0.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-25
+**Version**: 5.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-27

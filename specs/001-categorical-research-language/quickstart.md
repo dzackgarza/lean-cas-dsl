@@ -31,8 +31,8 @@ feedback reference.
 A fast failing mathematical check establishes feedback, not the missing function. T016 retains
 its historical completion; T114 establishes the current loop and maintains it during later work.
 T028 and the category tasks add category-local public-interface/build checks when those implementations exist.
-T105/#90 remains the later delivery port unless an actual unavailable environment blocks the
-active task. See the [completion milestones](plan.md#completion-milestones).
+T352/#90 is the port to the image pins; when an actual unavailable environment stops the active
+task from building, T352 is done first. See the [completion milestones](plan.md#completion-milestones).
 
 ## Functional observations must exercise the missing production capability
 
@@ -136,7 +136,7 @@ The original RX08 source and its seven-question ambiguity control remain separat
 
 ### Environment
 
-The environment is the research container `sage-research` (Linux x86_64). It holds SageMath 11.0.beta5 as a source build in `/sage`, with the interpreter `/sage/.venv/bin/python3` (Python 3.14.10), GAP 4.16.1 through Sage `libgap`, PARI 2.17.4, Singular 4.4.1, Maxima 5.49.0, SymPy 1.14.0, python-flint 0.9.0, Julia 1.12.7 with Oscar 1.8.2, and Macaulay2 1.24.11; it holds no passagemath. The interpreter imports pydantic 2.14.1, and the v2 SDK of the contract at `a0417b0` declares `pydantic>=2.14.3`: T326 pins it in the image. Lean and Lake come from `elan` with the toolchain of `lean-toolchain` (Lean 4.33.0 and Mathlib v4.33.0 at `db584cd6d46c92f209a44c0f1c829460d327499d` on the kernel branch until T105 ports them to the image toolchain, #90). Standard Bash, Git, Python 3, curl, tar, GNU time and `uv` are available. [Lean distribution documentation][lean] [uv commands][uv]
+The environment is the research container `sage-research` (Linux x86_64). It holds SageMath 11.0.beta5 as a source build in `/sage`, with the interpreter `/sage/.venv/bin/python3` (Python 3.14.10), GAP 4.16.1 through Sage `libgap`, PARI 2.17.4, Singular 4.4.1, Maxima 5.49.0, SymPy 1.14.0, python-flint 0.9.0, Julia 1.12.7 with Oscar 1.8.2, and Macaulay2 1.24.11; it holds no passagemath. The interpreter imports pydantic 2.14.1, and the v2 SDK of the contract at `a0417b0` declares `pydantic>=2.14.3`: T326 pins it in the image. Lean and Lake come from `elan` with the toolchain of `lean-toolchain` (Lean 4.33.0 and Mathlib v4.33.0 at `db584cd6d46c92f209a44c0f1c829460d327499d` on the kernel branch until T352 ports them to the image toolchain, #90). Standard Bash, Git, Python 3, curl, tar, GNU time and `uv` are available. [Lean distribution documentation][lean] [uv commands][uv]
 
 ### RX-LIFT
 

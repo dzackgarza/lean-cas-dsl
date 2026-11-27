@@ -10,7 +10,7 @@
 
 **Input**: Apply the specification workflow to the active language requirements and permanent constitution. Incorporate the owner's November 7 clarification at the requirement source, rather than asking the owner to choose a new route-dispatch policy.
 
-**Authority and source baseline**: the [current constitution][C] (v4.0.1 of 2026-11-25); the original [mathematical language specification][P]; governing issue texts retrieved on 2026-11-05; and the owner's clarifications recorded below. Constitutional identifiers refer to the current constitution. The first formulation of this specification used constitution v1.2.1 at `69613d4f4aec17d5c5f6dd2f28a30c912bc1e9a1`. The [independent whole-operation agreement contract][OA] was rechecked at `lean-categories@6c7f6a8f026500da30c00736580c5bd30c87331b`; its blob is unchanged from the planning input. This specification does not amend the constitution, replace protected acceptance questions, or choose an architecture. All existing code, representations, execution arrangements and plans remain replaceable subject to these requirements.
+**Authority and source baseline**: the [current constitution][C] (v5.0.0 of 2026-11-27); the original [mathematical language specification][P]; governing issue texts retrieved on 2026-11-05; and the owner's clarifications recorded below. Constitutional identifiers refer to the current constitution. The first formulation of this specification used constitution v1.2.1 at `69613d4f4aec17d5c5f6dd2f28a30c912bc1e9a1`. The [independent whole-operation agreement contract][OA] was rechecked at `lean-categories@6c7f6a8f026500da30c00736580c5bd30c87331b`; its blob is unchanged from the planning input. This specification does not amend the constitution, replace protected acceptance questions, or choose an architecture. All existing code, representations, execution arrangements and plans remain replaceable subject to these requirements.
 
 ## Clarifications
 
@@ -49,7 +49,7 @@ mathematical and independent-acceptance obligations retained.
   constructor–operation use. Missing computation cannot pass a required positive workload.
 - The current changed-source/public-consumer loop has immediate priority and remains in use.
   T016 retains its dated result; the current loop is established separately. The image port
-  remains T105 unless the actual environment blocks an active task. General proofs, independent
+  is T352; when the actual environment cannot build an active task, T352 is done first. General proofs, independent
   trials and final mathematical performance retain their existing later position.
 
 ### Session 2026-11-25
@@ -360,7 +360,7 @@ A researcher does real lattice and CAS work through the migrated consumer path. 
 
 1. **Given** the first completed genuine researcher-led session through the #68 client, **when** the harvest is recorded, **then** the record identifies the notebook or transcript revision, its origin, the source and runtime tuple and the complete order of cells and questions. [#13][D]
 2. **Given** a refusal or an unsuccessful computation in the session, **when** the harvest is recorded, **then** the demand is kept with its original context and gets one disposition class and its existing owner. [#13][D]
-3. **Given** no such session, **when** the harvest task is reached, **then** the absence is recorded once and the task waits. An acceptance demonstration, a transcription or a selection from old notebooks does not replace the session. [#13][D]
+3. **Given** the harvest task, **when** it is reached, **then** the researcher has first held the genuine researcher-led session that it records, as its own task. An acceptance demonstration, a transcription or a selection from old notebooks does not replace the session. [#13][D]
 
 ### Edge Cases
 
