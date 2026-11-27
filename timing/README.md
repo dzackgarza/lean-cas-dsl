@@ -1166,3 +1166,61 @@ that neither file had an open handle. All 144903921 trace bytes remain in
 `process-trace.log.gz`; `expanded-copy-retirement.json` records both hashes and
 the exact restoration command. This recovered 144908288 allocated bytes without
 discarding an observation.
+
+## Current T300 overrun and retained evidence, 2026-11-27
+
+At `a8a0fa3`, the unchanged focused public command
+`just test-feedback AcceptanceRunTests.test_unread_form_fails_and_peer_dispatches FeedbackTests.test_changed_extension_file_fails_before_execution`
+passed both cases in 513.6037690402009 s (504.069 s in unittest). This exceeds
+300 s and does not close T300. The complete observation is
+`timing/logs/t300-focused-a8a0fa3/gate-1-result.json`, with its adjacent transcript.
+The runner, production closure, peer, toolchain and both selected method/helper
+ASTs match the earlier comparable `5b332c4` measurements.
+
+| Measured operation | Seconds | Attribution and next action |
+| --- | ---: | --- |
+| Acceptance worker before session preparation | 165.032710596 | Largest disjoint worker cost; repeat the same input after checking competing jobs. |
+| Session preparation to file entry | 1.039 | Retain unchanged. |
+| Complete file event interval | 91.307 | Cardinality computation 90.982 s, unread definition 0.092 s, remaining file work 0.233 s. |
+| Worker after file completion | 1.743529095 | Retain unchanged. |
+| Parent context preparation | 99.311076500 | Includes 85.499401454 s of Lake resolution; outside the worker interval above. |
+| Owned peer checkout retirement | 24.060385262 | Outside the parent native loop; not the dominant observed cost. |
+
+The worker step totals 259.122239691 s. Parent build took 20.585536522 s,
+and the acceptance envelope 313.637552960 s, within the 442.168287967 s
+parent loop. These enclosing durations overlap the component rows and are
+not additional costs. During this run the 10-CPU host had load 28.20 and
+CPU pressure avg60 68.11%; unrelated compiler work was observed. This
+establishes contention, not a causal attribution of the whole overrun.
+The performance procedure requires a comparable ordinary repeat before
+selecting a source remedy.
+
+The completed nested prerequisite probe at the same source revision is
+`timing/logs/t362-nested-prerequisite-eeb171f/result.json`: status 1 after
+177.32744116103277 s. The actual inner definition and scope held, the
+cardinality request reached `noImplementation`, and the final definition
+was unattempted. Its first failed guard found three child starts, two
+finished terminals and one interrupted terminal despite normal root/file
+completion. Later guards did not run. This is retained failure evidence,
+not a passing T362 check.
+
+After the full warm regression and its corruption controls had finished,
+ten completed per-run computation streams were independently compressed
+and compared byte for byte with their decompressed archives before each
+plain copy was retired. The exact paths, hashes, modes and restoration
+commands are in
+`timing/logs/t114-warm-control-20261127/completed-computations-retention.json`,
+linked from the outer result; native results also carry their retained-file
+locators. All observations, order and multiplicity remain recoverable.
+This recovered 175964160 allocated bytes. Restore the recorded canonical
+paths before replaying a historical control with plain-file readers.
+
+With no remaining native or feedback writer, the next 67 global computation
+rows were retained under the append lock in
+`timing/history/computations-through-20261127T112154Z.jsonl.gz` and its
+adjacent verification manifest. The 46125416 expanded bytes have SHA256
+`fb36826f23915a12a30125a17e302d5e2759e06f516fb4844136ffd593b49d1d`;
+the 848191 compressed bytes have SHA256
+`dbdf8b9e38bd170be825b5f46f46d23c76b97cc6ee4014d4abbb031d7cce765d`.
+Byte-exact verification and durable archive/manifest writes preceded
+truncation of the live append file. Earlier archives remain unchanged.
