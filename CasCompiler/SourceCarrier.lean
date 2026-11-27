@@ -12,18 +12,18 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- The declared preferred routes (constitution C6) of the admitted registrations that the current
-statement is read with; the kernel session sets them before reading. -/
+
+
 initialize preferredRoutesExtension : EnvExtension (Array PreferredRoute) ←
   registerEnvExtension (pure #[])
 
-/-- Read the statements that follow with the declared preferred routes `routes`. -/
+
 def setPreferredRoutes (routes : Array PreferredRoute) : CoreM Unit :=
   modifyEnv (preferredRoutesExtension.setState · routes)
 
-/-- Of the surviving routes `routes` from the category `receiver` for the surface name `name`, the
-one that the admitted registrations declare preferred. None when no preference applies; two
-different applicable preferences are not ranked (contract api/manifest.md). -/
+
+
+
 def preferredRoute? (state : SemanticState) (receiver : CategoryExpr) (name : String)
     (routes : Array Route) : MetaM (Option Route) := do
   let applicable := (preferredRoutesExtension.getState (← getEnv)).filter fun preference =>
@@ -44,8 +44,8 @@ private structure CarrierCategoryFamily where
   value : Expr
   universes : List Name
 
--- Reuse the named-category and unary-constructor families in the semantic registry.
--- All source parameters and universes stay rigid while comparing complete functors.
+
+
 private partial def carrierCategoryFamily (state : SemanticState) (source : CategoryExpr) :
     MetaM CarrierCategoryFamily := do
   let value ← nativeCategoryFamily state source fun _ => do
@@ -62,9 +62,9 @@ private def carrierRoutes (source : CategoryExpr) : MetaM (Array Route) := do
     throwError "the selected category has no structural carrier route in the source inventory"
   return candidates
 
--- Eq.refl is checked on full functor families before any object, category parameter,
--- or universe is specialized. A natural isomorphism is not used as functor equality.
--- Reuse: SourceSession.operationConversion's native conversion rule and congrFun.
+
+
+
 def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory)
     (routes : Array Route) : MetaM (Array Expr) := do
   if routes.size == 1 then return #[]
@@ -85,8 +85,8 @@ def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory
     let proof ← mkExpectedTypeHint (← mkEqRefl first) proposition
     checkWithKernel proof
     return proof
-  -- Instantiate a proof already checked at the complete rigid family. These fresh
-  -- arguments are constrained by the actual full category bundle, including str.
+
+
   let levels ← family.universes.mapM fun _ => mkFreshLevelMVar
   let actual := family.value.instantiateLevelParams family.universes levels
   let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType actual)
@@ -102,25 +102,26 @@ def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory
       proof ← mkAppM ``congrFun #[proof, argument]
     instantiateMVars proof
 
--- Apply the already selected native functor at the judgement's unchanged role.
+
 private def carrierAction (role : SourceCategoryRole) (functor value target : Expr) :
     MetaM Expr :=
   match role with
   | .object => functorObject functor value target
   | .morphism => mkAppM ``CategoryTheory.Functor.map #[functor, value]
 
-/-- Consume a supplied carrier prefix, or the complete structural carrier family.
-Only checked uniform native equality identifies implicit alternatives. Actual functor
-actions, original objects or arrows, route references and equality evidence remain in the term.
-Source: ObjectRefinement, structuralEdges and the native family-conversion rule. -/
-opaque sourceCarrier (source : NativeSourceJudgement) : MetaM NativeSourceJudgement := do
+
+
+
+
+opaque sourceCarrierSelection (source : NativeSourceJudgement) :
+    MetaM (SourceSelection Expr) := do
   let some category := source.category
     | do
       discard <| getLevel source.value
-      return source
+      return { value := source.value, category := source.category }
   if category.expression.syntacticEq (.atom CategoryId.sets) then
     if category.role == .object then discard <| getLevel source.value
-    return source
+    return { value := source.value, category := source.category }
   let state ← semanticState
   let mut value := source.value
   let mut bundle := category.bundle
@@ -155,16 +156,27 @@ opaque sourceCarrier (source : NativeSourceJudgement) : MetaM NativeSourceJudgem
     value ← withLetDecl (← mkFreshUserName `carrierAgreement) (← inferType proof) proof
       fun binding => mkLetFVars #[binding] body
         (usedLetOnly := false) (generalizeNondepLet := false)
-  let refs := reprStr (routes.map fun route => selectedEdges ++ route.refs)
-  value := .mdata (KVMap.empty.setString `CasCompiler.source.carrierRoutes refs) value
-  if category.role == .object then
-    value ← annotateSourceType category source.value value
   let selection := category.carrier.map fun selected =>
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
-  return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection, none⟩⟩
+  return {
+    value
+    category := some ⟨category.role, .atom CategoryId.sets, bundle, selection, none⟩
+    typeOrigin := if category.role == .object then some ⟨category, source.value, value⟩ else none
+    carrierRoutes := routes.map fun route => selectedEdges ++ route.refs }
 
-/-- The registered category whose objects are the native type `type` (`MonCat` for `Monoids`).
-Several categories with that object type are ambiguous. -/
+
+opaque sourceCarrier (source : NativeSourceJudgement) : SourceReadM NativeSourceJudgement := do
+  if source.category.isNone || source.category.any (fun category =>
+      category.expression.syntacticEq (.atom CategoryId.sets)) then
+    if source.category.isNone || source.category.any (·.role == .object) then
+      discard <| getLevel source.value
+    return source
+  let selected ← sourceCarrierSelection source
+  let value ← SourceReadM.select selected
+  return ⟨value, selected.category⟩
+
+
+
 def sourceObjectCategory? (type : Expr) : TermElabM (Option NamedCategoryEntry) := do
   let mut found := #[]
   for entry in (← semanticState).categories do
@@ -178,25 +190,25 @@ def sourceObjectCategory? (type : Expr) : TermElabM (Option NamedCategoryEntry) 
   | #[entry] => return some entry
   | _ => throwSemanticAmbiguity "several registered categories have these objects"
 
-/-- An object of one selected category read where an object of `target` is expected: its image
-along the structural route from its category to `target`, with the whole-family agreement of
-competing routes (a ring of matrices as the monoid whose units are formed). The route functor
-and its actual object action remain in the term. Source: SourceRoutes, structural edges and
-the native family-conversion rule, as for `sourceCarrier`. -/
+
+
+
+
+
 opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryExpr)
-    (name : Option String) : TermElabM NativeSourceJudgement := do
+    (name : Option String) : SourceReadM NativeSourceJudgement := do
   let some category := source.category
-    | throwError "a structural view requires its selected category"
-  unless category.role == .object do throwError "a structural view acts on an object"
+    | liftM (m := TermElabM) <| throwError "a structural view requires its selected category"
+  unless category.role == .object do liftM (m := TermElabM) <| throwError "a structural view acts on an object"
   if category.expression.syntacticEq target then return source
   let state ← semanticState
   let routes ← SourceRoutes.forOwner category.expression target
   let some routes ← routes.finiteRoutes
-    | throwUnsupportedSource "the structural view requires its supplied uniform comparison"
+    | liftM (m := TermElabM) <| throwUnsupportedSource "the structural view requires its supplied uniform comparison"
   let some route := routes[0]?
-    | throwError "the selected category has no structural route to the expected category"
-  -- Competing routes for a name are resolved by a declared preferred route, recorded with the
-  -- reading, or else by their whole-family agreement (constitution C6).
+    | liftM (m := TermElabM) <| throwError "the selected category has no structural route to the expected category"
+
+
   let preferred ← if routes.size > 1 then
       match name with
       | some name => preferredRoute? state category.expression name routes
@@ -209,34 +221,32 @@ opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryE
   let mut value ← functorObject selected.functor source.value selected.target
   for proof in proofs.reverse do
     let body := value
-    value ← withLetDecl (← mkFreshUserName `viewAgreement) (← inferType proof) proof
+    value ← liftM (m := MetaM) <| withLetDecl (← mkFreshUserName `viewAgreement) (← inferType proof) proof
       fun binding => mkLetFVars #[binding] body
         (usedLetOnly := false) (generalizeNondepLet := false)
-  if preferred.isSome then
-    value := .mdata (KVMap.empty.setString `CasCompiler.source.preferredRoute
-      (reprStr (route.refs.map (·.label)))) value
-  if target.syntacticEq (.atom CategoryId.sets) then
-    -- This image is a native type parameter. Preserve its already selected carrier
-    -- action and original owner before the parameter's outer object annotation.
-    -- Existing comparisons keep their own declared domains; the image's agreement
-    -- proofs remain in the unchanged native let envelope above.
-    let carrier : NativeSourceCarrierSelection := {
-      refs := route.refs, target
-      identifications := category.carrier.map (·.identifications) |>.getD #[]
-      actions := selected.actions
-      comparisons := category.carrier.map (·.comparisons) |>.getD #[] }
-    value ← annotateSourceType { category with carrier := some carrier } source.value value
-  return ⟨value, some ⟨.object, target, selected.target, none, none⟩⟩
+  let carrier : NativeSourceCarrierSelection := {
+    refs := route.refs, target
+    identifications := category.carrier.map (·.identifications) |>.getD #[]
+    actions := selected.actions
+    comparisons := category.carrier.map (·.comparisons) |>.getD #[] }
+  let selection : SourceSelection Expr := {
+    value
+    category := some ⟨.object, target, selected.target, none, none⟩
+    typeOrigin := if target.syntacticEq (.atom CategoryId.sets) then
+      some ⟨{ category with carrier := some carrier }, source.value, value⟩ else none
+    carrierRoutes := #[route.refs]
+    preferredRoute := preferred.map (·.refs) }
+  return ⟨← SourceReadM.select selection, selection.category⟩
 
-/-- Put source values in the category explicitly selected by a set-valued operand.
-Reuse: sourceCarrier's whole functor checks and retained native actions. Two structured
-operands keep their selected category; an explicit set operand supplies the carrier context. -/
+
+
+
 def sourceCommonCategory (left right : NativeSourceJudgement) :
-    TermElabM (NativeSourceJudgement × NativeSourceJudgement) := do
+    SourceReadM (NativeSourceJudgement × NativeSourceJudgement) := do
   let some first := left.category | return (left, right)
   let some second := right.category | return (left, right)
   unless first.role == second.role do
-    throwError "source values have different object and morphism roles"
+    liftM (m := TermElabM) <| throwError "source values have different object and morphism roles"
   let sets := CategoryExpr.atom CategoryId.sets
   let (left, right) ←
     if first.expression.syntacticEq sets && !second.expression.syntacticEq sets then
@@ -245,17 +255,17 @@ def sourceCommonCategory (left right : NativeSourceJudgement) :
       pure (← sourceCarrier left, right)
     else pure (left, right)
   let some first := left.category
-    | throwError "source carrier comparison lost its first selected category"
+    | liftM (m := TermElabM) <| throwError "source carrier comparison lost its first selected category"
   let some second := right.category
-    | throwError "source carrier comparison lost its second selected category"
+    | liftM (m := TermElabM) <| throwError "source carrier comparison lost its second selected category"
   unless first.expression.syntacticEq second.expression &&
       (← isDefEq first.bundle second.bundle) do
-    throwError "source values have different complete selected categories"
+    liftM (m := TermElabM) <| throwError "source values have different complete selected categories"
   return (left, right)
 
-/-- Apply the selected carrier to an arbitrary object in its complete category family.
-Reuse: nativeRouteFunctor and sourceCarrier. Typed provenance stays with source types;
-family comparisons use the actual carrier expression after removing that annotation. -/
+
+
+
 def sourceCarrierFamilyObject (source : NativeSourceCategory) (bundle object : Expr) :
     TermElabM Expr := do
   let state ← semanticState
@@ -265,14 +275,14 @@ def sourceCarrierFamilyObject (source : NativeSourceCategory) (bundle object : E
     let route : Route := { source := source.expression, target := selection.target, steps }
     let native ← nativeRouteFunctor state route bundle
     return { selection with actions := native.actions }
-  let carrier ← sourceCarrier ⟨object, some ⟨.object, source.expression, bundle, selection, none⟩⟩
-  return (← sourceTypeOrigin? carrier.value).map (·.type) |>.getD carrier.value
+  let carrier ← sourceCarrierSelection ⟨object, some ⟨.object, source.expression, bundle, selection, none⟩⟩
+  return carrier.value
 
-/-- Apply the selected complete carrier functor to an arrow before taking its function.
-Ordinary native functions retain their original expression and context. -/
+
+
 def sourceFunction (source : NativeSourceJudgement) : MetaM Expr := do
   if source.category.any (·.role == .morphism) then
-    let carrier ← sourceCarrier source
+    let carrier ← sourceCarrierSelection source
     sourceSetFunction carrier.value
   else pure source.value
 
@@ -282,19 +292,18 @@ private partial def elementTypeBody (type : Expr) : Expr :=
   | .letE _ _ value body _ => elementTypeBody (body.instantiate1 value)
   | _ => type
 
--- Vary only the final object argument. All other data remain fixed.
+
 private def elementTypeOrigin (type : Expr) : Option (Expr × (Expr → Expr)) :=
   match elementTypeBody type with
   | .app function object => some (object, mkApp function)
   | .proj name index object => some (object, Expr.proj name index)
   | _ => none
 
-/-- Recover an element owner from its principal source object, with a checked family
-comparison. Reuse: registeredDomain, objectCarrierSelection and sourceCarrier. -/
+
+
 def sourceElementOwners
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
-    (expected : Expr) (hints : Array Expr) : TermElabM (Array NativeSourceElementOwner) := do
-  let state ← semanticState
+    (expected : Expr) (hints : Array Expr) : SourceReadM (Array NativeSourceElementOwner) := do
   let mut selected : Array NativeSourceElementOwner := #[]
   for hint in hints do
     let origin ← sourceTypeOrigin? hint
@@ -311,32 +320,15 @@ def sourceElementOwners
       | none, none => if let .fvar id := value then categoryOf id else pure none
     let category ← match category with
       | some category => pure (some category)
-      | none => do
-        let (_, entries) ← registeredDomain value
-        if entries.isEmpty then pure none
-        else do
-          let #[entry] := entries
-            | throwSemanticAmbiguity "the element owner requires its selected source object"
-          let #[category] := state.categories.filter (·.id == entry.category)
-            | throwError "the element owner requires one complete source category"
-          discard <| checkedDeclaration category.declaration
-          let family ← mkConstWithFreshMVarLevels category.declaration
-          let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
-          let bundle := mkAppN family parameters
-          let objectType ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
-          unless ← isDefEq objectType (← inferType value) do
-            throwError "the source element owner has a different native category"
-          let bundle ← instantiateMVars bundle
-          let carrier ← objectCarrierSelection entry bundle value
-          pure (some ⟨.object, category.expression, bundle, carrier, none⟩)
+      | none => pure ((← SourceReadM.selection? value).bind (·.category))
     let some category := category | continue
     unless category.role == .object &&
         !category.expression.syntacticEq (.atom CategoryId.sets) do continue
     if selected.any (·.value == value) then continue
-    let carrier ← sourceCarrier ⟨value, some category⟩
+    let carrier ← sourceCarrierSelection ⟨value, some category⟩
     unless ← withoutModifyingState <| isDefEq carrier.value expected do continue
-    let proof ← withLocalDeclD `elementOwner (← inferType value) fun object => do
-      let carrier ← sourceCarrier ⟨object, some category⟩
+    let proof ← liftM (m := TermElabM) <| withLocalDeclD `elementOwner (← inferType value) fun object => do
+      let carrier ← sourceCarrierSelection ⟨object, some category⟩
       let original ← mkLambdaFVars #[object] (typeAt object)
       let canonical ← mkLambdaFVars #[object] carrier.value
       unless ← isDefEq (← inferType original) (← inferType canonical) <&&>

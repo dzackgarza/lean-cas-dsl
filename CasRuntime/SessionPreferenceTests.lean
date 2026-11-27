@@ -8,8 +8,8 @@ meta import LeanCategories.Catalogue
 
 open Lean Elab Command Term CasRuntime CasCompiler
 
-/-- A session whose one registration declares the preferred routes `routes`. No backend starts:
-nothing is dispatched. -/
+
+
 private def sessionDeclaring (file : String) (routes : Array Json) : TermElabM KernelSession := do
   let root ← liftM (m := IO) IO.currentDir
   let manifest := Json.mkObj [
@@ -27,10 +27,10 @@ private def readUnits (session : KernelSession) : TermElabM StatementRun := do
     | throwError "the statement did not parse"
   withoutErrToSorry <| session.run ⟨statement⟩
 
-/- A ring is a monoid along three structural routes (multiplicative, through its additive group,
-through semirings) that agree by no registered comparison, so `(Mat₂(ℚ) in Rings)ˣ` is ambiguous
-(SourceViewTests). A registration that declares the multiplicative route preferred for `Units`
-on rings selects it (constitution C6); the reading records the route. -/
+
+
+
+
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
@@ -47,16 +47,16 @@ run_cmd liftTermElabM do
         | throwError "the definition of G was not retained"
       let some value := entry.value
         | throwError "G has no definition"
-      let recorded := (value.find? fun part => match part with
-        | .mdata data _ => data.getString `CasCompiler.source.preferredRoute ==
-            reprStr #["fun.rings.multiplicative_monoid"]
-        | _ => false).isSome
-      unless recorded do throwError "the reading does not record its preferred route: {value}"
+      let some selected := run.session.source.selections[entry.id]?
+        | throwError "the retained definition lost its complete typed source selection"
+      unless selected.preferredRoute.map (·.map (·.label)) ==
+          some #["fun.rings.multiplicative_monoid"] do
+        throwError "the reading does not record its preferred route: {value}"
     finally liftM (m := IO) session.close
   finally setEnv environment
 
-/- A declared route that is not a chain of structural edges from its receiver is malformed, and
-its registration is rejected; the reading stays ambiguous. -/
+
+
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
