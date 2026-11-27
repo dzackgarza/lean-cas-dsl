@@ -18,8 +18,6 @@ inductive PreparedAction
   | apply (callable : ValueBinding) (arguments : Array ClosedTerm)
       (values : Array (Option ValueBinding))
 
-/-- Inert source and request observations, prepared before the request is emitted.
-The descriptor owns only immutable JSON and strings, never an elaborator or renderer action. -/
 structure ObservationDescriptor where
   private mk ::
   native : Json
@@ -34,14 +32,12 @@ def identityJson {kind : IdentityKind} (id : RuntimeId kind) : Json :=
 
 def namesJson (names : Array Name) : Json := Json.arr (names.map NativeExpression.nameJson)
 
-/-- Preserve the original source plane and exact native projection path. -/
 def inputProjectionJson (projection : InputProjection) : Json :=
   let target := match projection.target with
     | .argument index => Json.mkObj [("argument", toJson index)]
     | .context binding => Json.mkObj [("context", ContextSnapshot.bindingJson binding)]
   Json.mkObj [("target", target), ("path", namesJson projection.path)]
 
-/-- Display names supplement, rather than replace, the exact native source address. -/
 def readableInputProjectionJson (projection : InputProjection) : Json :=
   (inputProjectionJson projection).setObjVal! "displayPath"
     (toJson (projection.path.map (·.toString (escape := false))))
@@ -294,8 +290,6 @@ def recordAssociationJson (association : RecordAssociation) : StateM NativeExpre
     ("layout", ← recordJson association.layout),
     ("bindings", toJson (association.bindings.map ContextSnapshot.bindingJson))]
 
-/-- Serialize the already prepared constructor telescope and its exact native transport.
-The original ports, proof positions and contexts are observed without reconstructing them. -/
 def constructorPortsJson (plan : ConstructorPorts) : StateM NativeExpression.Builder Json := do
   let ports ← plan.ports.mapM fun port => do
     return Json.mkObj [("binding", ContextSnapshot.bindingJson port.binding),
@@ -320,7 +314,6 @@ def constructorTransportJson (transport : ConstructorProjectionTransport) :
     ("binding", ContextSnapshot.bindingJson transport.binding),
     ("source", ← layoutJson transport.source), ("target", ← layoutJson transport.target)]
 
-/-- References name the actual node and ordered association chain. They contain no payload. -/
 def valueIdentityJson (value : ValueBinding) : Json :=
   Json.mkObj [("value", identityJson value.value),
     ("associations", toJson (value.associationIds.map identityJson))]
@@ -364,7 +357,6 @@ def telescopeInstantiationJson (view : TelescopeInstantiation) :
     ("source", ← layoutJson view.source), ("selected", ← valueReferenceJson view.selected),
     ("parameters", ← valuesJson view.parameters), ("path", namesJson view.path)]
 
-/-- Original predecessor occurrences remain attached to their complete source-ordered frames. -/
 def nativeFieldPrefixJson (nativePrefix : NativeFieldPrefix) : StateM NativeExpression.Builder Json := do
   let frames ← nativePrefix.frames.mapM fun frame => do
     return Json.mkObj [("association", ← recordAssociationJson frame.association),
@@ -382,8 +374,6 @@ def sourceDependencyCaptureJson (capture : SourceDependencyCapture) :
     ("fieldPrefix", toJson (← capture.fieldPrefix.mapM nativeFieldPrefixJson)),
     ("projectedFrom", toJson projected)]
 
-/-- Preserve the selected field and application associations of this actual reference.
-Their ordered operands remain references to the existing graph, not copied returned values. -/
 def valueJson (value : ValueBinding) : StateM NativeExpression.Builder Json := do
   let fields ← value.instantiations.mapM fun field => do
     let view ← field.view.mapM fieldDependencyViewJson
@@ -418,9 +408,6 @@ def applicationOriginJson (origin : ApplicationOrigin) : StateM NativeExpression
     ("contextDependencies", toJson origin.contextDependencies),
     ("callable", toJson (← origin.callable.mapM valueJson))]
 
-/-- The explicit admitted input relation keeps both complete native and consuming views,
-with the exact original application and selected runtime reference. This observes the sealed
-certificate; the JSON does not create or validate one. -/
 def admittedInputInterfaceJson (original : AdmittedInputInterface) :
     StateM NativeExpression.Builder Json := do
   return Json.mkObj [("program", identityJson original.program),
@@ -495,15 +482,12 @@ def actionJson (action : PreparedAction) : StateM NativeExpression.Builder Json 
       ("arguments", toJson (← arguments.mapM ContextSnapshot.closedTermJson)),
       ("values", ← valuesJson values)]
 
-/-- Readability is prepared while the original native contexts may be opened.
-Later observation reads only the strings returned here. -/
 def readableTerm (term : ClosedTerm) : MetaM Json :=
   term.withOpen fun bindings expression => do
     let type := term.type.instantiateRev (bindings.map (·.expression))
     return Json.mkObj [("expression", toJson (← ppExpr expression).pretty),
       ("type", toJson (← ppExpr type).pretty)]
 
-/-- Add the retained source address without reopening or rendering the term a second time. -/
 def readableLayout (layout : SourceLayout) : MetaM Json := do
   let source ← readableTerm layout.source
   return source.setObjVal! "inputProjection"
@@ -545,9 +529,6 @@ def readableApplication (application : ApplicationLayout) : MetaM Json := do
 
 end Observation
 
-/-- Prepare the reached native request after its complete provenance has been fixed.
-Reuse the exact native expression graph and closed-source serializer; no canonical quotient,
-source reconstruction, provider call or completed payload copy enters the observation. -/
 opaque ObservationDescriptor.prepare
     (program : RuntimeId .program) (occurrence : RuntimeId .occurrence) (action : PreparedAction)
     (source : SourceLayout) (scope : Array ValueBinding) (outputs : Array SourceLayout)
@@ -570,6 +551,14 @@ opaque ObservationDescriptor.prepare
         throwError "the observed argument changed its original source occurrence"
       return binding.id
     return Observation.actualArgumentJson argument binding
+  let phaseData := Json.mkObj [
+    ("program", Observation.identityJson program),
+    ("occurrence", Observation.identityJson occurrence),
+    ("preparation", Observation.identityJson roles.scope.preparation)]
+  let emit : String → MetaM Unit := fun event => do
+    try
+      Diagnostics.emit event phaseData
+    catch _ => pure ()
   let build : StateM NativeExpression.Builder (Json × Array Nat) := do
     let action ← Observation.actionJson action
     let sourceDocument ← Observation.layoutJson source
@@ -590,8 +579,11 @@ opaque ObservationDescriptor.prepare
     let expression ← NativeExpression.Builder.add source.source.expression
     let type ← NativeExpression.Builder.add source.source.type
     return (request, #[expression, type])
+  emit "observation.native.started"
   let ((request, roots), builder) := build.run {}
   let native := Json.mkObj [("request", request), ("nativeExpressions", builder.finish roots)]
+  emit "observation.native.completed"
+  emit "observation.readable.started"
   let context ← Observation.readableContext environment.context
   let arguments ← roles.arguments.mapM fun argument => Observation.readableRole argument.role
   let results ← roles.results.mapM fun result =>
@@ -606,22 +598,29 @@ opaque ObservationDescriptor.prepare
     ("application", toJson applicationText),
     ("bound", Observation.boundJson environment.context environment.bound),
     ("sourceDependencies", toJson (dependencies.map Observation.valueIdentityJson))]
-  -- Preserve the complete JSON while sharing equal subtrees once for logged requests.
-  -- Later events and annotation updates retain these same immutable native/readable values.
+  emit "observation.readable.completed"
+  emit "observation.sharing.started"
   let (native, readable) ← if (← Diagnostics.current?).isSome then do
-      match JsonGraph.decode (JsonGraph.encode (.arr #[native, readable])) with
+      let encoded := JsonGraph.encode (.arr #[native, readable])
+      try
+        match encoded.getObjVal? "nodes" with
+        | .ok (.arr nodes) =>
+          Diagnostics.emit "observation.sharing.encoded"
+            (phaseData.setObjVal! "nodes" (toJson nodes.size))
+        | _ => pure ()
+      catch _ => pure ()
+      match JsonGraph.decode encoded with
       | .ok (.arr #[native, readable]) => pure (native, readable)
       | .ok _ => throwError "internal: the observation codec changed its native/readable pair"
       | .error reason => throwError "internal: the observation codec failed: {reason}"
     else pure (native, readable)
+  emit "observation.sharing.completed"
   return ⟨native, readable, none, none⟩
 
-/-- Updating a supplied source selection does not reopen or re-render the native descriptor. -/
 opaque ObservationDescriptor.withSelection (descriptor : ObservationDescriptor)
     (selection : Option Name) : ObservationDescriptor :=
   { descriptor with selection := selection.map NativeExpression.nameJson }
 
-/-- Attach the source document prepared by the authorized frontend handoff. -/
 opaque ObservationDescriptor.withSourceSnapshot (descriptor : ObservationDescriptor)
     (sourceSnapshot : Option Json) : ObservationDescriptor :=
   { descriptor with sourceSnapshot }

@@ -672,9 +672,8 @@ private partial def selectedSource (expression : Expr) (selected : SourceSelecti
       if (← origin expression).role.kind == .function then return ← closure expression
       return ← descriptor expression address arguments
     if let some (declaration, address) := reference.descriptor? then
-      let application := selected.value.consumeMData
-      unless application.getAppFn.isConstOf declaration do
-        throwError "the selected descriptor changed its original declaration"
+      let some application ← sourceApplication? declaration selected
+        | throwError "the selected descriptor lost its explicitly retained original application"
       return ← namedConstant expression address application
     if let some computation := reference.computation? then
       let family ← SourceFamily.forReference computation
@@ -1053,9 +1052,9 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
         (selected.reference.bind (·.element?)).isSome then
       return ← project (← lower value) index name
     if let some (declaration, _) := selected.reference.bind (·.descriptor?) then
-      let native := mkAppN selected.value value.getAppArgs
-      unless native.consumeMData.getAppFn.isConstOf declaration do
-        throwError "the selected descriptor changed its original declaration"
+      let some application ← sourceApplication? declaration selected
+        | throwError "the selected descriptor lost its explicitly retained original application"
+      let native := mkAppN application value.getAppArgs
       if let some unfolded ← unfoldSourceApplication? native.consumeMData then
         return ← lower (.proj owner index unfolded)
   if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.field] before inferType"

@@ -90,7 +90,9 @@ the captured step or context, never a later read of the source file.
 
 `seconds` includes statement execution, source construction, nested work and the setup
 required by that statement. File parsing remains in the file's cumulative setup. Direct calls
-carry their prior retained definitions' setup in the returned session. Earlier definitions
+carry their prior retained definitions' setup in the returned session. A file run includes
+that incoming setup and returns its measured file preparation and retained construction
+costs for subsequent statements or files, counting each inner execution interval once. Earlier definitions
 can be necessary for several later statements, so these inclusive costs overlap. Successful
 setup definitions have their own records.
 

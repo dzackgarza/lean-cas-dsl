@@ -398,6 +398,39 @@ class FeedbackTests(unittest.TestCase):
             self.assertGreaterEqual(ordered[1]["preceding_setup_seconds"],
                                     ordered[0]["execution_seconds"])
 
+        seeded = [row for row in direct if row.get("start", {}).get("data", {}).get("source") ==
+                  "let timingPrepared := 17 + 29 in ℤ"]
+        self.assertEqual(len(seeded), 1)
+        seed = seeded[0]
+        self.assertEqual(seed["outcome"]["kind"], "holds")
+        self.assertTrue(seed["outcome"]["retainsSetup"])
+        self.assertGreater(seed["execution_seconds"], 0)
+        continued = sorted((row for row in rows if row["session"] == seed["session"] and
+                            row["unit"] == "statement"), key=lambda row: row["ordinal"])
+        self.assertEqual(len(continued), 6)
+        self.assertEqual(len({row["file_run"] for row in continued}), 1)
+        events = [loads_application_event(line) for line in
+                  (ROOT / seed["source_log"]).read_text().splitlines()]
+        file_starts = [event for event in events if event["event"] == "file.started" and
+                       event["data"]["fileRun"] == continued[0]["file_run"]]
+        self.assertEqual(len(file_starts), 1)
+        file_setup = file_starts[0]["data"]["sharedFileSetupMilliseconds"]
+        expected_setup = (seed["completion"]["data"]["cumulativeSetupMilliseconds"] +
+                          seed["completion"]["data"]["milliseconds"] + file_setup)
+        for row in continued:
+            self.assertEqual(row["start"]["data"]["cumulativeSetupMilliseconds"], expected_setup)
+            self.assertEqual(row["completion"]["data"]["setupMilliseconds"], expected_setup)
+            self.assertEqual(row["completion"]["data"]["sharedFileSetupMilliseconds"], file_setup)
+            self.assertEqual(row["setup_seconds"], expected_setup / 1000)
+            if row["ordinal"] < 4:
+                expected_setup += row["completion"]["data"]["executionMilliseconds"]
+        later = [row for row in direct if row.get("start", {}).get("data", {}).get("source") ==
+                 "assert timingPrepared = 46 in ℤ"]
+        self.assertEqual(len(later), 1)
+        self.assertEqual(later[0]["session"], seed["session"])
+        self.assertEqual(later[0]["outcome"]["kind"], "holds")
+        self.assertEqual(later[0]["setup_seconds"], expected_setup / 1000)
+
 
 
         selected = next(row for row in rows
@@ -444,7 +477,9 @@ class FeedbackTests(unittest.TestCase):
         wire = json.loads(lines[terminal_index])
         self.assertEqual(wire["schema"], 2, "the current native consumer did not use the graph transport")
         expanded = loads_application_event(lines[terminal_index])
-        expected_rows = {row["computation"]: row for row in all_rows}
+        expected_rows = {row["computation"]: row for row in
+                         (json.loads(line, parse_float=Decimal) for line in
+                          (ROOT / summary["record_file"]).read_text().splitlines())}
         variants = [
             ("schema1", {**expanded, "schema": 1}, None),
             ("unknown-schema", {**wire, "schema": 3}, "unsupported application log schema"),
@@ -1087,7 +1122,7 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                                 break
                     if run is not None:
                         selected_workers = {
-                            str(run.relative_to(ROOT) / f"worker{worker}.lean")
+                            (run / f"worker{worker}.lean").resolve()
                             for worker in range(2)
                         }
                         pending = [process.pid]
@@ -1101,7 +1136,9 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                                 if ((proc / "comm").read_text().strip() == "lean"
                                         and (proc / "cwd").resolve() == ROOT
                                         and os.getpgid(pid) == process.pid
-                                        and selected_workers.intersection(arguments)):
+                                        and selected_workers.intersection(
+                                            (ROOT / argument).resolve() for argument in arguments
+                                            if argument.endswith(".lean"))):
                                     self.assertFalse(
                                         (run / "ellipses.json").exists(),
                                         f"the report appeared before the aggregation barrier; see {log}",

@@ -1257,8 +1257,17 @@ def withBindingContext [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
         let mut original : Std.HashMap BindingId ValueBinding := {}
         for (entry, value) in source.entries.zip parameters do
           if let some value := value then original := original.insert entry.id value
+        let some node := graph.find current.value
+          | throwError "the value reference is outside the visible graph"
+        let producingSource := node.origin.role.source.context
+        unless producingSource.entries.size == node.origin.parameters.size do
+          throwError "a retained value lost its complete producing source context"
+        let mut producing : Std.HashMap BindingId ValueBinding := {}
+        for (entry, value) in producingSource.entries.zip node.origin.parameters do
+          if let some value := value then producing := producing.insert entry.id value
         withRetainedContext source original context bound fun context bound =>
-          visit remaining context bound
+          withRetainedContext producingSource producing context bound fun context bound =>
+            visit remaining context bound
     visit (binding :: binding.admittedInterface?.toList) context bound
 
 partial def RuntimeEnvironment.hasRetainedSource (environment : RuntimeEnvironment)

@@ -329,16 +329,12 @@ build_started=$(python3 -c 'import time; print(time.monotonic_ns())')
 build_finished=$build_started
 active_phase=
 build_status=$prepare_status
-lean_path=""
 if [[ $prepare_status -eq 0 ]]; then
   active_phase=build
   native sha256sum "$manifest" > "$run/manifest.sha256" || build_status=$?
   if [[ $build_status -eq 0 ]]; then
     native lake --log-level=error build LeanCategories.Catalogue CasCatalogue.TestSuite 2>&1 |
       tee "$run/build.log" || build_status=$?
-  fi
-  if [[ $build_status -eq 0 ]]; then
-    lean_path=$(native lake env printenv LEAN_PATH) || build_status=$?
   fi
   build_finished=$(python3 -c 'import time; print(time.monotonic_ns())')
   active_phase=
@@ -348,12 +344,13 @@ run_worker() {
   local worker=$1 start status
   start=$(python3 -c 'import time; print(time.monotonic_ns())')
   python3 scripts/feedback_records.py step-start "$context" "acceptance-worker$worker" "" "$start" \
-    "$(( build_finished - started ))" lean "$run/worker$worker.lean" || return $?
+    "$(( build_finished - started ))" lake --log-level=error lean "$run/worker$worker.lean" \
+    -- -DstderrAsMessages=false || return $?
   set +e
   set -o pipefail
   native env CAS_FEEDBACK_WORKER="$worker" CAS_FEEDBACK_STEP="acceptance-worker$worker:$start" \
-    CAS_FEEDBACK_SOURCE="$run/worker$worker.lean" LEAN_PATH="$lean_path" \
-    lean -DstderrAsMessages=false "$run/worker$worker.lean" 2>&1 |
+    CAS_FEEDBACK_SOURCE="$run/worker$worker.lean" \
+    lake --log-level=error lean "$run/worker$worker.lean" -- -DstderrAsMessages=false 2>&1 |
     tee "$run/worker$worker.log"
   status=$?
   python3 scripts/feedback_records.py step-finish "$context" "$start" \
@@ -368,7 +365,7 @@ atomic_json(Path(sys.argv[1]), {
 PY
   return "$status"
 }
-export root lean_path run context started build_finished
+export root run context started build_finished
 export -f run_worker incontainer native
 workers_status=0
 if [[ $build_status -eq 0 ]]; then

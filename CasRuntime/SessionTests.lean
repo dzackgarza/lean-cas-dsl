@@ -176,7 +176,7 @@ run_cmd liftTermElabM do
             "assert failedDependent = 46 in ℤ" with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
-        let computedSession := { session with computationOnly := true }
+        let computedSession := session.withComputationOnly true
         let computed ← withoutErrToSorry <| computedSession.run ⟨question⟩
         unless computed.outcome.kind == kind &&
             (computed.outcome.detail.splitOn failed.outcome.detail).length > 1 do
@@ -476,6 +476,54 @@ run_cmd do
           (events.filter (isEvent "reply.rejected")).isEmpty do
         throwError "the complete original file log recorded an incomplete or rejected run"
     finally initial.close
+    setEnv environment
+    CasCatalogue.Language.withSession (some manifestPath) true fun prepared => do
+      let seeded ← CasCatalogue.Language.runStatement prepared
+        "let timingPrepared := 17 + 29 in ℤ"
+      unless seeded.outcome.kind == "holds" && seeded.attempted && seeded.published &&
+          seeded.session.setupMilliseconds > 0 do
+        throwError "the public continuation lost its measured retained construction"
+      let (continuedRows, continuedSession) ← CasCatalogue.Language.runFile seeded.session input
+      unless continuedRows.map (·.id) == #["logging.direct", "logging.nested"] &&
+          continuedRows.all (fun row => row.kind == "holds" && row.attempted && row.published) do
+        throwError "the continued public file changed its original assertions: {toJson continuedRows}"
+      let events ← CasTools.ApplicationLog.readEvents prepared.kernel.log.path
+      let starts := (events.filter (isEvent "computation.started")).map dataOf
+      let timings := (events.filter (isEvent "computation.timing")).map dataOf
+      unless starts.size == 6 && timings.size == 6 &&
+          (events.filter (isEvent "statement.child.started")).size == 2 &&
+          (events.filter (isEvent "statement.child.finished")).size == 2 do
+        throwError "the continued public file lost its original root or nested computations"
+      let #[fileStarted] := (events.filter (isEvent "file.started")).map dataOf
+        | throwError "the continued public file lost its one actual file start"
+      let .ok fileSetup := fileStarted.getObjValAs? Nat "sharedFileSetupMilliseconds"
+        | throwError "the continued public file lost its separate parsing and read setup"
+      let mut expectedSetup := seeded.session.setupMilliseconds + fileSetup
+      for start in starts, timing in timings, index in [:timings.size] do
+        unless (start.getObjValAs? Nat "cumulativeSetupMilliseconds").toOption == some expectedSetup &&
+            (timing.getObjValAs? Nat "setupMilliseconds").toOption == some expectedSetup &&
+            (timing.getObjValAs? Nat "sharedFileSetupMilliseconds").toOption == some fileSetup do
+          throwError "the continued public file omitted or counted retained setup twice"
+        if index < 4 then
+          let .ok elapsed := timing.getObjValAs? Nat "executionMilliseconds"
+            | throwError "a continued source definition lost its actual wrapper interval"
+          expectedSetup := expectedSetup + elapsed
+      unless continuedSession.setupMilliseconds == expectedSetup do
+        throwError "the returned session lost file preparation or retained wrapper construction"
+      let continued ← CasCatalogue.Language.runStatement continuedSession
+        "assert timingPrepared = 46 in ℤ"
+      unless continued.outcome.kind == "holds" && continued.attempted &&
+          continued.session.setupMilliseconds == expectedSetup do
+        throwError "a later public statement lost the original retained construction or setup"
+      let events ← CasTools.ApplicationLog.readEvents prepared.kernel.log.path
+      let some terminal := (events.filter (isEvent "statement.finished")).back?
+        | throwError "the continued public statement lost its actual completion"
+      unless ((dataOf terminal).getObjValAs? Nat "cumulativeSetupMilliseconds").toOption ==
+          some expectedSetup do
+        throwError "the continued public statement lost its inherited file setup"
+      unless (← prepared.kernel.dispatches.get).map (·.operation) ==
+          #["op.rings.add", "op.rings.add", "op.rings.mul", "op.rings.add"] do
+        throwError "the continuation recomputed a retained value or changed the original file calls"
     let emptyPreparationStarted ← IO.monoMsNow
     setEnv environment
     let emptyPath := evidence / "empty-leaves.json"

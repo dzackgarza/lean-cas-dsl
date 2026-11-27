@@ -135,7 +135,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
   let mut session := session
   let mut results : Array TestResult := #[]
   let mut setupMilliseconds := 0
-  let mut cumulativeSetupMilliseconds := sharedFileSetupMilliseconds
+  let mut cumulativeSetupMilliseconds := session.setupMilliseconds + sharedFileSetupMilliseconds
   let mut executed := 0
   for item in source.items, ordinal in [:source.items.size] do
     let (id?, statement) : Option String × TSyntax `cas_stmt := match item with
@@ -271,7 +271,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
     ("fileRun", toJson fileRun), ("file", toJson file),
     ("sourceSha256", toJson sourceSha256), ("executed", toJson executed),
     ("milliseconds", toJson ((← IO.monoMsNow) - fileBegan))]
-  return (results, session)
+  return (results, session.withSetupMilliseconds cumulativeSetupMilliseconds)
 
 def report (file : String) (results : Array TestResult) : String :=
   let tests := results.filter (!·.id.startsWith "(statement)")

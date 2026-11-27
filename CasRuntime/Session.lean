@@ -165,6 +165,13 @@ def KernelSession.value? (session : KernelSession) (id : BindingId) : Option Val
 def KernelSession.setupMilliseconds (session : KernelSession) : Nat :=
   session.cumulativeSetupMilliseconds
 
+def KernelSession.withSetupMilliseconds (session : KernelSession) (milliseconds : Nat) :
+    KernelSession :=
+  { session with cumulativeSetupMilliseconds := milliseconds }
+
+def KernelSession.withComputationOnly (session : KernelSession) (enabled : Bool) : KernelSession :=
+  { session with computationOnly := enabled }
+
 private def commit (transaction : CellTransaction) : MetaM Unit := do
   match ← transaction.commit with
   | .ok _ => pure ()
