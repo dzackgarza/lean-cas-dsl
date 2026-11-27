@@ -555,3 +555,125 @@ assertion remain. No post-change timing or semantic result is established by
 this baseline section. T359 remains open until three complete unchanged checks
 have median at most 300 s; then work returns to T300. No gain or completion is
 claimed before those checks.
+
+
+### First complete check after the generated module headers
+
+At `3ebdf3d89628a13dd00af8e6f0eab6ee531464ca`, the unchanged five-case
+command passed in 517.3431395450607 s on 2026-11-27, starting at
+04:10:01.044094 UTC. Its unittest portion was 501.744 s. The case durations
+were fixture 222.588 s, extension 166.060 s, changed extension 36.723 s,
+empty selection 33.030 s and missing input 43.276 s. These are inclusive
+case windows, not isolated native startup measurements.
+
+The durable evidence bundle is `timing/logs/t359-gates-3ebdf3d/`. It retains
+this gate's actual result and cost snapshot, compressed original output, and
+semantic/setup observations. Later gate records are added there only as they
+become available; no collector rerun supplies this first-run evidence.
+
+The observed actual generated setup contains zero private-artifact entries,
+compared with 3,947 in the legacy baseline. The canonical full extension report
+matches the baseline, with SHA256
+`1dd911f14e9e2d10d84547540e55c74c7d2c54b732ecec7e5354a606aaff5c04`.
+All five original semantic controls pass. This establishes the observed setup
+and report results; one run does not establish a timing gain or completion.
+
+The fixture's original parent and acceptance run IDs are
+`20261127T041010Z-loop.WnRedJ` and `accept-20261127T041122Z-pk4vCZ`,
+inside its retained `acceptance-kernel-nal8mkwk/checkout/`. The extension's
+run IDs are `20261127T041351Z-loop.h5bsoz` and
+`accept-20261127T041439Z-vU9Tcg`. The changed-extension preflight is
+`20261127T041639Z-loop.GGggM3`, inside the retained
+`changed-extension-ikkynwd2/checkout/`. Each original native result and log
+remains at its recorded `timing/logs/` location.
+
+#### Ordered exclusive intervals
+
+The table is a complete, non-overlapping partition of the command using the
+recorded nested boundaries. A parent acceptance step contains its child run;
+a child contains its worker-status window; that window contains the original
+worker step. The narrower intervals replace their containing totals instead
+of being added to them. Repeated computation rows do not multiply shared costs.
+
+| Recorded interval | Actual count | Seconds | Attribution at this measurement |
+| --- | ---: | ---: | --- |
+| Preparation | Five parent/child/preflight windows | 115.528048461 | Largest separately timed phase; its suboperations are not isolated and it is not all assigned to cost area E. |
+| Worker-step start to first session preparation | Two workers | 93.033070698 | Includes command entry and Lake setup as well as Lean startup. |
+| Empty-selection and missing-input whole cases | Two cases | 76.306000000 | Includes their public probe and harness; no DSL statement executes. |
+| Explicit build commands | Four commands | 65.106954898 | Command wall time, not isolated compilation time. |
+| Case time outside the parent reported run | Three cases | 46.902086090 | Fixture/preflight harness and finalization; archive observations below are nested here. |
+| Original file begin to finish | Two files | 42.384000000 | Fixture 38.239 s and full extension 4.145 s. |
+| Parent run time outside preparation and named phases | Three parents | 20.805218130 | Gaps between the recorded parent boundaries. |
+| Complete command outside unittest | One outer window | 15.5991395450607 | Outer invocation boundary. |
+| Child run time outside preparation, build and worker-status window | Two children | 14.494048273 | Child-side setup/finalization between those boundaries. |
+| Parent acceptance step outside the child reported total | Two steps | 13.137867073 | Entry and completion around the child's reported window. |
+| Worker-status window beyond its original worker step | Two workers | 7.031971897 | Status/step recording and surrounding worker completion. |
+| File finish to original worker-step end | Two workers | 5.952734480 | Remaining native/worker completion after file execution. |
+| Session preparation | Two sessions | 0.987000000 | Actual prepared-session durations. |
+| Unittest total outside the rounded reported case durations | One reconciliation interval | 0.067000000 | Test framework time and reporting precision; not assigned to a native operation. |
+| Session preparation end to file begin | Two sessions | 0.008000000 | Recorded native gaps. |
+| **Complete command** | | **517.3431395450607** | **Exact reconciliation of the recorded intervals.** |
+
+The preparation calls are 49.539108779 s for the fixture parent,
+20.524438369 s for the extension parent, 16.626399260 s and 16.592141761 s
+for their respective acceptance children, and 12.245960292 s for the
+changed-extension preflight. These five calls supply the first row's actual
+multiplier; their total does not identify which operation within preparation
+is expensive.
+
+For this finer partition, worker prefixes use the recorded nanosecond step
+start and millisecond session-preparation start directly. They are
+50.774820992 s for the fixture and 42.258249706 s for the extension.
+The existing collector fields instead total 93.034 s because their formula
+first floors the step starts to milliseconds. The 0.000929302 s difference
+is that known precision convention; it is not additional work. Original file
+and session boundaries are used directly for the subsequent intervals.
+
+The worker-status windows are 94.759454890 s and 54.637322185 s, while their
+owning steps are 91.475872753 s and 50.888932425 s. Using the former as the
+native step would incorrectly absorb another 7.031971897 s into startup or
+file execution. The table keeps those wrappers separate.
+
+#### Existing archive observations and remaining measurement gaps
+
+The fixture's case time outside its parent reported run is 17.684004639 s.
+Its existing archive window is nested within that interval: wall-clock
+nanoseconds 1795752820074379920 to 1795752829981706483, duration
+9.907326563 s. The changed-extension case has 23.053682856 s outside its
+reported preflight; its archive window is wall-clock nanoseconds
+1795753016217313968 to 1795753028446151552, duration 12.228837584 s.
+These archive durations are annotations of already counted case windows,
+not extra cost rows. Their clock is wall time, distinct from the monotonic
+native phase clock, so the two timestamp domains are not aligned or mixed.
+The extension case accounts for the remaining 6.164398595 s in that table row.
+
+The next measurement targets preparation's existing operations: the checkout
+process guard, native identity/command entry, Lake workspace resolution, and
+source/dependency fingerprint capture. The current records do not isolate
+those costs. The two SuiteTests also need the probe's command/startup boundary
+separated from their whole case before assigning all 76.306 s to startup.
+Runner collection, log drain/compression and fixture retention remain
+unassigned within the precisely located surrounding intervals. Their sum is
+not declared to be one operation or one cost area.
+
+Under the loop-performance procedure, this new table precedes another remedy.
+Preparation is top by the currently recorded phase boundary; extending the
+private-artifact remedy without attributing the remaining work would bypass
+that triage. The unchanged subsequent gates supply the required new median.
+No before/after timing gain or T359 completion is claimed from this first
+517.3431395450607 s check. The completion target remains a median of three
+complete unchanged checks at most 300 s.
+
+The second attempted check at the same revision lost its tool session during
+the first fixture. Its outer wrapper remains incomplete with an unknown exit
+status. Both actual native runners retained status 143, `TERM`, and incomplete
+results; no passing outer duration is inferred. The original output, process
+observations, native results and verified fixture archive are retained in the
+same evidence bundle. This attempt is excluded from complete-check medians.
+
+The next measurement adds `context-preparation.json` after a successful context
+publication. It measures existing identity, Lake resolution, dependency and
+source fingerprints, toolchain capture and publication operations separately,
+using monotonic clocks. These timings do not enter the original context,
+environment or workload fingerprint. Failed captures retain their existing
+failure records; the sidecar does not manufacture a successful capture.

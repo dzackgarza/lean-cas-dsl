@@ -182,7 +182,17 @@ def capture_context(argv: list[str]) -> None:
     import datetime, hashlib, json, os, platform, subprocess, sys
     from pathlib import Path
     out, kind, reason, log = argv[1:5]
-    capture_identity(Path(out))
+    preparation_started = time.monotonic_ns()
+    spans = []
+
+    def measure(phase, action, **details):
+        started = time.monotonic_ns()
+        value = action()
+        spans.append({"phase": phase, **details, "started_monotonic_ns": started,
+                      "finished_monotonic_ns": time.monotonic_ns()})
+        return value
+
+    measure("identity", lambda: capture_identity(Path(out)))
     target_count, stem_count, source_count = map(int, argv[5:8])
     cursor = 8
     targets = argv[cursor:cursor + target_count]
@@ -206,8 +216,8 @@ def capture_context(argv: list[str]) -> None:
     checkout = Path.cwd()
     manifest_path = checkout / "lake-manifest.json"
     manifest = json.loads(manifest_path.read_text())
-    resolution = json.loads(subprocess.check_output(
-        ["lake", "--log-level=error", "run", "feedback-context"], text=True))
+    resolution = measure("lake-resolution", lambda: json.loads(subprocess.check_output(
+        ["lake", "--log-level=error", "run", "feedback-context"], text=True)))
     resolved = resolution["packages"]
     if not resolved or Path(resolved[0]["path"]).resolve() != checkout.resolve():
         raise SystemExit("Lake's resolved workspace does not match this checkout")
@@ -228,7 +238,11 @@ def capture_context(argv: list[str]) -> None:
             "manifest_path": str(declared_path) if declared_path else None,
             "matches_manifest_path": path == declared_path,
             "configuration": str(configuration.resolve()),
-            "configuration_sha256": digest(configuration.read_bytes()), **git_state(path)})
+            "configuration_sha256": measure("dependency-configuration",
+                lambda: digest(configuration.read_bytes()),
+                package=package["key"], path=str(configuration)),
+            **measure("dependency-git", lambda: git_state(path),
+                package=package["key"], path=str(path))})
     inputs = sources.copy()
     from acceptance_inputs import CHECKPOINT, parse_selection
     acceptance_manifest, acceptance = parse_selection(stems)
@@ -245,23 +259,26 @@ def capture_context(argv: list[str]) -> None:
     inputs.append(str(installed))
     if "CAS_REALIZATION_PROFILE" in os.environ:
         inputs.append(os.environ["CAS_REALIZATION_PROFILE"])
-    input_hashes = {name: digest(Path(name).read_bytes()) if Path(name).is_file() else None for name in inputs}
-    source = git_state(checkout)
-    environment = {"host": platform.node(), "system": platform.platform(), "machine": platform.machine(),
+    input_hashes = measure("input-fingerprint", lambda: {
+        name: digest(Path(name).read_bytes()) if Path(name).is_file() else None for name in inputs})
+    source = measure("source-fingerprint", lambda: git_state(checkout), path=str(checkout))
+    environment = measure("toolchain-environment", lambda: {
+        "host": platform.node(), "system": platform.platform(), "machine": platform.machine(),
         "python": platform.python_version(),
         "lean": read_json(Path(out))["environment"]["lean"],
         "image_digest": os.environ["CAS_FEEDBACK_IMAGE_DIGEST"],
         "lake": subprocess.check_output(["lake", "--version"], text=True).strip(),
         "selectors": {key: os.environ[key] for key in ("ELAN_TOOLCHAIN", "LEAN_PATH", "LEAN_SYSROOT",
             "CAS_LEAVES", "CAS_REALIZATION_PROFILE", "CAS_LEAF_CONTRACT_PATH", "CAS_SAGE_PYTHON",
-            "CAS_GAP_PYTHON") if key in os.environ}}
+            "CAS_GAP_PYTHON") if key in os.environ}})
     workload = {"targets": targets, "acceptance": stems, "inputs": input_hashes,
                 "source": source, "dependencies": dependencies, "resolution": resolution,
                 "environment": environment}
     entry = {"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "kind": kind,
         "run": Path(out).parent.name, "revision": source["revision"], "dirty": source["dirty"],
         "reason": reason, "command": argv[cursor:], "sources": sources, "log": log,
-        "workload": digest(json.dumps(workload, sort_keys=True).encode()), **workload}
+        "workload": measure("workload-fingerprint",
+            lambda: digest(json.dumps(workload, sort_keys=True).encode())), **workload}
     prior = read_json(Path(out))
     entry["utc"] = prior["utc"]
     entry["started_monotonic_ns"] = prior["started_monotonic_ns"]
@@ -269,9 +286,21 @@ def capture_context(argv: list[str]) -> None:
     entry["acceptance_files"] = prior.get("acceptance_files", [])
     entry["context"] = out
     entry["context_status"] = "complete"
-    atomic_json(Path(out), entry)
-    append_record(Path(out).parent / "events.jsonl",
-                  {**identity(entry), "event": "run.context", "context_status": "complete"})
+    measure("context-publication", lambda: atomic_json(Path(out), entry))
+    measure("journal-publication", lambda: append_record(Path(out).parent / "events.jsonl",
+                  {**identity(entry), "event": "run.context", "context_status": "complete"}))
+    preparation_finished = time.monotonic_ns()
+    try:
+        atomic_json(Path(out).with_name("context-preparation.json"), {
+            "context": out, "started_monotonic_ns": preparation_started,
+            "finished_monotonic_ns": preparation_finished, "complete": True, "spans": spans,
+        })
+    except Exception as error:
+        try:
+            print(f"feedback: preparation timing could not be recorded: {error}", file=sys.stderr)
+        except OSError:
+            pass
+
 
 def step_start(argv: list[str]) -> None:
     context_file, phase, source, started, shared = argv[1:6]
