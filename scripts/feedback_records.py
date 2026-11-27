@@ -970,8 +970,7 @@ def finish_feedback(argv: list[str]) -> int:
     if computations["source_occurrences"]["files"]:
         summary += f"; source occurrences {computations['source_occurrences']['path']}"
     if over:
-        summary += (f"\nOVER THE LIMIT: the {limit}-second development loop needs repair. "
-                    "The run was allowed to finish.")
+        summary += f"\nOVER THE LIMIT: the {limit}-second development loop needs repair."
     atomic_json(context_path.parent / "result.json", entry)
     print(summary)
     return result
