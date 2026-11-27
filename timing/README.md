@@ -52,7 +52,7 @@ Keep the clean committed-tree requirement unchanged.
 | --- | --- | --- |
 | Run summary | `timing/runs.jsonl`, run directory `result.json` | Complete command, actual result, setup/build/execution/acceptance costs, selected inputs and source/dependency/environment tuple |
 | Module starts and results | `timing/modules.jsonl`, run directory `steps/*.json` | One original selected test module, its exact source hash and fresh Lean process, including imports, fixtures, construction and nested work |
-| Statement computations | `timing/computations.jsonl`, run directory `computations.jsonl` | Every top-level and executed nested statement, including successful definitions; the actual runner's start and completion events |
+| Statement computations | `timing/computations.jsonl`, committed `timing/history/*.jsonl.gz`, run directory `computations.jsonl` | Every top-level and executed nested statement, including successful definitions; the actual runner's start and completion events |
 | Application events | Run directory `application/*.jsonl` | The native session's ordered diagnostic events, including computation and file starts/completions |
 | Run and phase journal | Run directory `events.jsonl` | Starts persisted before setup or execution, completed statuses, and incomplete execution evidence |
 | Console diagnostics | Run directory `output.log`; acceptance `build.log` and `worker<N>.log` | The current commands' unfiltered output and actual failures |
@@ -73,6 +73,33 @@ fingerprints, so creating a run log does not change an otherwise identical workl
 Each dependency's `revision`, changed files and untracked hashes describe that selected directory;
 `manifest_pin`, `manifest_path` and `matches_manifest_path` separately describe its relation to the
 checked-in manifest. A manifest pin does not identify an overridden source checkout.
+
+## Computation history archives
+
+`timing/computations.jsonl` remains the tracked, unignored destination for new computation
+rows. Completed older rows may be moved into committed gzip archives under `timing/history/`
+between runs. Their expanded bytes, order, multiplicity and existing provenance fields remain
+unchanged. Run-local computation files and summaries retain their original paths and contents.
+
+Each archive has an adjacent JSON manifest with the cutoff, source revision, record count,
+expanded and compressed sizes, and both SHA256 hashes. Archival holds the existing ledger's
+exclusive append lock, durably writes and verifies the archive byte for byte, and only then
+clears the live append file. No archival takes place during validation or an active writer.
+Read the archives in filename order, followed by the live append file, to recover the complete
+ordered history. For example:
+
+```bash
+gzip -dc timing/history/computations-through-20261127T094924Z.jsonl.gz
+cat timing/computations.jsonl
+```
+
+The first archive contains all 297 rows present after the initial whole feedback regression
+run: 83,392,175 expanded bytes, SHA256
+`7d713b77731dc2b64b6af0a56343a1722db0f881b24922dd96d8e361ae4b5199`.
+Its compressed size is 1,937,741 bytes, SHA256
+`db365e7a6d2aa66834ce539d508a4d5b388a31304b1684d645791b3e7a92b407`.
+The archive and its verification manifest are committed records, outside the ignored raw-log
+directory. No source, dependency, input, row or mathematical outcome was changed by archival.
 
 ## Inclusive costs and shared setup
 
@@ -1046,3 +1073,32 @@ The unchanged RX09 long run is `20261127T090657Z-slow.fH6rCy`. Its file status i
 complete report, source identity, admission status, timing and exit status agree.
 The regression transcript is `timing/logs/km0-regressions-5b332c4/gate-1-output.log`,
 SHA256 `4f9f48f8e84d1fb1ac8763fde28d4a9be0b9cdad3b4c385b541224a5db627673`.
+
+## Whole feedback regression findings, 2026-11-27
+
+The first `just test-feedback --durations 0` run completed in 2193.2489292053506 s
+(2187.359 s inside unittest): 21 controls ran, with 17 passing, three failures and one error.
+It started at `e58c385`; the subsequent governing-document commits changed no exercised code.
+Its transcript is `timing/logs/km0-feedback-suite-e58c385/gate-1-output.log`, SHA256
+`8e7d4fdb78faed8ce3ee3a8193babdd0624ec449725601adfd527a170845ed1e`.
+
+The partial-report control stopped before corruption because it required both complete native
+consumers to return zero. The unchanged ellipses and numbers reports were complete, with all
+inventory assertions, matching source hashes and worker statuses of one. The missing-consumer
+control likewise stopped at its priming `check=True` before testing invalidation of that complete
+ellipses report. Their preconditions need to verify the current complete reports and their
+actual status, while retaining every corruption, freshness and invalidation assertion.
+
+The warm control's unchanged `CasRuntime.SessionTests` execution returned one after 812.262 s.
+Its native assertions failed on integer definitions, provider parity and the complete
+`tests/runtime/application_log.cas` fixture. The first statement, `let a := 17 + 29 in ℤ`,
+reported `the source lost its retained typed selection`. This failure is independent of the
+ordinary-loop overrun. The control needs verified prerequisites for every direct, nested,
+setup, parse-rejection and provenance observation; changing only its launcher cannot make
+the failed native assertions pass.
+
+An explicit `just stop` issued after observing the warm failure raced with the suite advancing
+and terminated its following empty-selection probe with status 143. That failure is caused
+by the intervention and requires an unchanged rerun. It is not evidence of an empty-selection
+implementation defect. The missing-input control then passed. This whole-suite result remains
+failed; no failed or interrupted observation is counted as a passing gate.
