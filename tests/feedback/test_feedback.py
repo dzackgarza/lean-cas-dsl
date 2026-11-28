@@ -664,8 +664,10 @@ class FeedbackTests(unittest.TestCase):
         variants = ["intact", "missing-build-source", "missing-execution-source", "foreign-source",
                     "escaped-source",
                     "unrecorded-source", "mismatched-source", "mismatched-header", "foreign-header",
-                    "mismatched-step", "foreign-step",
-                    "missing-context-input", "null-context-input", "zero-context-input", "changed-final-input",
+                    "mismatched-step", "foreign-step", "missing-header", "missing-step",
+                    "missing-context-input", "null-context-input", "zero-context-input",
+                    "missing-initial-input", "numeric-initial-input", "malformed-initial-input",
+                    "missing-final-input", "numeric-final-input", "malformed-final-input", "changed-final-input",
                     "numeric-build-input", "malformed-build-input", "changed-build-input",
                     "wrong-type-native", "wrong-type-header", "wrong-type-step"]
         for fault in variants:
@@ -712,13 +714,18 @@ class FeedbackTests(unittest.TestCase):
                 elif fault == "mismatched-source":
                     replacement = {**prepared, "schema": 1,
                                    "data": {**prepared["data"], "sourceFile": other_source}}
-                elif fault in ("mismatched-header", "foreign-header", "wrong-type-header"):
+                elif fault in ("mismatched-header", "foreign-header", "wrong-type-header", "missing-header"):
                     index = 0
                     replacement = {**header, "schema": 1,
                                    "data": {**header["data"], "feedbackSource": other_source
                                             if fault == "mismatched-header" else [consumer]
                                             if fault == "wrong-type-header" else str(checkout.parent / consumer)}}
-                elif fault in ("mismatched-step", "foreign-step", "changed-final-input", "wrong-type-step"):
+                    if fault == "missing-header":
+                        del replacement["data"]["feedbackSource"]
+                elif fault in ("mismatched-step", "foreign-step", "wrong-type-step", "missing-step",
+                               "missing-initial-input", "numeric-initial-input", "malformed-initial-input",
+                               "missing-final-input", "numeric-final-input", "malformed-final-input",
+                               "changed-final-input"):
                     original_path, original_step, _ = steps[selected["step"]]
                     altered_step = dict(original_step)
                     if fault == "mismatched-step":
@@ -728,8 +735,18 @@ class FeedbackTests(unittest.TestCase):
                         altered_step["source"] = str(checkout.parent / consumer)
                     elif fault == "wrong-type-step":
                         altered_step["source"] = [consumer]
-                    else:
+                    elif fault == "missing-step":
+                        del altered_step["source"]
+                    elif fault == "changed-final-input":
                         altered_step["final_input_sha256"] = "0" * 64
+                    else:
+                        field = "input_sha256" if "initial" in fault else "final_input_sha256"
+                        if fault.startswith("missing-"):
+                            del altered_step[field]
+                        elif fault.startswith("numeric-"):
+                            altered_step[field] = 0
+                        else:
+                            altered_step[field] = "not-a-sha256"
                     (copied_run / "steps" / original_path.name).write_text(json.dumps(altered_step) + "\n")
                 elif fault == "missing-context-input":
                     del altered_context["inputs"][consumer]
