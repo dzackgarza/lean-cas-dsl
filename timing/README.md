@@ -1652,3 +1652,60 @@ and historical comments are preserved. The complete new broad milestone run
 is still required. T362, T368 and T369 remain open until that run and the
 current-source convergence review satisfy the complete KM0 obligations;
 standing T355–T361 contingency checkboxes remain unchecked.
+
+### T369 execution-consumer convergence, 2026-11-28
+
+The subsequent broad run `20261128T030850Z-milestone.Hl2C5r` at
+`09d7f1f` was deliberately terminated when convergence review found a
+false-positive source-identity collector. Its final result is interrupted
+(status 143, 764.036057496 seconds, five timing records, incomplete source
+occurrences), not a completed milestone or an acceptance success. The
+result SHA256 is
+`a483fb3cab2a879679b04ddc066e5d39b676c2d42661bca600035036106f6941`;
+the compressed output SHA256 is
+`016d48d2a237633311bc4c78d5e1b6c10c6bb50bf82cedbb07ff26b2cf60cc68`.
+
+The extended original public T369 check, with only its test changed, failed
+exactly on the missing fresh-execution header, missing process-step source
+and missing final hash (149.950 seconds inside unittest, native public loop
+125.077 seconds). The failing check is committed at `f7ebd3a`. The three
+false-positive computation summaries remain under
+`timing/logs/feedback-tests/build-source-g59dwx1j/{missing-header,missing-step,missing-final-input}/run/computation-summary.json`,
+with SHA256 values, respectively,
+`869bc8be4056728810ee542f61cea7f05160c9c856d0893f5e9ac1ed35b20ffe`,
+`9a39f294fad64887bc6f1b833418dabe14fc53a8b5526cd8f4241711ba514ba4`,
+and `7db910067b5708ad040b840da5507a6e1ec023e26189d678e1facf99178cf9ae`.
+
+With the collector repair committed at `c65c39f`, the same
+`just test-feedback FeedbackTests.test_build_statement_sources_keep_consumer_identity`
+passed (173.057 seconds inside unittest; native loop 145.028 seconds).
+The real build and fresh execution preserve the unchanged borrowed statement
+and its original noImplementation outcome. Missing or invalid explicit
+consumer sources in fresh execution, and missing, invalid or changed final
+hashes for completed execution, are no longer accepted by the collector.
+All previously present assertions are retained; the added corruption
+controls use separate copies of fresh native records. The intact and three
+repaired summaries are under
+`timing/logs/feedback-tests/build-source-kumafzd4/{intact,missing-header,missing-step,missing-final-input}/run/computation-summary.json`
+with SHA256 values, respectively,
+`a67a5a661cffc80949309e192be44ece2841694ba9688fb161c4adf81c4a8056`,
+`62d5ab2ff23d0bf5746db0fe647d81a36f28a5aa5e082ccd52bc6fab51e424b2`,
+`15f907a34fc6e140fc0abcbd3a6b7df8741ee1ca753e243276695d7fd0621431`,
+and `de3bc90752442ecd0a5ffa8ccabe95b9750ecf260754cf88f5e3076643ff860f`.
+The negative summaries are incomplete, with the underlying completed native
+statement and timing events retained. The public command's exit status was
+zero. No mathematical acceptance expectation was changed.
+
+To preserve capacity without losing interrupted native evidence, 57 large
+historical payloads from the previous unfinished milestone
+`20261127T180700Z-milestone.wdhYhK` and its acceptance child
+`accept-20261127T215804Z-2zdx9Z` were losslessly compressed after byte-for-byte
+decompression comparison and durable per-file receipt. Their 416705456
+original bytes occupy 29215130 compressed bytes. The exact original paths,
+hashes and restoration commands are recorded in
+`timing/logs/interrupted-payload-retention-20261128T031745Z/retention.json`
+(SHA256 `31172fedf355e3f00a6b77ec11a1f65830d1aa1179c25b3afe7bc960cf3bbfef`).
+These are interrupted evidence, not retrospective results.
+
+T362, T368 and T369 retain their existing completion boundary, including the
+complete broad milestone run.
