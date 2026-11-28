@@ -665,9 +665,12 @@ class FeedbackTests(unittest.TestCase):
                     "escaped-source",
                     "unrecorded-source", "mismatched-source", "mismatched-header", "foreign-header",
                     "mismatched-step", "foreign-step", "missing-header", "missing-step",
+                    "empty-header", "empty-step", "escaped-header", "escaped-step",
+                    "unrecorded-header", "unrecorded-step",
                     "missing-context-input", "null-context-input", "zero-context-input",
                     "missing-initial-input", "numeric-initial-input", "malformed-initial-input",
-                    "missing-final-input", "numeric-final-input", "malformed-final-input", "changed-final-input",
+                    "changed-initial-input", "missing-final-input", "numeric-final-input",
+                    "malformed-final-input", "changed-final-input", "interrupted-without-final",
                     "numeric-build-input", "malformed-build-input", "changed-build-input",
                     "wrong-type-native", "wrong-type-header", "wrong-type-step"]
         for fault in variants:
@@ -714,18 +717,26 @@ class FeedbackTests(unittest.TestCase):
                 elif fault == "mismatched-source":
                     replacement = {**prepared, "schema": 1,
                                    "data": {**prepared["data"], "sourceFile": other_source}}
-                elif fault in ("mismatched-header", "foreign-header", "wrong-type-header", "missing-header"):
+                elif fault in ("mismatched-header", "foreign-header", "wrong-type-header", "missing-header",
+                               "empty-header", "escaped-header", "unrecorded-header"):
                     index = 0
-                    replacement = {**header, "schema": 1,
-                                   "data": {**header["data"], "feedbackSource": other_source
-                                            if fault == "mismatched-header" else [consumer]
-                                            if fault == "wrong-type-header" else str(checkout.parent / consumer)}}
+                    replacement = {**header, "schema": 1, "data": dict(header["data"])}
                     if fault == "missing-header":
                         del replacement["data"]["feedbackSource"]
+                    else:
+                        replacement["data"]["feedbackSource"] = {
+                            "mismatched-header": other_source,
+                            "foreign-header": str(checkout.parent / consumer),
+                            "wrong-type-header": [consumer],
+                            "empty-header": "",
+                            "escaped-header": "../" + consumer,
+                            "unrecorded-header": "UnrecordedConsumer.lean",
+                        }[fault]
                 elif fault in ("mismatched-step", "foreign-step", "wrong-type-step", "missing-step",
+                               "empty-step", "escaped-step", "unrecorded-step",
                                "missing-initial-input", "numeric-initial-input", "malformed-initial-input",
-                               "missing-final-input", "numeric-final-input", "malformed-final-input",
-                               "changed-final-input"):
+                               "changed-initial-input", "missing-final-input", "numeric-final-input",
+                               "malformed-final-input", "changed-final-input", "interrupted-without-final"):
                     original_path, original_step, _ = steps[selected["step"]]
                     altered_step = dict(original_step)
                     if fault == "mismatched-step":
@@ -737,8 +748,14 @@ class FeedbackTests(unittest.TestCase):
                         altered_step["source"] = [consumer]
                     elif fault == "missing-step":
                         del altered_step["source"]
-                    elif fault == "changed-final-input":
-                        altered_step["final_input_sha256"] = "0" * 64
+                    elif fault in ("empty-step", "escaped-step", "unrecorded-step"):
+                        altered_step["source"] = {"empty-step": "", "escaped-step": "../" + consumer,
+                                                  "unrecorded-step": "UnrecordedConsumer.lean"}[fault]
+                    elif fault == "interrupted-without-final":
+                        altered_step.update(complete=False, event="module.interrupted", status=143)
+                        del altered_step["final_input_sha256"]
+                    elif fault in ("changed-initial-input", "changed-final-input"):
+                        altered_step["input_sha256" if "initial" in fault else "final_input_sha256"] = "0" * 64
                     else:
                         field = "input_sha256" if "initial" in fault else "final_input_sha256"
                         if fault.startswith("missing-"):
