@@ -708,10 +708,10 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
             if step_source == file and original_step.get("input_sha256") != source_hash:
                 malformed.append(f"statement {key} changed its recorded source input before execution")
                 agreed = False
-            # An interrupted step has no final input observation. A completed
-            # step must supply it; absence is not evidence of unchanged bytes.
-            if (step_source == file and
-                    (original_step.get("complete") is True or "final_input_sha256" in original_step) and
+            # Explicit execution must prove the final input identity, even when
+            # the process stopped after the native statement completed. Keep the
+            # actual outcome and timing, but do not certify the missing hash.
+            if (step_source is not None and step_source == file and
                     original_step.get("final_input_sha256") != source_hash):
                 malformed.append(f"statement {key} changed its source input during execution")
                 agreed = False
