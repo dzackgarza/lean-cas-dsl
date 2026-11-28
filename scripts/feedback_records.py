@@ -695,6 +695,12 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
             if native_file is None:
                 malformed.append(f"statement {key} has no recorded native consumer source")
                 agreed = False
+            # A build can execute a consumer without an explicit selection. Fresh
+            # module execution cannot: both its header and process step name it.
+            if original_step.get("phase") == "execution" and (
+                    declared_file is None or step_source is None):
+                malformed.append(f"statement {key} has no explicit execution consumer source")
+                agreed = False
             if ((declared is not None and native_file != declared_file) or
                     (original_step.get("source") not in (None, "") and step_source != file)):
                 malformed.append(f"statement {key} changed its declared module source")
@@ -702,8 +708,11 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
             if step_source == file and original_step.get("input_sha256") != source_hash:
                 malformed.append(f"statement {key} changed its recorded source input before execution")
                 agreed = False
-            if (step_source == file and "final_input_sha256" in original_step and
-                    original_step["final_input_sha256"] != source_hash):
+            # An interrupted step has no final input observation. A completed
+            # step must supply it; absence is not evidence of unchanged bytes.
+            if (step_source == file and
+                    (original_step.get("complete") is True or "final_input_sha256" in original_step) and
+                    original_step.get("final_input_sha256") != source_hash):
                 malformed.append(f"statement {key} changed its source input during execution")
                 agreed = False
             ordinal = (start or terminal)["sequence"]
