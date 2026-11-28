@@ -1709,3 +1709,27 @@ These are interrupted evidence, not retrospective results.
 
 T362, T368 and T369 retain their existing completion boundary, including the
 complete broad milestone run.
+
+The interrupted-step replay exposed one remaining false positive: a direct
+statement had its genuine completion, but the process step had stopped with
+no final input hash. The full feedback suite at `af44865` was terminated
+(status 143; 50.4023602148518 seconds; inputs unchanged) before this repair.
+Its receipt is `timing/logs/km0-feedback-suite-af44865/gate-1-result.json`
+(SHA256 `b396063ea9827ef9be4a80934e340776ce4b1dc056c7a335b973768b76fd7c51`).
+The further expanded T369 gate failed solely on the missing final hash
+after interruption (157.309 seconds inside unittest, native loop 129.637
+seconds); the failing test is `f1ed2a2`. The final-hash requirement now
+applies to every explicitly selected execution, including a terminated
+process with an already completed statement. Its real statement outcome and
+timing remain unchanged, but its unverified source evidence cannot be
+complete. On repair `e23a819` the same expanded gate passed in 134.473
+seconds inside unittest (native loop 111.627 seconds). Empty, escaped and
+unrecorded header/process identities and altered initial hashes are
+independently rejected by this check. The two interrupted-step summaries
+are retained at
+`timing/logs/feedback-tests/build-source-s5cesqy_/interrupted-without-final/run/computation-summary.json`
+and
+`timing/logs/feedback-tests/build-source-czli4l8t/interrupted-without-final/run/computation-summary.json`,
+SHA256
+`f767bd4c5e8f072e16c4ac6b9f13d4128270d2d23a2c8a677ac8f56d1dbbcc0f`
+and `793b8254d0485a4c2583035a604531ad40d5c65b8e4c82f4091422fa996741b7`.
